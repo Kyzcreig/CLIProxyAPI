@@ -2,6 +2,7 @@ package codex
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
@@ -22,6 +23,10 @@ func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
 
 func resetCodexRefreshGroupForTest() {
 	codexRefreshGroup = singleflight.Group{}
+	codexRefreshResults.Range(func(key, _ any) bool {
+		codexRefreshResults.Delete(key)
+		return true
+	})
 }
 
 func TestRefreshTokensWithRetry_NonRetryableOnlyAttemptsOnce(t *testing.T) {
@@ -114,6 +119,145 @@ func TestRefreshTokens_DeduplicatesConcurrentRefreshAcrossInstances(t *testing.T
 	}
 	if got := atomic.LoadInt32(&calls); got != 1 {
 		t.Fatalf("expected both refresh callers to share a single upstream call, got %d", got)
+	}
+}
+
+func TestRefreshTokens_DeduplicatesStragglersAfterRefreshCompletes(t *testing.T) {
+	resetCodexRefreshGroupForTest()
+	t.Cleanup(resetCodexRefreshGroupForTest)
+
+	const callers = 50
+	var calls int32
+	transport := roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		call := atomic.AddInt32(&calls, 1)
+		if call == 1 {
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body: io.NopCloser(strings.NewReader(`{
+					"access_token":"new-access",
+					"refresh_token":"new-refresh",
+					"token_type":"Bearer",
+					"expires_in":3600
+				}`)),
+				Header:  make(http.Header),
+				Request: req,
+			}, nil
+		}
+		return &http.Response{
+			StatusCode: http.StatusBadRequest,
+			Body:       io.NopCloser(strings.NewReader(`{"error":"invalid_grant","code":"refresh_token_invalidated"}`)),
+			Header:     make(http.Header),
+			Request:    req,
+		}, nil
+	})
+
+	leader := &CodexAuth{httpClient: &http.Client{Transport: transport}}
+	first, errFirst := leader.RefreshTokens(context.Background(), "rotating-refresh-token")
+	if errFirst != nil {
+		t.Fatalf("leader refresh failed: %v", errFirst)
+	}
+	if first == nil || first.RefreshToken != "new-refresh" {
+		t.Fatalf("unexpected leader token data: %#v", first)
+	}
+
+	start := make(chan struct{})
+	results := make(chan *CodexTokenData, callers-1)
+	errs := make(chan error, callers-1)
+	for i := 0; i < callers-1; i++ {
+		auth := &CodexAuth{httpClient: &http.Client{Transport: transport}}
+		go func() {
+			<-start
+			tokenData, errRefresh := auth.RefreshTokens(context.Background(), "rotating-refresh-token")
+			results <- tokenData
+			errs <- errRefresh
+		}()
+	}
+	close(start)
+
+	for i := 0; i < callers-1; i++ {
+		if errRefresh := <-errs; errRefresh != nil {
+			t.Fatalf("straggler refresh failed: %v", errRefresh)
+		}
+		tokenData := <-results
+		if tokenData == nil || tokenData.AccessToken != "new-access" || tokenData.RefreshToken != "new-refresh" {
+			t.Fatalf("unexpected straggler token data: %#v", tokenData)
+		}
+	}
+	if got := atomic.LoadInt32(&calls); got != 1 {
+		t.Fatalf("expected all %d callers to reuse one rotated refresh result, got %d upstream calls", callers, got)
+	}
+}
+
+func TestRefreshTokens_DeduplicatesFiftyCallersPerAccount(t *testing.T) {
+	resetCodexRefreshGroupForTest()
+	t.Cleanup(resetCodexRefreshGroupForTest)
+
+	const callersPerAccount = 25
+	tokens := []string{"account-a-refresh", "account-b-refresh"}
+	var mu sync.Mutex
+	calls := make(map[string]int)
+	transport := roundTripFunc(func(req *http.Request) (*http.Response, error) {
+		token := req.PostFormValue("refresh_token")
+		mu.Lock()
+		calls[token]++
+		call := calls[token]
+		mu.Unlock()
+		if call == 1 {
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body: io.NopCloser(strings.NewReader(`{
+					"access_token":"new-access",
+					"refresh_token":"new-refresh",
+					"token_type":"Bearer",
+					"expires_in":3600
+				}`)),
+				Header:  make(http.Header),
+				Request: req,
+			}, nil
+		}
+		return &http.Response{
+			StatusCode: http.StatusBadRequest,
+			Body:       io.NopCloser(strings.NewReader(`{"error":"invalid_grant","code":"refresh_token_invalidated"}`)),
+			Header:     make(http.Header),
+			Request:    req,
+		}, nil
+	})
+
+	for _, token := range tokens {
+		auth := &CodexAuth{httpClient: &http.Client{Transport: transport}}
+		if _, errRefresh := auth.RefreshTokens(context.Background(), token); errRefresh != nil {
+			t.Fatalf("leader refresh for %s failed: %v", token, errRefresh)
+		}
+	}
+
+	start := make(chan struct{})
+	errs := make(chan error, len(tokens)*(callersPerAccount-1))
+	for _, token := range tokens {
+		for i := 1; i < callersPerAccount; i++ {
+			auth := &CodexAuth{httpClient: &http.Client{Transport: transport}}
+			go func(refreshToken string) {
+				<-start
+				tokenData, errRefresh := auth.RefreshTokens(context.Background(), refreshToken)
+				if errRefresh == nil && (tokenData == nil || tokenData.RefreshToken != "new-refresh") {
+					errRefresh = fmt.Errorf("unexpected token data: %#v", tokenData)
+				}
+				errs <- errRefresh
+			}(token)
+		}
+	}
+	close(start)
+	for i := 0; i < len(tokens)*(callersPerAccount-1); i++ {
+		if errRefresh := <-errs; errRefresh != nil {
+			t.Fatalf("straggler refresh failed: %v", errRefresh)
+		}
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	for _, token := range tokens {
+		if got := calls[token]; got != 1 {
+			t.Fatalf("account %s made %d upstream refresh calls, want 1", token, got)
+		}
 	}
 }
 
