@@ -69,7 +69,7 @@ func (c *compiler) compile(n *node, path string) (*schema, error) {
 		}
 		return c.compile(target, ref.str())
 	}
-	for _, key := range []string{"patternProperties", "propertyNames", "unevaluatedProperties", "if", "then", "else", "not", "allOf", "prefixItems", "dependentSchemas"} {
+	for _, key := range []string{"patternProperties", "propertyNames", "unevaluatedProperties", "if", "then", "else", "not", "allOf", "prefixItems", "dependentSchemas", "contains", "minContains", "maxContains"} {
 		if n.has(key) {
 			return nil, Error("unsupported_schema")
 		}

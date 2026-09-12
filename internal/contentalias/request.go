@@ -161,6 +161,9 @@ func (m *RequestMap) forwardContent(n *node, st *state, edits *[]edit) error {
 	for _, block := range n.items {
 		switch block.get("type").str() {
 		case "text":
+			if block.has("signature") {
+				continue
+			}
 			if err := textEdit(block.get("text"), st.encodeText, edits); err != nil {
 				return err
 			}
@@ -216,6 +219,9 @@ func (m *RequestMap) RestoreJSON(raw []byte) ([]byte, error) {
 func (m *RequestMap) restoreBlock(block *node, edits *[]edit) error {
 	switch block.get("type").str() {
 	case "text":
+		if block.has("signature") {
+			return nil
+		}
 		return textEdit(block.get("text"), m.decodeText, edits)
 	case "tool_use", "tool_reference":
 		name := block.get("name")

@@ -67,7 +67,7 @@ func (s *Stream) Feed(raw []byte) ([]byte, error) {
 	if s.failed {
 		return nil, Error("stream_failed")
 	}
-	if len(s.buffer)+len(raw) > maxPending {
+	if s.pending()+len(raw) > maxPending {
 		return s.fail(Error("stream_limit"))
 	}
 	s.buffer = append(s.buffer, raw...)
@@ -89,7 +89,7 @@ func (s *Stream) Feed(raw []byte) ([]byte, error) {
 			return s.fail(err)
 		}
 		// Check restored expansion BEFORE releasing any executable frame.
-		if s.pending() > maxPending {
+		if len(out)+s.pending() > maxPending {
 			return s.fail(Error("stream_limit"))
 		}
 		for len(s.queue) > 0 && s.queue[0].ready {
@@ -196,6 +196,9 @@ func (s *Stream) handle(raw []byte) error {
 			return Error("stream_block")
 		}
 		b := &blockState{kind: block.get("type").str(), start: q, text: textDecoder{m: s.m}}
+		if b.kind == "text" && block.has("signature") {
+			b.kind = "signed_text"
+		}
 		s.blocks[index] = b
 		if b.kind == "tool_use" {
 			if _, ok := s.m.reverse[block.get("name").str()]; !ok {
