@@ -210,6 +210,9 @@ func (s *Stream) handle(raw []byte) error {
 				return err
 			}
 			if len(edits) > 0 {
+				// Only reference-bearing containers join the typed reference
+				// protocol; other result blocks/deltas retain opaque handling.
+				b.kind = "tool_reference"
 				changed, err := apply(data, edits)
 				if err != nil {
 					return err
@@ -255,7 +258,7 @@ func (s *Stream) handle(raw []byte) error {
 			return Error("stream_delta")
 		}
 		switch b.kind {
-		case "tool_reference", "tool_result", "tool_search_tool_result":
+		case "tool_reference":
 			// These native blocks carry complete content at start, not JSON deltas.
 			return Error("stream_delta")
 		case "tool_use":
