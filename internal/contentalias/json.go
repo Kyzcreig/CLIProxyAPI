@@ -126,8 +126,10 @@ func (p *parser) value(depth int) (*node, error) {
 		p.pos++
 	case '"':
 		p.pos++
+		escaped := false
 		for p.raw[p.pos] != '"' {
 			if p.raw[p.pos] == '\\' {
+				escaped = true
 				p.pos++
 				if p.raw[p.pos] == 'u' {
 					v, _ := strconv.ParseUint(string(p.raw[p.pos+1:p.pos+5]), 16, 16)
@@ -150,7 +152,10 @@ func (p *parser) value(depth int) (*node, error) {
 			p.pos++
 		}
 		p.pos++
-		if err := json.Unmarshal(p.raw[n.start:p.pos], &n.text); err != nil {
+		if !escaped {
+			// parse already validated JSON and UTF-8; no unescape is needed.
+			n.text = string(p.raw[n.start+1 : p.pos-1])
+		} else if err := json.Unmarshal(p.raw[n.start:p.pos], &n.text); err != nil {
 			return nil, Error("json")
 		}
 	default:
@@ -174,6 +179,14 @@ func apply(raw []byte, edits []edit) ([]byte, error) {
 	}
 	sort.Slice(edits, func(i, j int) bool { return edits[i].start < edits[j].start })
 	var out bytes.Buffer
+	size := len(raw)
+	for _, e := range edits {
+		size += len(e.raw) - (e.end - e.start)
+	}
+	if size < 0 || size > 16<<20 {
+		return nil, Error("request_limit")
+	}
+	out.Grow(size)
 	last := 0
 	for _, e := range edits {
 		if e.start < last || e.start < 0 || e.end < e.start || e.end > len(raw) {

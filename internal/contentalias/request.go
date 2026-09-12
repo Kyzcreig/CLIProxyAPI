@@ -136,8 +136,11 @@ func Prepare(raw []byte, s *Session) ([]byte, *RequestMap, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	if _, err := parse(wire); err != nil {
-		return nil, nil, err
+	// Source duplicate keys and schema/argument collisions were checked above;
+	// edits replace only typed JSON strings. Validate the emitted grammar without
+	// allocating a second multi-megabyte syntax tree that is immediately discarded.
+	if !json.Valid(wire) {
+		return nil, nil, Error("json")
 	}
 	if err := s.save(st); err != nil {
 		return nil, nil, err

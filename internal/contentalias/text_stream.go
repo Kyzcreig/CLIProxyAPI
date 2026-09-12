@@ -1,23 +1,27 @@
 package contentalias
 
 import (
+	"bytes"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
-// textDecoder retains at most one bounded lexical token. Code spans and
-// recognized resource tokens are forwarded opaquely with constant-size state.
-// 4096 bytes bounds lexical lookahead when deciding whether a token is a path.
+// Ordinary text retains only a namespace-prefix suffix. A token containing a
+// codec symbol needs lookahead until its resource classification is known;
+// that pending data shares the response's explicit 8 MiB budget.
 type textDecoder struct {
 	m              *RequestMap
-	pending        string
+	pending        []byte
+	symbol         bool
 	mode           byte
 	ticks, closing int
 }
 
 func (d *textDecoder) flush() (string, error) {
-	out, err := d.m.decodeToken(d.pending)
-	d.pending = ""
+	out, err := d.m.decodeToken(string(d.pending))
+	d.pending = nil
+	d.symbol = false
 	return out, err
 }
 func (d *textDecoder) feed(text string) (string, error) {
@@ -65,15 +69,27 @@ func (d *textDecoder) feed(text string) (string, error) {
 			}
 			continue
 		}
-		d.pending += string(r)
+		d.pending = utf8.AppendRune(d.pending, r)
 		if strings.ContainsRune("/\\:@", r) {
-			out.WriteString(d.pending)
-			d.pending = ""
+			out.Write(d.pending)
+			d.pending = nil
+			d.symbol = false
 			d.mode = 'r'
 			continue
 		}
-		if len(d.pending) > 4096 {
-			return "", Error("prose_token_limit")
+		if !d.symbol {
+			d.symbol = bytes.Contains(d.pending, []byte("dpx_v1_"))
+			if !d.symbol && len(d.pending) > 7 {
+				n := len(d.pending) - 7
+				for n > 0 && !utf8.RuneStart(d.pending[n]) {
+					n--
+				}
+				out.Write(d.pending[:n])
+				d.pending = append(d.pending[:0], d.pending[n:]...)
+			}
+		}
+		if len(d.pending) > maxPending {
+			return "", Error("stream_limit")
 		}
 	}
 	return out.String(), nil

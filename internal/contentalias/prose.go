@@ -13,6 +13,17 @@ var decodePattern = regexp.MustCompile(`dpx_v1_[wl]_[0-9a-f]{24}|dpx_v1_[A-Za-z0
 func (st *state) encodeText(text string) (string, error) {
 	// All resource-shaped whitespace tokens and backtick spans are exempt.
 	var out strings.Builder
+	out.Grow(len(text))
+	words := make(map[string]bool, len(st.Manifest.Words))
+	for _, word := range st.Manifest.Words {
+		words[normalize(word)] = true
+	}
+	spellings := map[string]string{}
+	for alias, e := range st.Symbols {
+		if e.Kind == "w" {
+			spellings[e.Original] = alias
+		}
+	}
 	for i := 0; i < len(text); {
 		if text[i] == '`' {
 			j := i
@@ -73,18 +84,14 @@ func (st *state) encodeText(text string) (string, error) {
 					end += n
 				}
 				word := token[pos:end]
-				match := false
-				for _, candidate := range st.Manifest.Words {
-					if normalize(word) == normalize(candidate) {
-						match = true
-						break
-					}
-				}
-				if match {
+				if alias, ok := spellings[word]; ok {
+					out.WriteString(alias)
+				} else if words[normalize(word)] {
 					alias, err := st.allocate("w", word)
 					if err != nil {
 						return "", err
 					}
+					spellings[word] = alias
 					out.WriteString(alias)
 				} else {
 					out.WriteString(word)

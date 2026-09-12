@@ -17,8 +17,11 @@ type Manifest struct{ Words []string }
 
 func DefaultManifest() Manifest { return Manifest{[]string{"hermes", "openclaw"}} }
 func digest(s string) string    { h := sha256.Sum256([]byte(s)); return hex.EncodeToString(h[:]) }
+
+var wordSeparators = strings.NewReplacer("_", "", "-", "")
+
 func normalize(s string) string {
-	return strings.ToLower(strings.NewReplacer("_", "", "-", "").Replace(s))
+	return strings.ToLower(wordSeparators.Replace(s))
 }
 func (m Manifest) validate() error {
 	if len(m.Words) == 0 {
