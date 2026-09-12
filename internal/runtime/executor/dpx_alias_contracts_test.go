@@ -92,6 +92,21 @@ func TestDPXAliasCountParity(t *testing.T) {
 
 func TestNativeCompatibilityDelta(t *testing.T) {
 	e, req, opts := aliasFixture(t)
+	var enriched map[string]any
+	if err := json.Unmarshal(req.Payload, &enriched); err != nil {
+		t.Fatal(err)
+	}
+	enriched["temperature"] = 0.37
+	enriched["top_p"] = 0.8
+	enriched["max_tokens"] = 4096
+	enriched["thinking"] = map[string]any{"type": "enabled", "budget_tokens": 1024}
+	enriched["system"] = []any{map[string]any{"type": "text", "text": "Hermes", "cache_control": map[string]string{"type": "ephemeral"}}}
+	enriched["messages"] = []any{
+		map[string]any{"role": "assistant", "content": []any{map[string]any{"type": "tool_use", "name": "Read", "id": "previous-call", "input": map[string]string{"file_path": "/tmp/Hermes"}}}},
+		map[string]any{"role": "user", "content": []any{map[string]any{"type": "tool_result", "tool_use_id": "previous-call", "content": "Hermes opaque result"}}},
+	}
+	req.Payload, _ = json.Marshal(enriched)
+	opts.OriginalRequest = req.Payload
 	var bodies [][]byte
 	var headers []http.Header
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -137,8 +152,11 @@ func TestNativeCompatibilityDelta(t *testing.T) {
 	if !reflect.DeepEqual(headers[0], headers[2]) {
 		t.Fatal("auth/header identity delta")
 	}
-	if gjson.GetBytes(bodies[2], "system").String() == "Hermes" || !strings.HasPrefix(gjson.GetBytes(bodies[2], "tools.0.name").String(), "dpx_v1_t_") {
+	if !strings.HasPrefix(gjson.GetBytes(bodies[2], "system.0.text").String(), "dpx_v1_w_") || !strings.HasPrefix(gjson.GetBytes(bodies[2], "tools.0.name").String(), "dpx_v1_t_") {
 		t.Fatal("forward missing")
+	}
+	if gjson.GetBytes(bodies[2], "messages.1.content.0.content").String() != "Hermes opaque result" {
+		t.Fatal("exempt tool-result value changed")
 	}
 }
 func TestNoAuthIdentityOrUsageMutation(t *testing.T)         { TestNativeCompatibilityDelta(t) }

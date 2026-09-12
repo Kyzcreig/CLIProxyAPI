@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"strconv"
+	"unicode/utf8"
 )
 
 const maxPending = 8 << 20
@@ -102,6 +103,9 @@ func (s *Stream) Feed(raw []byte) ([]byte, error) {
 	return out, nil
 }
 func eventData(raw []byte) ([]byte, error) {
+	if !utf8.Valid(raw) {
+		return nil, Error("stream_utf8")
+	}
 	for i, b := range raw {
 		if b == '\r' && (i+1 == len(raw) || raw[i+1] != '\n') {
 			return nil, Error("stream_line_ending")
