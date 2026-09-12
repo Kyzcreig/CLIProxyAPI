@@ -133,18 +133,23 @@ func TestLiteralAliasesAndNamespaceEscapes(t *testing.T) {
 }
 func TestOpaqueBlocksByteIdentity(t *testing.T) {
 	s := testSession(t)
-	block := `{ "type":"thinking", "thinking":"Hermes dpx_v1_symbol", "signature":"opaque" }`
-	raw := []byte(`{"system":"Hermes","messages":[{"role":"assistant","content":[` + block + `]}]}`)
-	wire, m, err := Prepare(raw, s)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Contains(wire, []byte(block)) {
-		t.Fatal("opaque forward")
-	}
-	out, err := m.RestoreJSON([]byte(`{"content":[` + block + `]}`))
-	if err != nil || !bytes.Contains(out, []byte(block)) {
-		t.Fatal("opaque inverse")
+	for _, block := range []string{
+		`{ "type":"thinking", "thinking":"Hermes dpx_v1_symbol", "signature":"opaque" }`,
+		`{ "type":"redacted_thinking", "data":"Hermes dpx_v1_symbol", "signature":"opaque" }`,
+		`{ "type":"future_unknown", "name":"Hermes", "input":{"command":"dpx_v1_symbol"} }`,
+	} {
+		raw := []byte(`{"system":"Hermes","messages":[{"role":"assistant","content":[` + block + `]}]}`)
+		wire, m, err := Prepare(raw, s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Contains(wire, []byte(block)) {
+			t.Fatal("opaque forward")
+		}
+		out, err := m.RestoreJSON([]byte(`{"content":[` + block + `]}`))
+		if err != nil || !bytes.Contains(out, []byte(block)) {
+			t.Fatal("opaque inverse")
+		}
 	}
 }
 func TestSessionRestartCachePrefix(t *testing.T) {
