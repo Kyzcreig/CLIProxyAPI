@@ -1,6 +1,7 @@
 package contentalias
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -137,6 +138,9 @@ func (s *Session) load() (state, error) {
 		return st, Error("store_read")
 	}
 	var env envelope
+	if _, err := parse(raw); err != nil {
+		return st, Error("store_corrupt")
+	}
 	if json.Unmarshal(raw, &env) != nil || digest(string(env.Payload)) != env.Checksum || json.Unmarshal(env.Payload, &st) != nil {
 		return st, Error("store_corrupt")
 	}
@@ -148,6 +152,18 @@ func (s *Session) load() (state, error) {
 	for alias, e := range st.Symbols {
 		if alias != symbol(st.Binding, e.Kind, e.Original) {
 			return st, Error("store_corrupt")
+		}
+	}
+	canonicalState, _ := json.Marshal(st)
+	if !bytes.Equal(canonicalState, env.Payload) {
+		return st, Error("store_corrupt")
+	}
+	for name, tool := range st.Tools {
+		if tool.Alias != symbol(st.Binding, "t", name) || st.Symbols[tool.Alias] != (entry{"t", name}) {
+			return st, Error("store_tool_relation")
+		}
+		if _, err := parse(tool.Schema); err != nil {
+			return st, Error("store_schema")
 		}
 	}
 	return st, nil

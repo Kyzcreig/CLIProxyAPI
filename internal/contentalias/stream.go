@@ -127,6 +127,18 @@ func (s *Stream) handle(raw []byte) error {
 		return err
 	}
 	typ := n.get("type").str()
+	if typ == "" {
+		return Error("stream_event")
+	}
+	for _, line := range bytes.Split(raw, []byte("\n")) {
+		line = bytes.TrimSuffix(line, []byte("\r"))
+		if bytes.HasPrefix(line, []byte("event:")) && string(bytes.TrimSpace(line[6:])) != typ {
+			return Error("stream_event_mismatch")
+		}
+	}
+	if (typ == "content_block_start" || typ == "content_block_delta" || typ == "content_block_stop") && n.get("index") == nil {
+		return Error("stream_index")
+	}
 	q := &queued{raw: raw, ready: true}
 	index := 0
 	if in := n.get("index"); in != nil {
@@ -137,6 +149,9 @@ func (s *Stream) handle(raw []byte) error {
 	}
 	switch typ {
 	case "message_start":
+		if content := n.get("message").get("content"); content != nil && (content.kind != '[' || len(content.items) != 0) {
+			return Error("stream_initial_content")
+		}
 		if s.started {
 			return Error("stream_order")
 		}
@@ -155,6 +170,9 @@ func (s *Stream) handle(raw []byte) error {
 		if b.kind == "tool_use" {
 			if _, ok := s.m.reverse[block.get("name").str()]; !ok {
 				return Error("unknown_tool")
+			}
+			if block.has("signature") {
+				return Error("signed_tool_block")
 			}
 			input := block.get("input")
 			if input == nil || input.kind != '{' || len(input.fields) != 0 {
@@ -199,10 +217,16 @@ func (s *Stream) handle(raw []byte) error {
 				return Error("tool_limit")
 			}
 			b.input = append(b.input, part.text...)
+			if len(b.deltas) > 0 {
+				return nil
+			}
 			b.deltas = append(b.deltas, q)
 			q.raw = nil
 		case "text":
 			if delta.get("type").str() != "text_delta" {
+				return Error("stream_delta")
+			}
+			if text := delta.get("text"); text == nil || text.kind != '"' {
 				return Error("stream_delta")
 			}
 			decoded, err := b.text.feed(delta.get("text").str())
@@ -271,10 +295,9 @@ func (s *Stream) handle(raw []byte) error {
 		s.ended = true
 	case "error":
 		return Error("upstream_stream_error")
+	case "ping":
 	default:
-		if !s.started && typ != "ping" {
-			return Error("stream_order")
-		}
+		return Error("stream_event")
 	}
 	s.queue = append(s.queue, q)
 	return nil

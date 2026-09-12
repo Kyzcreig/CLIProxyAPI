@@ -8,6 +8,7 @@ import (
 )
 
 var codecPattern = regexp.MustCompile(`dpx_v1_[A-Za-z0-9_]*`)
+var decodePattern = regexp.MustCompile(`dpx_v1_[wl]_[0-9a-f]{24}|dpx_v1_[A-Za-z0-9_]*`)
 
 func (st *state) encodeText(text string) (string, error) {
 	// All resource-shaped whitespace tokens and backtick spans are exempt.
@@ -109,7 +110,7 @@ func (m *RequestMap) decodeText(text string) (string, error) {
 }
 func (m *RequestMap) decodeToken(text string) (string, error) {
 	var failure error
-	out := codecPattern.ReplaceAllStringFunc(text, func(alias string) string {
+	out := decodePattern.ReplaceAllStringFunc(text, func(alias string) string {
 		e, ok := m.st.Symbols[alias]
 		if !ok || (e.Kind != "w" && e.Kind != "l") {
 			failure = Error("unknown_prose_symbol")

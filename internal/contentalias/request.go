@@ -164,6 +164,9 @@ func (m *RequestMap) forwardContent(n *node, st *state, edits *[]edit) error {
 		case "tool_use", "tool_reference":
 			name := block.get("name")
 			tool, ok := st.Tools[name.str()]
+			if block.has("signature") {
+				return Error("signed_tool_block")
+			}
 			if !ok {
 				return Error("history_tool")
 			}
@@ -214,6 +217,9 @@ func (m *RequestMap) restoreBlock(block *node, edits *[]edit) error {
 	case "tool_use", "tool_reference":
 		name := block.get("name")
 		original, ok := m.reverse[name.str()]
+		if block.has("signature") {
+			return Error("signed_tool_block")
+		}
 		if !ok || !m.allowed[original] {
 			return Error("unknown_tool")
 		}

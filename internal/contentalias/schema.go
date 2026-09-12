@@ -69,7 +69,7 @@ func (c *compiler) compile(n *node, path string) (*schema, error) {
 		}
 		return c.compile(target, ref.str())
 	}
-	for _, key := range []string{"patternProperties", "unevaluatedProperties", "if", "then", "else", "not", "allOf", "prefixItems", "dependentSchemas"} {
+	for _, key := range []string{"patternProperties", "propertyNames", "unevaluatedProperties", "if", "then", "else", "not", "allOf", "prefixItems", "dependentSchemas"} {
 		if n.has(key) {
 			return nil, Error("unsupported_schema")
 		}
@@ -223,23 +223,12 @@ func compileSchema(n *node, st *state, tool string, edits *[]edit) (*schema, err
 				}
 			}
 		}
-		for _, f := range v.fields {
-			if f.key.text == "enum" || f.key.text == "const" || f.key.text == "default" || f.key.text == "examples" {
-				continue
-			}
-			if err := visit(f.value); err != nil {
-				return err
-			}
-		}
-		for _, a := range v.items {
-			if err := visit(a); err != nil {
-				return err
-			}
-		}
 		return nil
 	}
-	if err := visit(n); err != nil {
-		return nil, err
+	for schemaNode := range c.paths {
+		if err := visit(schemaNode); err != nil {
+			return nil, err
+		}
 	}
 	return s, nil
 }
@@ -273,6 +262,8 @@ func (s *schema) arguments(n *node, inverse bool, edits *[]edit) error {
 			}
 		} else if v, ok := s.forward[key]; ok {
 			mapped = v
+		} else if _, collision := s.reverse[key]; collision {
+			return Error("dynamic_key_collision")
 		}
 		if seen[mapped] {
 			return Error("inverse_collision")
