@@ -58,6 +58,11 @@ func Prepare(raw []byte, s *Session) ([]byte, *RequestMap, error) {
 				return nil, nil, Error("tool_duplicate")
 			}
 			seen[name] = true
+		}
+		// Reserve ALL declared names before allocation, including later opaque
+		// provider tools; their wire names must never collide with custom aliases.
+		for _, tool := range tools.items {
+			name := tool.get("name").str()
 			if tool.has("type") && tool.get("type").str() != "custom" {
 				continue
 			}
