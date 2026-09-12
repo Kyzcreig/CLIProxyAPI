@@ -35,10 +35,10 @@ func nativeReferenceSSE(blocks []any, model string) []byte {
 	return out
 }
 func TestDPXAliasToolReferencesHTTP(t *testing.T) {
-	for _, mode := range []string{"json", "aggregated-sse", "native-sse"} {
+	for _, mode := range []string{"json", "aggregated-sse", "native-sse", "translated-sse-observer"} {
 		t.Run(mode, func(t *testing.T) {
 			e, req, opts := aliasFixture(t)
-			if mode == "aggregated-sse" {
+			if mode == "aggregated-sse" || mode == "translated-sse-observer" {
 				// Select Execute's actual upstream-SSE branch. An unregistered
 				// response format observes the restored bytes before translation;
 				// OpenAI has no native tool_reference representation to assert.
@@ -78,7 +78,7 @@ func TestDPXAliasToolReferencesHTTP(t *testing.T) {
 			defer upstream.Close()
 			auth := &authpkg.Auth{ID: "reference-test", Provider: "claude", Attributes: map[string]string{"api_key": "offline-synthetic", "base_url": upstream.URL, "cloak_mode": "never"}}
 			var out []byte
-			if mode == "native-sse" {
+			if mode == "native-sse" || mode == "translated-sse-observer" {
 				response, e := e.ExecuteStream(context.Background(), auth, req, opts)
 				if e != nil {
 					t.Fatal(e)
