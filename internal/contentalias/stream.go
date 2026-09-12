@@ -204,6 +204,19 @@ func (s *Stream) handle(raw []byte) error {
 			b.kind = "signed_text"
 		}
 		s.blocks[index] = b
+		if b.kind == "tool_reference" || b.kind == "tool_result" || b.kind == "tool_search_tool_result" {
+			edits := []edit{}
+			if err := s.m.referenceEdits(block, nil, true, &edits); err != nil {
+				return err
+			}
+			if len(edits) > 0 {
+				changed, err := apply(data, edits)
+				if err != nil {
+					return err
+				}
+				q.raw = emitEvent(changed)
+			}
+		}
 		if b.kind == "tool_use" {
 			if _, ok := s.m.reverse[block.get("name").str()]; !ok {
 				return Error("unknown_tool")
@@ -242,6 +255,9 @@ func (s *Stream) handle(raw []byte) error {
 			return Error("stream_delta")
 		}
 		switch b.kind {
+		case "tool_reference", "tool_result", "tool_search_tool_result":
+			// These native blocks carry complete content at start, not JSON deltas.
+			return Error("stream_delta")
 		case "tool_use":
 			if delta.get("type").str() != "input_json_delta" {
 				return Error("stream_delta")

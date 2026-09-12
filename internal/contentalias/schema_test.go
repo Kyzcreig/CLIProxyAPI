@@ -43,14 +43,14 @@ func TestSchemaScopedPropertyInverse(t *testing.T) {
 }
 func TestDeclaredToolSymbolTable(t *testing.T) {
 	s := testSession(t)
-	raw := []byte(`{"tools":[{"name":"mcp__one__TaskFoo","input_schema":{"type":"object","properties":{"arg":{"type":"string"}}}},{"name":"web_search","type":"web_search_20250305"}],"messages":[{"role":"user","content":[{"type":"tool_reference","name":"mcp__one__TaskFoo"}]}]}`)
+	raw := []byte(`{"tools":[{"name":"mcp__one__TaskFoo","input_schema":{"type":"object","properties":{"arg":{"type":"string"}}}},{"name":"web_search","type":"web_search_20250305"}],"messages":[{"role":"user","content":[{"type":"tool_reference","tool_name":"mcp__one__TaskFoo"}]}]}`)
 	wire, m, err := Prepare(raw, s)
 	if err != nil {
 		t.Fatal(err)
 	}
 	n, _ := parse(wire)
 	alias := n.get("tools").items[0].get("name").str()
-	if n.get("messages").items[0].get("content").items[0].get("name").str() != alias {
+	if n.get("messages").items[0].get("content").items[0].get("tool_name").str() != alias {
 		t.Fatal("reference")
 	}
 	if n.get("tools").items[1].get("name").str() != "web_search" {

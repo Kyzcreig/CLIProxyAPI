@@ -172,7 +172,11 @@ func (m *RequestMap) forwardContent(n *node, st *state, edits *[]edit) error {
 			if err := textEdit(block.get("text"), st.encodeText, edits); err != nil {
 				return err
 			}
-		case "tool_use", "tool_reference":
+		case "tool_reference", "tool_result", "tool_search_tool_result":
+			if err := m.referenceEdits(block, st, false, edits); err != nil {
+				return err
+			}
+		case "tool_use":
 			name := block.get("name")
 			tool, ok := st.Tools[name.str()]
 			if block.has("signature") {
@@ -228,7 +232,9 @@ func (m *RequestMap) restoreBlock(block *node, edits *[]edit) error {
 			return nil
 		}
 		return textEdit(block.get("text"), m.decodeText, edits)
-	case "tool_use", "tool_reference":
+	case "tool_reference", "tool_result", "tool_search_tool_result":
+		return m.referenceEdits(block, nil, true, edits)
+	case "tool_use":
 		name := block.get("name")
 		original, ok := m.reverse[name.str()]
 		if block.has("signature") {
