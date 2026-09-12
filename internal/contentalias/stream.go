@@ -10,8 +10,9 @@ const maxPending = 8 << 20
 const maxTool = 4 << 20
 
 type queued struct {
-	raw   []byte
-	ready bool
+	raw     []byte
+	ready   bool
+	comment bool
 }
 type blockState struct {
 	kind   string
@@ -27,6 +28,8 @@ type Stream struct {
 	blocks                 map[int]*blockState
 	seen                   map[int]bool
 	started, ended, failed bool
+	terminal               bool
+	queuedBytes            int
 }
 
 func (m *RequestMap) NewStream() *Stream {
@@ -37,7 +40,25 @@ func (s *Stream) fail(err error) ([]byte, error) {
 	s.buffer = nil
 	s.queue = nil
 	s.blocks = nil
+	s.seen = nil
+	s.queuedBytes = 0
 	return nil, err
+}
+func (s *Stream) enqueue(q *queued) {
+	s.queue = append(s.queue, q)
+	s.queuedBytes += len(q.raw) + 64
+}
+func (s *Stream) update(q *queued, raw []byte) {
+	s.queuedBytes += len(raw) - len(q.raw)
+	q.raw = raw
+}
+func (s *Stream) pending() int {
+	// Charge overhead too; active-block scans are bounded by 64, queue work O(1).
+	n := len(s.buffer) + s.queuedBytes + len(s.seen)*64
+	for _, b := range s.blocks {
+		n += len(b.input) + len(b.text.pending) + 256
+	}
+	return n
 }
 func (s *Stream) Feed(raw []byte) ([]byte, error) {
 	if s.m == nil {
@@ -67,24 +88,25 @@ func (s *Stream) Feed(raw []byte) ([]byte, error) {
 		if err := s.handle(event); err != nil {
 			return s.fail(err)
 		}
+		// Check restored expansion BEFORE releasing any executable frame.
+		if s.pending() > maxPending {
+			return s.fail(Error("stream_limit"))
+		}
 		for len(s.queue) > 0 && s.queue[0].ready {
 			out = append(out, s.queue[0].raw...)
+			s.queuedBytes -= len(s.queue[0].raw) + 64
+			s.queue[0] = nil
 			s.queue = s.queue[1:]
-		}
-		pending := len(s.buffer)
-		for _, q := range s.queue {
-			pending += len(q.raw)
-		}
-		for _, b := range s.blocks {
-			pending += len(b.input) + len(b.text.pending)
-		}
-		if pending > maxPending {
-			return s.fail(Error("stream_limit"))
 		}
 	}
 	return out, nil
 }
 func eventData(raw []byte) ([]byte, error) {
+	for i, b := range raw {
+		if b == '\r' && (i+1 == len(raw) || raw[i+1] != '\n') {
+			return nil, Error("stream_line_ending")
+		}
+	}
 	var lines [][]byte
 	for _, line := range bytes.Split(raw, []byte("\n")) {
 		line = bytes.TrimSuffix(line, []byte("\r"))
@@ -116,7 +138,15 @@ func (s *Stream) handle(raw []byte) error {
 		return err
 	}
 	if data == nil {
-		s.queue = append(s.queue, &queued{raw, true})
+		if len(s.queue) > 0 {
+			last := s.queue[len(s.queue)-1]
+			if last.comment && len(last.raw)+len(raw) <= 65536 {
+				last.raw = append(last.raw, raw...)
+				s.queuedBytes += len(raw)
+				return nil
+			}
+		}
+		s.enqueue(&queued{raw: raw, ready: true, comment: true})
 		return nil
 	}
 	if s.ended {
@@ -157,7 +187,7 @@ func (s *Stream) handle(raw []byte) error {
 		}
 		s.started = true
 	case "content_block_start":
-		if !s.started || s.seen[index] || len(s.blocks) >= 64 {
+		if !s.started || s.terminal || s.seen[index] || len(s.blocks) >= 64 {
 			return Error("stream_order")
 		}
 		s.seen[index] = true
@@ -266,13 +296,13 @@ func (s *Stream) handle(raw []byte) error {
 			if err != nil {
 				return err
 			}
-			b.start.raw = emitEvent(changed)
+			s.update(b.start, emitEvent(changed))
 			b.start.ready = true
 			delta, _ := json.Marshal(map[string]any{"type": "content_block_delta", "index": index, "delta": map[string]string{"type": "input_json_delta", "partial_json": string(restored)}})
 			if len(b.deltas) == 0 {
 				return Error("stream_json")
 			}
-			b.deltas[0].raw = emitEvent(delta)
+			s.update(b.deltas[0], emitEvent(delta))
 		}
 		if b.kind == "text" {
 			decoded, err := b.text.finish()
@@ -280,13 +310,16 @@ func (s *Stream) handle(raw []byte) error {
 				return err
 			}
 			if decoded != "" {
-				s.queue = append(s.queue, &queued{deltaEvent(index, decoded), true})
+				s.enqueue(&queued{raw: deltaEvent(index, decoded), ready: true})
 			}
 		}
 		delete(s.blocks, index)
 	case "message_delta":
 		if !s.started || len(s.blocks) > 0 {
 			return Error("stream_order")
+		}
+		if stop := n.get("delta").get("stop_reason"); stop != nil && stop.kind != 'n' {
+			s.terminal = true
 		}
 	case "message_stop":
 		if !s.started || len(s.blocks) > 0 {
@@ -299,7 +332,7 @@ func (s *Stream) handle(raw []byte) error {
 	default:
 		return Error("stream_event")
 	}
-	s.queue = append(s.queue, q)
+	s.enqueue(q)
 	return nil
 }
 func (s *Stream) Finish() ([]byte, error) {

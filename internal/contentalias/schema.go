@@ -184,6 +184,45 @@ func compileSchema(n *node, st *state, tool string, edits *[]edit) (*schema, err
 	if err != nil {
 		return nil, err
 	}
+	// Preserve literal constraints; refuse schemas whose key transform would
+	// change their constrained value rather than rewriting executable literals.
+	var literals func(*node, *schema) error
+	literals = func(v *node, shape *schema) error {
+		for _, key := range []string{"const", "enum"} {
+			value := v.get(key)
+			if value == nil {
+				continue
+			}
+			values := []*node{value}
+			if key == "enum" {
+				values = value.items
+			}
+			for _, literal := range values {
+				changes := []edit{}
+				if err := shape.arguments(literal, false, &changes); err != nil {
+					return err
+				}
+				if len(changes) != 0 {
+					return Error("literal_schema_conflict")
+				}
+			}
+		}
+		for _, key := range []string{"anyOf", "oneOf"} {
+			if alternatives := v.get(key); alternatives != nil {
+				for _, alternative := range alternatives.items {
+					if err := literals(alternative, shape); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		return nil
+	}
+	for schemaNode, shape := range c.compiled {
+		if err := literals(schemaNode, shape); err != nil {
+			return nil, err
+		}
+	}
 	// Rewrite local pointers only where a traversed segment is a declared property key.
 	var visit func(*node) error
 	visit = func(v *node) error {
@@ -257,8 +296,6 @@ func (s *schema) arguments(n *node, inverse bool, edits *[]edit) error {
 			if v, ok := s.reverse[key]; ok {
 				original = v
 				mapped = v
-			} else if strings.HasPrefix(key, "dpx_v1_") && len(s.props) > 0 {
-				return Error("unknown_property")
 			}
 		} else if v, ok := s.forward[key]; ok {
 			mapped = v
