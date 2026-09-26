@@ -69,6 +69,38 @@ func TestCodexExecutorCacheHelper_OpenAIChatCompletions_StablePromptCacheKeyFrom
 	}
 }
 
+// t_79c67258: a /v1/responses client that sends no prompt_cache_key got none upstream, so identical
+// prompts round-robined across Codex accounts never hit the cache (live probe: 0/0 on 4 pairs while
+// the same prompt via chat/completions read 2176). Fall back to the API-key key the chat path uses.
+func TestCodexExecutorCacheHelper_OpenAIResponses_FallsBackToAPIKeyPromptCacheKey(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	ginCtx, _ := gin.CreateTestContext(recorder)
+	ginCtx.Set("userApiKey", "test-api-key")
+	ctx := context.WithValue(context.Background(), "gin", ginCtx)
+	executor := &CodexExecutor{}
+	rawJSON := []byte(`{"model":"gpt-5.3-codex","stream":true}`)
+	url := "https://example.com/responses"
+	apiKeyID := uuid.NewSHA1(uuid.NameSpaceOID, []byte("cli-proxy-api:codex:prompt-cache:test-api-key")).String()
+
+	for _, tc := range []struct{ name, payload, want string }{
+		{"absent", `{"model":"gpt-5.3-codex"}`, apiKeyID},
+		{"client key wins", `{"model":"gpt-5.3-codex","prompt_cache_key":"client-key"}`, "client-key"},
+	} {
+		req := cliproxyexecutor.Request{Model: "gpt-5.3-codex", Payload: []byte(tc.payload)}
+		httpReq, _, err := executor.cacheHelper(ctx, sdktranslator.FromString("openai-response"), url, req, rawJSON)
+		if err != nil {
+			t.Fatalf("%s: cacheHelper error: %v", tc.name, err)
+		}
+		body, _ := io.ReadAll(httpReq.Body)
+		if got := gjson.GetBytes(body, "prompt_cache_key").String(); got != tc.want {
+			t.Fatalf("%s: prompt_cache_key = %q, want %q", tc.name, got, tc.want)
+		}
+		if got := httpReq.Header["Session-Id"]; len(got) != 1 || got[0] != tc.want {
+			t.Fatalf("%s: Session-Id = %#v, want [%q]", tc.name, got, tc.want)
+		}
+	}
+}
+
 func TestCodexExecutorCacheHelper_UsesDerivedSessionUUID(t *testing.T) {
 	t.Parallel()
 
