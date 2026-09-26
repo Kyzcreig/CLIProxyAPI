@@ -1437,6 +1437,14 @@ func (e *CodexExecutor) cacheHelper(ctx context.Context, from sdktranslator.Form
 		if promptCacheKey.Exists() {
 			cache.ID = promptCacheKey.String()
 		}
+		// A Responses client that sends no prompt_cache_key gets the same stable per-API-key key as
+		// chat/completions below; without one, identical prompts spread across Codex accounts and
+		// never hit the prompt cache.
+		if strings.TrimSpace(cache.ID) == "" {
+			if apiKey := strings.TrimSpace(helps.APIKeyFromContext(ctx)); apiKey != "" {
+				cache.ID = uuid.NewSHA1(uuid.NameSpaceOID, []byte("cli-proxy-api:codex:prompt-cache:"+apiKey)).String()
+			}
+		}
 	} else if sourceFormatEqual(from, sdktranslator.FormatOpenAI) {
 		if apiKey := strings.TrimSpace(helps.APIKeyFromContext(ctx)); apiKey != "" {
 			cache.ID = uuid.NewSHA1(uuid.NameSpaceOID, []byte("cli-proxy-api:codex:prompt-cache:"+apiKey)).String()
