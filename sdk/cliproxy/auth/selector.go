@@ -2,6 +2,8 @@ package auth
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
@@ -433,7 +435,7 @@ func (s *SessionAffinitySelector) Pick(ctx context.Context, provider, model stri
 	if cachedAuthID, ok := s.cache.GetAndRefresh(cacheKey); ok {
 		for _, auth := range available {
 			if auth.ID == cachedAuthID {
-				entry.Infof("session-affinity: cache hit | session=%s auth=%s provider=%s model=%s", truncateSessionID(primaryID), auth.ID, provider, model)
+				entry.Infof("session-affinity: cache hit | session=%s session_key=%s auth=%s provider=%s model=%s", truncateSessionID(primaryID), sessionLogKey(primaryID), auth.ID, provider, model)
 				return auth, nil
 			}
 		}
@@ -443,7 +445,7 @@ func (s *SessionAffinitySelector) Pick(ctx context.Context, provider, model stri
 			return nil, err
 		}
 		s.cache.Set(cacheKey, auth.ID)
-		entry.Infof("session-affinity: cache hit but auth unavailable, reselected | session=%s auth=%s provider=%s model=%s", truncateSessionID(primaryID), auth.ID, provider, model)
+		entry.Infof("session-affinity: cache hit but auth unavailable, reselected | session=%s session_key=%s auth=%s provider=%s model=%s", truncateSessionID(primaryID), sessionLogKey(primaryID), auth.ID, provider, model)
 		return auth, nil
 	}
 
@@ -453,7 +455,7 @@ func (s *SessionAffinitySelector) Pick(ctx context.Context, provider, model stri
 			for _, auth := range available {
 				if auth.ID == cachedAuthID {
 					s.cache.Set(cacheKey, auth.ID)
-					entry.Infof("session-affinity: fallback cache hit | session=%s fallback=%s auth=%s provider=%s model=%s", truncateSessionID(primaryID), truncateSessionID(fallbackID), auth.ID, provider, model)
+					entry.Infof("session-affinity: fallback cache hit | session=%s session_key=%s fallback=%s auth=%s provider=%s model=%s", truncateSessionID(primaryID), sessionLogKey(primaryID), truncateSessionID(fallbackID), auth.ID, provider, model)
 					return auth, nil
 				}
 			}
@@ -465,7 +467,7 @@ func (s *SessionAffinitySelector) Pick(ctx context.Context, provider, model stri
 		return nil, err
 	}
 	s.cache.Set(cacheKey, auth.ID)
-	entry.Infof("session-affinity: cache miss, new binding | session=%s auth=%s provider=%s model=%s", truncateSessionID(primaryID), auth.ID, provider, model)
+	entry.Infof("session-affinity: cache miss, new binding | session=%s session_key=%s auth=%s provider=%s model=%s", truncateSessionID(primaryID), sessionLogKey(primaryID), auth.ID, provider, model)
 	return auth, nil
 }
 
@@ -485,6 +487,22 @@ func truncateSessionID(id string) string {
 		return id
 	}
 	return id[:8] + "..."
+}
+
+// sessionLogKey returns a stable, non-reversible log key for a session ID:
+// the ID's kind prefix (e.g. "claude:", "header:", "msg:") followed by the
+// first 16 hex chars of sha256(id). Unlike truncateSessionID it keeps distinct
+// sessions distinct in logs without writing the raw client ID.
+func sessionLogKey(id string) string {
+	if id == "" {
+		return ""
+	}
+	prefix := ""
+	if i := strings.IndexByte(id, ':'); i > 0 && i <= 16 {
+		prefix = id[:i+1]
+	}
+	sum := sha256.Sum256([]byte(id))
+	return prefix + hex.EncodeToString(sum[:])[:16]
 }
 
 // Stop releases resources held by the selector.
