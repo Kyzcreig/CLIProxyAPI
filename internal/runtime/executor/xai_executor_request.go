@@ -351,8 +351,21 @@ func applyXAIChatHeaders(r *http.Request, auth *cliproxyauth.Auth, token string,
 }
 
 func xaiResolveComposerSessionID(ctx context.Context, req cliproxyexecutor.Request, opts cliproxyexecutor.Options, baseModel string) (string, error) {
-	if sessionID := xaiExecutionSessionID(req, opts); sessionID != "" {
+	if sessionID := xaiExplicitSessionID(req, opts); sessionID != "" {
 		return sessionID, nil
+	}
+	if !xaiRequiresIsolatedConversation(baseModel) {
+		// A client that sends no session gets a stable per-API-key conversation id. xAI routes by
+		// x-grok-conv-id / prompt_cache_key; without one, identical prompts land on arbitrary servers
+		// and only hit the prompt cache by chance (docs.x.ai prompt-caching/maximizing-cache-hits).
+		// Same derivation as the codex chat/completions path. It precedes the derived-session
+		// fallback so the fork's keyless-client wire behaviour is unchanged on this base.
+		if apiKey := strings.TrimSpace(helps.APIKeyFromContext(ctx)); apiKey != "" {
+			return uuid.NewSHA1(uuid.NameSpaceOID, []byte("cli-proxy-api:xai:prompt-cache:"+apiKey)).String(), nil
+		}
+	}
+	if derived := helps.DerivedSessionUUID("xai", opts.Metadata, req.Metadata); derived != "" {
+		return derived, nil
 	}
 	if !xaiRequiresIsolatedConversation(baseModel) {
 		return "", nil
@@ -368,6 +381,14 @@ func xaiResolveComposerSessionID(ctx context.Context, req cliproxyexecutor.Reque
 }
 
 func xaiExecutionSessionID(req cliproxyexecutor.Request, opts cliproxyexecutor.Options) string {
+	if value := xaiExplicitSessionID(req, opts); value != "" {
+		return value
+	}
+	return helps.DerivedSessionUUID("xai", opts.Metadata, req.Metadata)
+}
+
+// xaiExplicitSessionID returns the execution session or the client's own prompt_cache_key.
+func xaiExplicitSessionID(req cliproxyexecutor.Request, opts cliproxyexecutor.Options) string {
 	if value := xaiMetadataString(opts.Metadata, cliproxyexecutor.ExecutionSessionMetadataKey); value != "" {
 		return value
 	}
@@ -379,7 +400,7 @@ func xaiExecutionSessionID(req cliproxyexecutor.Request, opts cliproxyexecutor.O
 			return value
 		}
 	}
-	return helps.DerivedSessionUUID("xai", opts.Metadata, req.Metadata)
+	return ""
 }
 
 func xaiRequiresIsolatedConversation(model string) bool {
