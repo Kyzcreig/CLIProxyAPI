@@ -985,6 +985,13 @@ func xaiResolveComposerSessionID(ctx context.Context, req cliproxyexecutor.Reque
 		return sessionID, nil
 	}
 	if !xaiRequiresIsolatedConversation(baseModel) {
+		// A client that sends no session gets a stable per-API-key conversation id. xAI routes by
+		// x-grok-conv-id / prompt_cache_key; without one, identical prompts land on arbitrary servers
+		// and only hit the prompt cache by chance (docs.x.ai prompt-caching/maximizing-cache-hits).
+		// Same derivation as the codex chat/completions path.
+		if apiKey := strings.TrimSpace(helps.APIKeyFromContext(ctx)); apiKey != "" {
+			return uuid.NewSHA1(uuid.NameSpaceOID, []byte("cli-proxy-api:xai:prompt-cache:"+apiKey)).String(), nil
+		}
 		return "", nil
 	}
 	cached, ok, errCache := helps.ClaudeCodePromptCache(ctx, req.Model, req.Payload, opts.Headers)

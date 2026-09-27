@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	xaiauth "github.com/router-for-me/CLIProxyAPI/v7/internal/auth/xai"
 	internalcache "github.com/router-for-me/CLIProxyAPI/v7/internal/cache"
@@ -1760,4 +1761,49 @@ func testValidGrokEncryptedContent() string {
 		buf = append(buf, sum[:]...)
 	}
 	return base64.RawStdEncoding.EncodeToString(buf[:256])
+}
+
+// t_436837b8: a chat/completions client that sends no session reached xAI with no x-grok-conv-id and
+// no prompt_cache_key, so identical grok-4.6 prompts seconds apart alternated between a full cache
+// read and a 128-token read (live subs.db 2026-09-27). Non-composer models now fall back to a stable
+// per-API-key id; a client key still wins, and no API key keeps the request stateless.
+func TestXAIExecutorDefaultsConvIDFromAPIKey(t *testing.T) {
+	exec := NewXAIExecutor(&config.Config{})
+	recorder := httptest.NewRecorder()
+	ginCtx, _ := gin.CreateTestContext(recorder)
+	ginCtx.Set("userApiKey", "test-api-key")
+	withKey := context.WithValue(context.Background(), "gin", ginCtx)
+	apiKeyID := uuid.NewSHA1(uuid.NameSpaceOID, []byte("cli-proxy-api:xai:prompt-cache:test-api-key")).String()
+
+	for _, tc := range []struct {
+		name    string
+		ctx     context.Context
+		payload string
+		want    string
+	}{
+		{"absent_with_api_key", withKey, `{"model":"grok-4.6","input":"hello"}`, apiKeyID},
+		{"client_key_wins", withKey, `{"model":"grok-4.6","prompt_cache_key":"client-key","input":"hello"}`, "client-key"},
+		{"no_api_key_stays_stateless", context.Background(), `{"model":"grok-4.6","input":"hello"}`, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			prepared, err := exec.prepareResponsesRequest(tc.ctx, cliproxyexecutor.Request{
+				Model:   "grok-4.6",
+				Payload: []byte(tc.payload),
+			}, cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatOpenAIResponse, Stream: true}, true)
+			if err != nil {
+				t.Fatalf("prepareResponsesRequest() error = %v", err)
+			}
+			if prepared.sessionID != tc.want {
+				t.Fatalf("sessionID = %q, want %q", prepared.sessionID, tc.want)
+			}
+			if got := gjson.GetBytes(prepared.body, "prompt_cache_key").String(); got != tc.want {
+				t.Fatalf("prompt_cache_key = %q, want %q", got, tc.want)
+			}
+			httpReq, _ := http.NewRequest(http.MethodPost, "https://example.test/responses", bytes.NewReader(prepared.body))
+			applyXAIHeaders(httpReq, nil, "xai-token", true, prepared.sessionID)
+			if got := httpReq.Header.Get("x-grok-conv-id"); got != tc.want {
+				t.Fatalf("x-grok-conv-id = %q, want %q", got, tc.want)
+			}
+		})
+	}
 }
