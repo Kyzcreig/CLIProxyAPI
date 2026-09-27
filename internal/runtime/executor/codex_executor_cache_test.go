@@ -102,6 +102,40 @@ func TestCodexExecutorCacheHelper_OpenAIResponses_FallsBackToAPIKeyPromptCacheKe
 	}
 }
 
+// t_8aa4dc5c: a chat/completions client's own prompt_cache_key must reach upstream. The per-API-key
+// default put every chat request of one key on one upstream routing key; OpenAI overflows a key past
+// ~15 rpm, and FleetReview's per-(repo, diff) keys (its ensemble members share a diff prefix) were
+// discarded, so sibling-member and pass-2 reads missed under load (2026-09-27 16:02Z).
+func TestCodexExecutorCacheHelper_OpenAIChat_ClientPromptCacheKeyWins(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	ginCtx, _ := gin.CreateTestContext(recorder)
+	ginCtx.Set("userApiKey", "test-api-key")
+	ctx := context.WithValue(context.Background(), "gin", ginCtx)
+	executor := &CodexExecutor{}
+	rawJSON := []byte(`{"model":"gpt-5.3-codex","stream":true}`)
+	url := "https://example.com/responses"
+	apiKeyID := uuid.NewSHA1(uuid.NameSpaceOID, []byte("cli-proxy-api:codex:prompt-cache:test-api-key")).String()
+
+	for _, tc := range []struct{ name, payload, want string }{
+		{"absent", `{"model":"gpt-5.3-codex"}`, apiKeyID},
+		{"blank falls back", `{"model":"gpt-5.3-codex","prompt_cache_key":"  "}`, apiKeyID},
+		{"client key wins", `{"model":"gpt-5.3-codex","prompt_cache_key":"fr-0123456789abcdef"}`, "fr-0123456789abcdef"},
+	} {
+		req := cliproxyexecutor.Request{Model: "gpt-5.3-codex", Payload: []byte(tc.payload)}
+		httpReq, _, _, err := executor.cacheHelper(ctx, sdktranslator.FromString("openai"), url, nil, req, req.Payload, rawJSON)
+		if err != nil {
+			t.Fatalf("%s: cacheHelper error: %v", tc.name, err)
+		}
+		body, _ := io.ReadAll(httpReq.Body)
+		if got := gjson.GetBytes(body, "prompt_cache_key").String(); got != tc.want {
+			t.Fatalf("%s: prompt_cache_key = %q, want %q", tc.name, got, tc.want)
+		}
+		if got := httpReq.Header["Session_id"]; len(got) != 1 || got[0] != tc.want {
+			t.Fatalf("%s: Session_id = %#v, want [%q]", tc.name, got, tc.want)
+		}
+	}
+}
+
 func TestCodexExecutorCacheHelper_ClaudeUsesClaudeCodeSessionID(t *testing.T) {
 	executor := &CodexExecutor{}
 	ctx := context.Background()

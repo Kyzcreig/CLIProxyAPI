@@ -1446,7 +1446,14 @@ func (e *CodexExecutor) cacheHelper(ctx context.Context, from sdktranslator.Form
 			}
 		}
 	} else if sourceFormatEqual(from, sdktranslator.FormatOpenAI) {
-		if apiKey := strings.TrimSpace(helps.APIKeyFromContext(ctx)); apiKey != "" {
+		// A chat/completions client that sends its own prompt_cache_key (OpenAI-documented cache
+		// routing; FleetReview sends one per (repo, diff) so an ensemble's members land on one
+		// upstream machine) keeps it. The per-API-key default below collapsed EVERY chat request of
+		// a key onto one upstream routing key, which OpenAI overflows past ~15 rpm -- measured
+		// 2026-09-27 16:02Z: sibling-member and pass-2 reads missed while the key carried ~20 rpm.
+		if promptCacheKey := strings.TrimSpace(gjson.GetBytes(req.Payload, "prompt_cache_key").String()); promptCacheKey != "" {
+			cache.ID = promptCacheKey
+		} else if apiKey := strings.TrimSpace(helps.APIKeyFromContext(ctx)); apiKey != "" {
 			cache.ID = uuid.NewSHA1(uuid.NameSpaceOID, []byte("cli-proxy-api:codex:prompt-cache:"+apiKey)).String()
 		}
 	}
