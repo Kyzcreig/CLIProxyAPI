@@ -12,18 +12,21 @@ import (
 	"net/url"
 	"os"
 
-	"github.com/router-for-me/CLIProxyAPI/v7/internal/config"
-	"github.com/router-for-me/CLIProxyAPI/v7/internal/contentalias"
-	"github.com/router-for-me/CLIProxyAPI/v7/internal/runtime/executor"
-	authpkg "github.com/router-for-me/CLIProxyAPI/v7/sdk/cliproxy/auth"
-	execpkg "github.com/router-for-me/CLIProxyAPI/v7/sdk/cliproxy/executor"
-	"github.com/router-for-me/CLIProxyAPI/v7/sdk/translator"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/contentalias"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor"
+	authpkg "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
+	execpkg "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
+	"github.com/router-for-me/CLIProxyAPI/v8/sdk/translator"
 	"github.com/tidwall/gjson"
 )
 
 type settings struct {
 	Upstream, ClientKey, StoreDirectory, SessionID string
 	Initialize                                     bool
+	// UpstreamKey defaults to a synthetic API key. A synthetic OAuth-shaped value
+	// ("sk-ant-oat...") exercises CPA's native OAuth CCH signing path offline.
+	UpstreamKey string
 }
 
 func main() {
@@ -57,7 +60,15 @@ func main() {
 	}
 	cfg := &config.Config{MaxRetryCredentials: 1, DPXContentAlias: config.DPXContentAlias{Enabled: true, StoreDirectory: c.StoreDirectory, Principal: binding.Principal, SessionID: binding.Session, Version: binding.Version}}
 	e := executor.NewClaudeExecutor(cfg)
-	auth := &authpkg.Auth{ID: "offline-upstream", Provider: "claude", Attributes: map[string]string{"api_key": "offline-synthetic", "base_url": c.Upstream, "cloak_mode": "never"}}
+	upstreamKey := "offline-synthetic"
+	if c.UpstreamKey != "" {
+		upstreamKey = c.UpstreamKey
+	}
+	auth := &authpkg.Auth{ID: "offline-upstream", Provider: "claude", Attributes: map[string]string{"api_key": upstreamKey, "base_url": c.Upstream, "cloak_mode": "never"}}
+	if c.UpstreamKey != "" {
+		// A saved OAuth credential carries its profile account; synthetic here.
+		auth.Metadata = map[string]any{"account_uuid": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"}
+	}
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		panic("listen")

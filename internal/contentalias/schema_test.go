@@ -89,7 +89,7 @@ func TestExecutableValuesUntouched(t *testing.T) {
 	}
 }
 func TestInvalidSchemasRejectBeforeSave(t *testing.T) {
-	for _, sc := range []string{`{"type":"object","properties":{"x":{},"x":{}}}`, `{"$ref":"https://example.com/schema"}`, `{"$ref":"#"}`, `{"patternProperties":{".*":{}}}`, `{"anyOf":[{"properties":{"x":{}}},{"properties":{"y":{}}}]}`, `{"type":"object","properties":{},"required":["missing"]}`} {
+	for _, sc := range []string{`{"type":"object","properties":{"x":{},"x":{}}}`, `{"$ref":"https://example.com/schema"}`, `{"$ref":"#"}`, `{"patternProperties":{".*":{}}}`, `{"type":"object","propertyNames":{"type":"string","maxLength":8}}`, `{"type":"object","propertyNames":{"enum":["a"]}}`, `{"type":"object","propertyNames":{"type":"integer"}}`, `{"allOf":[{"properties":{"x":{}}}]}`, `{"type":"string","allOf":[{"pattern":"a"},{"$ref":"#"}]}`, `{"allOf":[]}`, `{"anyOf":[{"properties":{"x":{}}},{"properties":{"y":{}}}]}`, `{"type":"object","properties":{},"required":["missing"]}`} {
 		s := testSession(t)
 		before, err := s.load()
 		if err != nil {
@@ -130,5 +130,40 @@ func TestLocalRefsNestedArraysAndDynamicKeys(t *testing.T) {
 	}
 	if !bytes.Contains(out, []byte(`"array":[{"session_id":"Hermes"}]`)) || !bytes.Contains(out, []byte(`"other":[{"session_id":"OpenClaw"}]`)) {
 		t.Fatal("nested ref inverse")
+	}
+}
+
+// Claude Code 2.1.284 AskUserQuestion declares free-keyed maps with the vacuous
+// propertyNames {"type":"string"}; dynamic map keys must pass through unaliased.
+func TestVacuousPropertyNamesFreeMapRoundTrip(t *testing.T) {
+	raw := []byte(`{"tools":[{"name":"AskUserQuestion","input_schema":{"type":"object","properties":{"answers":{"type":"object","propertyNames":{"type":"string"},"additionalProperties":{"type":"string"}}}}}],"messages":[{"role":"assistant","content":[{"type":"tool_use","id":"c","name":"AskUserQuestion","input":{"answers":{"Hermes question?":"OpenClaw"}}}]}]}`)
+	wire, m, err := Prepare(raw, testSession(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, _ := parse(wire)
+	schemaNode := n.get("tools").items[0].get("input_schema").get("properties").fields[0].value
+	if schemaNode.get("propertyNames").get("type").str() != "string" {
+		t.Fatal("propertyNames constraint changed")
+	}
+	block := n.get("messages").items[0].get("content").items[0]
+	out, err := m.RestoreJSON([]byte(`{"content":[` + string(wire[block.start:block.end]) + `]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(out, []byte(`"answers":{"Hermes question?":"OpenClaw"}`)) {
+		t.Fatal("free-map inverse: " + string(out))
+	}
+}
+
+// Claude Code 2.1.284 SendMessage.to stacks value-only patterns under allOf.
+func TestValueOnlyAllOfAccepted(t *testing.T) {
+	raw := []byte(`{"tools":[{"name":"SendMessage","input_schema":{"type":"object","properties":{"to":{"type":"string","allOf":[{"pattern":"^[^\\n\\r]*$"},{"pattern":"^[\\s\\S]{0,300}$"}]}},"required":["to"]}}]}`)
+	wire, _, err := Prepare(raw, testSession(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(wire, []byte(`"allOf":[{"pattern":"^[^\\n\\r]*$"},{"pattern":"^[\\s\\S]{0,300}$"}]`)) {
+		t.Fatal("value assertions changed: " + string(wire))
 	}
 }

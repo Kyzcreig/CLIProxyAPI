@@ -11,12 +11,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/router-for-me/CLIProxyAPI/v7/internal/config"
-	"github.com/router-for-me/CLIProxyAPI/v7/internal/contentalias"
-	"github.com/router-for-me/CLIProxyAPI/v7/internal/runtime/executor"
-	authpkg "github.com/router-for-me/CLIProxyAPI/v7/sdk/cliproxy/auth"
-	execpkg "github.com/router-for-me/CLIProxyAPI/v7/sdk/cliproxy/executor"
-	"github.com/router-for-me/CLIProxyAPI/v7/sdk/translator"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/contentalias"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor"
+	authpkg "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
+	execpkg "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
+	"github.com/router-for-me/CLIProxyAPI/v8/sdk/translator"
 	"github.com/tidwall/gjson"
 )
 
@@ -66,7 +66,7 @@ func TestDPXAliasExecutorHTTP(t *testing.T) {
 	identity, _ := json.Marshal(`{"device_id":"0000000000000000000000000000000000000000000000000000000000000000","account_uuid":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","session_id":"11111111-2222-4333-8444-555555555555"}`)
 	raw := []byte(`{"model":"claude-sonnet-4-6","max_tokens":128,"system":"Hermes","metadata":{"user_id":` + string(identity) + `},"messages":[{"role":"user","content":"read"}],"tools":[{"name":"Read","input_schema":{"type":"object","properties":{"file_path":{"type":"string"}}}}]}`)
 	request, _ := http.NewRequest(http.MethodPost, daemon.URL+"/v1/messages", bytes.NewReader(raw))
-	request.Header = http.Header{"X-Api-Key": {"offline-client"}, "User-Agent": {"claude-cli/2.1.258 (external, cli)"}, "X-App": {"cli"}, "Anthropic-Beta": {"claude-code-20250219"}}
+	request.Header = http.Header{"X-Api-Key": {"offline-client"}, "User-Agent": {"claude-cli/2.1.284 (external, cli)"}, "X-App": {"cli"}, "Anthropic-Beta": {"claude-code-20250219"}}
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		t.Fatal(err)

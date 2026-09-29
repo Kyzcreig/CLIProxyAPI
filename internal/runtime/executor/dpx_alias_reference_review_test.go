@@ -3,7 +3,7 @@ package executor
 import (
 	"context"
 	"fmt"
-	authpkg "github.com/router-for-me/CLIProxyAPI/v7/sdk/cliproxy/auth"
+	authpkg "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 	"github.com/tidwall/gjson"
 	"io"
 	"net/http"

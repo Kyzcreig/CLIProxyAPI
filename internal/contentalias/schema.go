@@ -69,7 +69,19 @@ func (c *compiler) compile(n *node, path string) (*schema, error) {
 		}
 		return c.compile(target, ref.str())
 	}
-	for _, key := range []string{"patternProperties", "propertyNames", "unevaluatedProperties", "if", "then", "else", "not", "allOf", "prefixItems", "dependentSchemas", "contains", "minContains", "maxContains", "unevaluatedItems", "additionalItems", "$dynamicRef", "$recursiveRef", "$id"} {
+	// Claude Code 2.1.284+ declares free-keyed maps with propertyNames {"type":"string"}.
+	// That constraint is vacuous (every JSON member name is a string) and names no
+	// member, so it is accepted in exactly that shape; any other propertyNames fails closed.
+	if names := n.get("propertyNames"); names != nil && !vacuousPropertyNames(names) {
+		return nil, Error("unsupported_schema")
+	}
+	// Claude Code 2.1.284+ (SendMessage.to) stacks string value assertions in allOf.
+	// Members that only constrain the value name no member and need no mapping;
+	// any structural member (properties, refs, combinators) still fails closed.
+	if members := n.get("allOf"); members != nil && !valueOnlyAllOf(members) {
+		return nil, Error("unsupported_schema")
+	}
+	for _, key := range []string{"patternProperties", "unevaluatedProperties", "if", "then", "else", "not", "prefixItems", "dependentSchemas", "contains", "minContains", "maxContains", "unevaluatedItems", "additionalItems", "$dynamicRef", "$recursiveRef", "$id"} {
 		if n.has(key) {
 			return nil, Error("unsupported_schema")
 		}
@@ -318,4 +330,31 @@ func (s *schema) arguments(n *node, inverse bool, edits *[]edit) error {
 		}
 	}
 	return nil
+}
+
+func vacuousPropertyNames(n *node) bool {
+	if n.kind != '{' || len(n.fields) != 1 || n.fields[0].key.text != "type" {
+		return false
+	}
+	t := n.fields[0].value
+	return t.kind == '"' && t.str() == "string"
+}
+
+var valueAssertionKeywords = map[string]bool{"type": true, "pattern": true, "minLength": true, "maxLength": true, "format": true, "minimum": true, "maximum": true, "exclusiveMinimum": true, "exclusiveMaximum": true, "multipleOf": true}
+
+func valueOnlyAllOf(n *node) bool {
+	if n.kind != '[' || len(n.items) == 0 {
+		return false
+	}
+	for _, member := range n.items {
+		if member.kind != '{' {
+			return false
+		}
+		for _, f := range member.fields {
+			if !valueAssertionKeywords[f.key.text] {
+				return false
+			}
+		}
+	}
+	return true
 }
