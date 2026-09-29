@@ -8,4 +8,10 @@ type DPXContentAlias struct {
 	Principal      string `yaml:"principal" json:"-"`
 	SessionID      string `yaml:"session-id" json:"-"`
 	Version        string `yaml:"version" json:"version"`
+	// Wirelog (site W1): when WirelogSpool is set, every upstream request of an
+	// alias-enabled daemon appends one digest-only v2 row to this file. The
+	// Studio unit keeps it in its RAM state dir and relays rows out.
+	WirelogSpool string `yaml:"wirelog-spool" json:"-"`
+	WirelogLane  string `yaml:"wirelog-lane" json:"-"`
+	WirelogSub   string `yaml:"wirelog-sub" json:"-"`
 }

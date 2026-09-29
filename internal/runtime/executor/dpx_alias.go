@@ -2,8 +2,10 @@ package executor
 
 import (
 	"bytes"
+	"net/http"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/contentalias"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor/helps"
 	execpkg "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/translator"
 )
@@ -25,6 +27,16 @@ func (e *ClaudeExecutor) prepareDPXAlias(raw []byte, opts execpkg.Options, nativ
 		return nil, nil, err
 	}
 	return contentalias.Prepare(raw, session)
+}
+
+// dpxWirelogClient adds the W1 wirelog row writer to an alias-enabled daemon's
+// upstream client. Off (client returned unchanged) unless wirelog-spool is set.
+func (e *ClaudeExecutor) dpxWirelogClient(client *http.Client) *http.Client {
+	if !e.dpxAliasEnabled() || e.cfg.DPXContentAlias.WirelogSpool == "" {
+		return client
+	}
+	cfg := e.cfg.DPXContentAlias
+	return helps.DPXWirelogClient(client, helps.DPXWirelogConfig{Spool: cfg.WirelogSpool, Lane: cfg.WirelogLane, Sub: cfg.WirelogSub, BrandWords: contentalias.DefaultManifest().Words})
 }
 
 // validateDPXFinalBody enforces that nothing after aliasing changes the upstream
