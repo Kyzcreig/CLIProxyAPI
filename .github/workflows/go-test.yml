@@ -1,0 +1,31 @@
+name: go-test
+
+# Fleet hosts deny local `go test` (tests are CI's job); this runs the unit suites of the
+# packages the fork patches so a PR's tests actually execute somewhere.
+on:
+  pull_request:
+  push:
+    branches:
+      - 'fix/**'
+      - 'feat/**'
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      # No catalog refresh: the fork's tests pin values from the COMMITTED models.json
+      # (e.g. the codex-tui user-agent); upstream main's live catalog drifts past them.
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Test
+        run: |
+          go test ./sdk/cliproxy/executor/... ./sdk/cliproxy/auth/... ./sdk/cliproxy/usage/... \
+            ./internal/redisqueue/... ./internal/runtime/executor/... ./internal/config/...

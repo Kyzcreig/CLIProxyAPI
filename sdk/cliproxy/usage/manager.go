@@ -157,6 +157,39 @@ func ServiceTierFromContext(ctx context.Context) string {
 	}
 }
 
+type promptCacheKeyContextKey struct{}
+
+// PromptCacheKeyInfo is the log-safe prompt-cache-key attribution of one request:
+// which side supplied the routing key and a hash of it. Never the key itself.
+type PromptCacheKeyInfo struct {
+	// Source is caller, derived or passthrough.
+	Source string
+	// ID is sha256(wire key)[:16], empty for passthrough.
+	ID string
+}
+
+// WithPromptCacheKey stores the prompt-cache-key attribution for usage sinks.
+func WithPromptCacheKey(ctx context.Context, info PromptCacheKeyInfo) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	info.Source = strings.TrimSpace(info.Source)
+	info.ID = strings.TrimSpace(info.ID)
+	if info.Source == "" && info.ID == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, promptCacheKeyContextKey{}, info)
+}
+
+// PromptCacheKeyFromContext returns the prompt-cache-key attribution stored in ctx.
+func PromptCacheKeyFromContext(ctx context.Context) PromptCacheKeyInfo {
+	if ctx == nil {
+		return PromptCacheKeyInfo{}
+	}
+	info, _ := ctx.Value(promptCacheKeyContextKey{}).(PromptCacheKeyInfo)
+	return info
+}
+
 // Plugin consumes usage records emitted by the proxy runtime.
 type Plugin interface {
 	HandleUsage(ctx context.Context, record Record)

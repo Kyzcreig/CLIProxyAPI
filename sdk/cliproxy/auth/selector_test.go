@@ -1275,3 +1275,143 @@ func TestSessionAffinitySelector_Concurrent(t *testing.T) {
 	default:
 	}
 }
+
+func TestSessionLogKey(t *testing.T) {
+	a := "header:fr-0123456789abcdef-repo-diff-a"
+	b := "header:fr-0123456789abcdef-repo-diff-b"
+	if truncateSessionID(a) != truncateSessionID(b) {
+		t.Fatalf("precondition: truncated ids should collide")
+	}
+	ka, kb := sessionLogKey(a), sessionLogKey(b)
+	if ka == kb {
+		t.Fatalf("distinct sessions share log key %q", ka)
+	}
+	if ka != sessionLogKey(a) {
+		t.Fatalf("log key not stable")
+	}
+	if !strings.HasPrefix(ka, "header:") || len(ka) != len("header:")+16 {
+		t.Fatalf("unexpected log key shape %q", ka)
+	}
+	if strings.Contains(ka, "fr-0123") {
+		t.Fatalf("log key leaks raw id: %q", ka)
+	}
+	if got := sessionLogKey("msg:00000000deadbeef"); !strings.HasPrefix(got, "msg:") {
+		t.Fatalf("msg prefix lost: %q", got)
+	}
+	if got := sessionLogKey("noprefixsessionidvalue"); len(got) != 16 {
+		t.Fatalf("unprefixed key shape %q", got)
+	}
+	if sessionLogKey("") != "" {
+		t.Fatalf("empty id should give empty key")
+	}
+}
+
+// t_708c4393: the manager resolves one prompt-cache routing key per request; when it
+// recorded a wire key (enforce mode, sources session/derived) the selector pins on THAT
+// key, so affinity and the upstream prompt_cache_key are one derivation.
+func TestSessionAffinitySelector_PinsOnResolvedPromptCacheKey(t *testing.T) {
+	selector := NewSessionAffinitySelector(&RoundRobinSelector{})
+	// Real derived keys are "pck-" + 32 hex; short fakes would dodge truncateSessionID.
+	const pck1, pck2 = "pck-11111111111111111111111111111111", "pck-22222222222222222222222222222222"
+	auths := []*Auth{{ID: "a"}, {ID: "b"}, {ID: "c"}}
+	body := []byte(`{"model":"gpt-5.4","messages":[{"role":"system","content":"S"},{"role":"user","content":"same prefix"}]}`)
+	enforced := func(key string) cliproxyexecutor.Options {
+		return cliproxyexecutor.Options{OriginalRequest: body, Metadata: map[string]any{
+			cliproxyexecutor.PromptCacheKeyMetadataKey:       key,
+			cliproxyexecutor.PromptCacheKeySourceMetadataKey: cliproxyexecutor.PromptCacheKeySourceDerived,
+			cliproxyexecutor.PromptCacheKeyModeMetadataKey:   cliproxyexecutor.PromptCacheKeyModeEnforce,
+		}}
+	}
+	first, err := selector.Pick(context.Background(), "codex", "gpt-5.4", enforced(pck1), auths)
+	if err != nil {
+		t.Fatalf("Pick() error = %v", err)
+	}
+	for i := 0; i < 5; i++ {
+		got, errPick := selector.Pick(context.Background(), "codex", "gpt-5.4", enforced(pck1), auths)
+		if errPick != nil || got.ID != first.ID {
+			t.Fatalf("same key must stay on %s, got %v (%v)", first.ID, got, errPick)
+		}
+	}
+	// CB-2 (Momus pass 3): two distinct derived keys must be two distinct affinity identities AND
+	// two distinct logged session_key values (the log identity is a hash of the wire key).
+	id1, _ := extractSessionIDs(nil, body, enforced(pck1).Metadata)
+	id2, _ := extractSessionIDs(nil, body, enforced(pck2).Metadata)
+	if id1 != "derived:"+pck1 || id2 != "derived:"+pck2 {
+		t.Fatalf("affinity ids = %q, %q; want derived:<wire key>", id1, id2)
+	}
+	if sessionLogKey(id1) == sessionLogKey(id2) || truncateSessionID(id1) != "derived:..." {
+		t.Fatalf("log identity does not follow the wire key: %q / %q / %q", sessionLogKey(id1), sessionLogKey(id2), truncateSessionID(id1))
+	}
+	// A different resolved key on the same bytes is a different binding (round-robin moves on).
+	other, err := selector.Pick(context.Background(), "codex", "gpt-5.4", enforced(pck2), auths)
+	if err != nil {
+		t.Fatalf("Pick() error = %v", err)
+	}
+	if other.ID == first.ID {
+		t.Fatalf("distinct keys bound to the same auth %s (round-robin should have moved)", first.ID)
+	}
+	// Shadow mode records no wire key: the selector falls back to its own extraction
+	// (rule 8 message hash here), untouched by the policy.
+	shadow := cliproxyexecutor.Options{OriginalRequest: body, Metadata: map[string]any{
+		cliproxyexecutor.PromptCacheKeySourceMetadataKey: cliproxyexecutor.PromptCacheKeySourceDerived,
+		cliproxyexecutor.PromptCacheKeyModeMetadataKey:   cliproxyexecutor.PromptCacheKeyModeShadow,
+	}}
+	primary, _ := extractSessionIDs(nil, body, shadow.Metadata)
+	if strings.HasPrefix(primary, "derived:") || primary == "" {
+		t.Fatalf("shadow mode must use the native extraction, got %q", primary)
+	}
+	if got := cacheKeySourceForLog(shadow.Metadata); got != "derived" {
+		t.Fatalf("cache_key_source for log = %q", got)
+	}
+	if got := cacheKeySourceForLog(nil); got != "unresolved" {
+		t.Fatalf("cache_key_source for log without policy = %q", got)
+	}
+}
+
+func TestTruncateSessionID_NeverPrintsACallerKey(t *testing.T) {
+	for _, id := range []string{"caller:fr-1", "caller:fr-0123456789abcdef-repo-diff"} {
+		if got := truncateSessionID(id); got != "caller:..." {
+			t.Fatalf("truncateSessionID(%q) = %q, want caller:...", id, got)
+		}
+	}
+	if got := truncateSessionID("msg:9e80e108efb67fe2"); got != "msg:9e80e108efb67fe2" {
+		t.Fatalf("short native ids still print whole: %q", got)
+	}
+}
+
+func TestSessionCache_HardCapEvictsClosestToExpiry(t *testing.T) {
+	cache := NewSessionCache(time.Hour)
+	defer cache.Stop()
+	cache.SetMaxEntries(3)
+	cache.Set("s1", "a")
+	cache.Set("s2", "b")
+	cache.Set("s3", "c")
+	if cache.Len() != 3 {
+		t.Fatalf("len = %d", cache.Len())
+	}
+	// Refreshing s1 makes it the newest; s2 is now the closest to expiry.
+	if _, ok := cache.GetAndRefresh("s1"); !ok {
+		t.Fatalf("s1 missing")
+	}
+	cache.Set("s4", "d")
+	if cache.Len() != 3 {
+		t.Fatalf("cap not enforced: len = %d", cache.Len())
+	}
+	if _, ok := cache.Get("s2"); ok {
+		t.Fatalf("s2 should have been evicted")
+	}
+	for _, sid := range []string{"s1", "s3", "s4"} {
+		if _, ok := cache.Get(sid); !ok {
+			t.Fatalf("%s should survive", sid)
+		}
+	}
+	// Re-setting an existing key never evicts.
+	cache.Set("s3", "c2")
+	if cache.Len() != 3 {
+		t.Fatalf("update evicted: len = %d", cache.Len())
+	}
+	cache.SetMaxEntries(0)
+	if cache.maxEntries != DefaultSessionCacheMaxEntries {
+		t.Fatalf("SetMaxEntries(0) must restore the default")
+	}
+}

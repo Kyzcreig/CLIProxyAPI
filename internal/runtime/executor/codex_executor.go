@@ -331,8 +331,8 @@ func codexReasoningReplaySessionKey(ctx context.Context, from sdktranslator.Form
 		return codexClaudeCodeReplaySessionKey(ctx, req.Payload, opts.Headers)
 	}
 	if sourceFormatEqual(from, sdktranslator.FormatOpenAI) {
-		if apiKey := strings.TrimSpace(helps.APIKeyFromContext(ctx)); apiKey != "" {
-			return "prompt-cache:" + uuid.NewSHA1(uuid.NameSpaceOID, []byte("cli-proxy-api:codex:prompt-cache:"+apiKey)).String()
+		if key := resolvedPromptCacheKey(ctx, opts, "codex"); key != "" {
+			return "prompt-cache:" + key
 		}
 	}
 	return ""
@@ -796,7 +796,7 @@ func (e *CodexExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, re
 
 	url := strings.TrimSuffix(baseURL, "/") + "/responses"
 	var identityState codexIdentityConfuseState
-	httpReq, upstreamBody, identityState, err := e.cacheHelper(ctx, from, url, auth, req, originalPayloadSource, body)
+	httpReq, upstreamBody, identityState, err := e.cacheHelper(ctx, from, url, auth, req, opts, originalPayloadSource, body)
 	if err != nil {
 		return resp, err
 	}
@@ -969,7 +969,7 @@ func (e *CodexExecutor) executeCompact(ctx context.Context, auth *cliproxyauth.A
 
 	url := strings.TrimSuffix(baseURL, "/") + "/responses/compact"
 	var identityState codexIdentityConfuseState
-	httpReq, upstreamBody, identityState, err := e.cacheHelper(ctx, from, url, auth, req, originalPayloadSource, body)
+	httpReq, upstreamBody, identityState, err := e.cacheHelper(ctx, from, url, auth, req, opts, originalPayloadSource, body)
 	if err != nil {
 		return resp, err
 	}
@@ -1084,7 +1084,7 @@ func (e *CodexExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.Au
 
 	url := strings.TrimSuffix(baseURL, "/") + "/responses"
 	var identityState codexIdentityConfuseState
-	httpReq, upstreamBody, identityState, err := e.cacheHelper(ctx, from, url, auth, req, originalPayloadSource, body)
+	httpReq, upstreamBody, identityState, err := e.cacheHelper(ctx, from, url, auth, req, opts, originalPayloadSource, body)
 	if err != nil {
 		return nil, err
 	}
@@ -1422,7 +1422,7 @@ type codexIdentityReplacement struct {
 	confused string
 }
 
-func (e *CodexExecutor) cacheHelper(ctx context.Context, from sdktranslator.Format, url string, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, userPayload []byte, rawJSON []byte) (*http.Request, []byte, codexIdentityConfuseState, error) {
+func (e *CodexExecutor) cacheHelper(ctx context.Context, from sdktranslator.Format, url string, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options, userPayload []byte, rawJSON []byte) (*http.Request, []byte, codexIdentityConfuseState, error) {
 	var cache helps.CodexCache
 	if sourceFormatEqual(from, sdktranslator.FormatClaude) {
 		cached, ok, errCache := helps.ClaudeCodePromptCache(ctx, req.Model, req.Payload, nil)
@@ -1432,22 +1432,20 @@ func (e *CodexExecutor) cacheHelper(ctx context.Context, from sdktranslator.Form
 		if ok {
 			cache = cached
 		}
-	} else if sourceFormatEqual(from, sdktranslator.FormatOpenAIResponse) {
-		promptCacheKey := gjson.GetBytes(req.Payload, "prompt_cache_key")
-		if promptCacheKey.Exists() {
-			cache.ID = promptCacheKey.String()
-		}
-		// A Responses client that sends no prompt_cache_key gets the same stable per-API-key key as
-		// chat/completions below; without one, identical prompts spread across Codex accounts and
-		// never hit the prompt cache.
-		if strings.TrimSpace(cache.ID) == "" {
-			if apiKey := strings.TrimSpace(helps.APIKeyFromContext(ctx)); apiKey != "" {
-				cache.ID = uuid.NewSHA1(uuid.NameSpaceOID, []byte("cli-proxy-api:codex:prompt-cache:"+apiKey)).String()
-			}
-		}
-	} else if sourceFormatEqual(from, sdktranslator.FormatOpenAI) {
-		if apiKey := strings.TrimSpace(helps.APIKeyFromContext(ctx)); apiKey != "" {
-			cache.ID = uuid.NewSHA1(uuid.NameSpaceOID, []byte("cli-proxy-api:codex:prompt-cache:"+apiKey)).String()
+	} else if sourceFormatEqual(from, sdktranslator.FormatOpenAIResponse) || sourceFormatEqual(from, sdktranslator.FormatOpenAI) {
+		// A client that sends its own prompt_cache_key (OpenAI-documented cache routing;
+		// FleetReview sends one per (repo, diff) so an ensemble's members land on one upstream
+		// machine) keeps it byte for byte. A client that sends none gets the key the manager
+		// DERIVED from the request's stable prefix (model + system + tools + first user message
+		// head; sdk/cliproxy/executor/prompt_cache_key.go). The earlier per-API-key UUID default
+		// collapsed EVERY request of a key onto one upstream routing key, which OpenAI overflows
+		// past ~15 rpm (measured 2026-09-27 16:02Z at ~20 rpm); a prefix hash shares a key only
+		// between requests that can actually read each other's cache. A passthrough opt-out
+		// leaves the request keyless.
+		if promptCacheKey := strings.TrimSpace(gjson.GetBytes(req.Payload, "prompt_cache_key").String()); promptCacheKey != "" {
+			cache.ID = promptCacheKey
+		} else {
+			cache.ID = resolvedPromptCacheKey(ctx, opts, "codex")
 		}
 	}
 

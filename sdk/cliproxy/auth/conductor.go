@@ -251,6 +251,9 @@ type Manager struct {
 	// runtimeConfig stores the latest application config for request-time decisions.
 	// It is initialized in NewManager; never Load() before first Store().
 	runtimeConfig atomic.Value
+	// promptCachePolicyWarned holds the last unknown prompt-cache-policy value warned about, so
+	// each distinct misspelling (across hot-reloads) warns exactly once.
+	promptCachePolicyWarned atomic.Value
 
 	// Optional HTTP RoundTripper provider injected by host.
 	rtProvider RoundTripperProvider
@@ -2319,6 +2322,7 @@ func (m *Manager) Execute(ctx context.Context, providers []string, req cliproxye
 	if len(normalized) == 0 {
 		return cliproxyexecutor.Response{}, &Error{Code: "provider_not_found", Message: "no provider supplied"}
 	}
+	opts = m.withPromptCacheKeyPolicy(normalized, req, opts)
 
 	_, maxRetryCredentials, maxWait := m.retrySettings()
 
@@ -2357,6 +2361,7 @@ func (m *Manager) ExecuteCount(ctx context.Context, providers []string, req clip
 	if len(normalized) == 0 {
 		return cliproxyexecutor.Response{}, &Error{Code: "provider_not_found", Message: "no provider supplied"}
 	}
+	opts = m.withPromptCacheKeyPolicy(normalized, req, opts)
 
 	_, maxRetryCredentials, maxWait := m.retrySettings()
 
@@ -2389,6 +2394,7 @@ func (m *Manager) ExecuteStream(ctx context.Context, providers []string, req cli
 	if len(normalized) == 0 {
 		return nil, &Error{Code: "provider_not_found", Message: "no provider supplied"}
 	}
+	opts = m.withPromptCacheKeyPolicy(normalized, req, opts)
 
 	_, maxRetryCredentials, maxWait := m.retrySettings()
 
@@ -3020,7 +3026,50 @@ func contextWithRequestedModelAlias(ctx context.Context, opts cliproxyexecutor.O
 	if serviceTier != "" {
 		ctx = coreusage.WithServiceTier(ctx, serviceTier)
 	}
+	if source := cliproxyexecutor.PromptCacheKeySourceFromMetadata(opts.Metadata); source != "" {
+		ctx = coreusage.WithPromptCacheKey(ctx, coreusage.PromptCacheKeyInfo{
+			Source: source,
+			ID:     cliproxyexecutor.PromptCacheKeyIDFromMetadata(opts.Metadata),
+		})
+	}
 	return ctx
+}
+
+// withPromptCacheKeyPolicy resolves the prompt-cache routing key ONCE per request, before
+// auth selection, and records it in opts.Metadata for the selector (affinity), the
+// executors (wire key when the caller sent none) and the usage sinks (attribution).
+// Idempotent: a metadata copy that already carries a source is returned as is, so the
+// retry loop and nested executions do not re-derive.
+func (m *Manager) withPromptCacheKeyPolicy(providers []string, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) cliproxyexecutor.Options {
+	if cliproxyexecutor.PromptCacheKeySourceFromMetadata(opts.Metadata) != "" {
+		return opts
+	}
+	payload := req.Payload
+	if len(payload) == 0 {
+		payload = opts.OriginalRequest
+	}
+	res := cliproxyexecutor.ResolvePromptCacheKey(strings.Join(providers, ","), payload, opts.Headers, opts.Metadata)
+	opts.Metadata = cliproxyexecutor.ApplyPromptCacheKeyMetadata(opts.Metadata, res, m.promptCachePolicyMode())
+	return opts
+}
+
+// promptCachePolicyMode reads routing.prompt-cache-policy from the live config snapshot
+// (hot-reloaded through SetConfig), so flipping enforce<->shadow needs no restart.
+func (m *Manager) promptCachePolicyMode() string {
+	if m == nil {
+		return cliproxyexecutor.PromptCacheKeyModeShadow
+	}
+	cfg, _ := m.runtimeConfig.Load().(*internalconfig.Config)
+	if cfg == nil {
+		return cliproxyexecutor.PromptCacheKeyModeShadow
+	}
+	if raw := cfg.Routing.PromptCachePolicy; cliproxyexecutor.PromptCacheKeyModeUnknown(raw) {
+		if last, _ := m.promptCachePolicyWarned.Load().(string); last != raw {
+			m.promptCachePolicyWarned.Store(raw)
+			log.Warnf("routing.prompt-cache-policy=%q is not enforce|shadow; running as shadow", raw)
+		}
+	}
+	return cliproxyexecutor.NormalizePromptCacheKeyMode(cfg.Routing.PromptCachePolicy)
 }
 
 func requestedModelAliasFromOptions(opts cliproxyexecutor.Options, fallback string) string {

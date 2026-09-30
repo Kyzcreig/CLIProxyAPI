@@ -17,63 +17,11 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-func TestCodexExecutorCacheHelper_OpenAIChatCompletions_StablePromptCacheKeyFromAPIKey(t *testing.T) {
-	recorder := httptest.NewRecorder()
-	ginCtx, _ := gin.CreateTestContext(recorder)
-	ginCtx.Set("userApiKey", "test-api-key")
-
-	ctx := context.WithValue(context.Background(), "gin", ginCtx)
-	executor := &CodexExecutor{}
-	rawJSON := []byte(`{"model":"gpt-5.3-codex","stream":true}`)
-	req := cliproxyexecutor.Request{
-		Model:   "gpt-5.3-codex",
-		Payload: []byte(`{"model":"gpt-5.3-codex"}`),
-	}
-	url := "https://example.com/responses"
-
-	httpReq, _, _, err := executor.cacheHelper(ctx, sdktranslator.FromString("openai"), url, nil, req, req.Payload, rawJSON)
-	if err != nil {
-		t.Fatalf("cacheHelper error: %v", err)
-	}
-
-	body, errRead := io.ReadAll(httpReq.Body)
-	if errRead != nil {
-		t.Fatalf("read request body: %v", errRead)
-	}
-
-	expectedKey := uuid.NewSHA1(uuid.NameSpaceOID, []byte("cli-proxy-api:codex:prompt-cache:test-api-key")).String()
-	gotKey := gjson.GetBytes(body, "prompt_cache_key").String()
-	if gotKey != expectedKey {
-		t.Fatalf("prompt_cache_key = %q, want %q", gotKey, expectedKey)
-	}
-	if gotConversation := httpReq.Header.Get("Conversation_id"); gotConversation != "" {
-		t.Fatalf("Conversation_id = %q, want empty", gotConversation)
-	}
-	if gotSession := httpReq.Header["Session_id"]; len(gotSession) != 1 || gotSession[0] != expectedKey {
-		t.Fatalf("Session_id = %#v, want [%q]", gotSession, expectedKey)
-	}
-	if gotCanonicalSession := httpReq.Header.Get("Session-Id"); gotCanonicalSession != "" {
-		t.Fatalf("Session-Id = %q, want empty", gotCanonicalSession)
-	}
-
-	httpReq2, _, _, err := executor.cacheHelper(ctx, sdktranslator.FromString("openai"), url, nil, req, req.Payload, rawJSON)
-	if err != nil {
-		t.Fatalf("cacheHelper error (second call): %v", err)
-	}
-	body2, errRead2 := io.ReadAll(httpReq2.Body)
-	if errRead2 != nil {
-		t.Fatalf("read request body (second call): %v", errRead2)
-	}
-	gotKey2 := gjson.GetBytes(body2, "prompt_cache_key").String()
-	if gotKey2 != expectedKey {
-		t.Fatalf("prompt_cache_key (second call) = %q, want %q", gotKey2, expectedKey)
-	}
-}
-
-// t_79c67258: a /v1/responses client that sends no prompt_cache_key got none upstream, so identical
-// prompts round-robined across Codex accounts never hit the cache (live probe: 0/0 on 4 pairs while
-// the same prompt via chat/completions read 2176). Fall back to the API-key key the chat path uses.
-func TestCodexExecutorCacheHelper_OpenAIResponses_FallsBackToAPIKeyPromptCacheKey(t *testing.T) {
+// t_708c4393: the manager resolves ONE prompt-cache routing key per request (caller's own,
+// proxy-derived from the stable prefix, or none on passthrough); cacheHelper only forwards it.
+// The per-API-key UUID default is gone: it put every prefix of one caller on one upstream
+// routing key, which OpenAI overflows past ~15 rpm (measured 2026-09-27 16:02Z).
+func TestCodexExecutorCacheHelper_OpenAI_ForwardsResolvedPromptCacheKey(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	ginCtx, _ := gin.CreateTestContext(recorder)
 	ginCtx.Set("userApiKey", "test-api-key")
@@ -81,23 +29,58 @@ func TestCodexExecutorCacheHelper_OpenAIResponses_FallsBackToAPIKeyPromptCacheKe
 	executor := &CodexExecutor{}
 	rawJSON := []byte(`{"model":"gpt-5.3-codex","stream":true}`)
 	url := "https://example.com/responses"
-	apiKeyID := uuid.NewSHA1(uuid.NameSpaceOID, []byte("cli-proxy-api:codex:prompt-cache:test-api-key")).String()
+	derived := "pck-0123456789abcdef0123456789abcdef"
+	legacy := uuid.NewSHA1(uuid.NameSpaceOID, []byte("cli-proxy-api:codex:prompt-cache:test-api-key")).String()
+	derivedOpts := cliproxyexecutor.Options{Metadata: map[string]any{
+		cliproxyexecutor.PromptCacheKeyMetadataKey:       derived,
+		cliproxyexecutor.PromptCacheKeySourceMetadataKey: cliproxyexecutor.PromptCacheKeySourceDerived,
+		cliproxyexecutor.PromptCacheKeyModeMetadataKey:   cliproxyexecutor.PromptCacheKeyModeEnforce,
+	}}
+	passthroughOpts := cliproxyexecutor.Options{Metadata: map[string]any{
+		cliproxyexecutor.PromptCacheKeySourceMetadataKey: cliproxyexecutor.PromptCacheKeySourcePassthrough,
+		cliproxyexecutor.PromptCacheKeyModeMetadataKey:   cliproxyexecutor.PromptCacheKeyModeEnforce,
+	}}
+	shadowOpts := cliproxyexecutor.Options{Metadata: map[string]any{
+		cliproxyexecutor.PromptCacheKeySourceMetadataKey: cliproxyexecutor.PromptCacheKeySourceDerived,
+		cliproxyexecutor.PromptCacheKeyIDMetadataKey:     "0123456789abcdef",
+		cliproxyexecutor.PromptCacheKeyModeMetadataKey:   cliproxyexecutor.PromptCacheKeyModeShadow,
+	}}
 
-	for _, tc := range []struct{ name, payload, want string }{
-		{"absent", `{"model":"gpt-5.3-codex"}`, apiKeyID},
-		{"client key wins", `{"model":"gpt-5.3-codex","prompt_cache_key":"client-key"}`, "client-key"},
-	} {
-		req := cliproxyexecutor.Request{Model: "gpt-5.3-codex", Payload: []byte(tc.payload)}
-		httpReq, _, _, err := executor.cacheHelper(ctx, sdktranslator.FromString("openai-response"), url, nil, req, req.Payload, rawJSON)
-		if err != nil {
-			t.Fatalf("%s: cacheHelper error: %v", tc.name, err)
-		}
-		body, _ := io.ReadAll(httpReq.Body)
-		if got := gjson.GetBytes(body, "prompt_cache_key").String(); got != tc.want {
-			t.Fatalf("%s: prompt_cache_key = %q, want %q", tc.name, got, tc.want)
-		}
-		if got := httpReq.Header["Session_id"]; len(got) != 1 || got[0] != tc.want {
-			t.Fatalf("%s: Session_id = %#v, want [%q]", tc.name, got, tc.want)
+	for _, from := range []string{"openai", "openai-response"} {
+		for _, tc := range []struct {
+			name    string
+			payload string
+			opts    cliproxyexecutor.Options
+			want    string
+		}{
+			{"absent uses derived", `{"model":"gpt-5.3-codex"}`, derivedOpts, derived},
+			{"blank uses derived", `{"model":"gpt-5.3-codex","prompt_cache_key":"  "}`, derivedOpts, derived},
+			{"client key wins byte for byte", `{"model":"gpt-5.3-codex","prompt_cache_key":"fr-0123456789abcdef"}`, derivedOpts, "fr-0123456789abcdef"},
+			{"passthrough stays keyless", `{"model":"gpt-5.3-codex"}`, passthroughOpts, ""},
+			{"shadow keeps the legacy per-API-key default", `{"model":"gpt-5.3-codex"}`, shadowOpts, legacy},
+			{"no policy keeps the legacy per-API-key default", `{"model":"gpt-5.3-codex"}`, cliproxyexecutor.Options{}, legacy},
+		} {
+			req := cliproxyexecutor.Request{Model: "gpt-5.3-codex", Payload: []byte(tc.payload)}
+			httpReq, _, _, err := executor.cacheHelper(ctx, sdktranslator.FromString(from), url, nil, req, tc.opts, req.Payload, rawJSON)
+			if err != nil {
+				t.Fatalf("%s/%s: cacheHelper error: %v", from, tc.name, err)
+			}
+			body, _ := io.ReadAll(httpReq.Body)
+			if got := gjson.GetBytes(body, "prompt_cache_key").String(); got != tc.want {
+				t.Fatalf("%s/%s: prompt_cache_key = %q, want %q", from, tc.name, got, tc.want)
+			}
+			if tc.want == "" {
+				if got := httpReq.Header["Session_id"]; len(got) != 0 {
+					t.Fatalf("%s/%s: Session_id = %#v, want none", from, tc.name, got)
+				}
+				continue
+			}
+			if got := httpReq.Header["Session_id"]; len(got) != 1 || got[0] != tc.want {
+				t.Fatalf("%s/%s: Session_id = %#v, want [%q]", from, tc.name, got, tc.want)
+			}
+			if got := httpReq.Header.Get("Session-Id"); got != "" {
+				t.Fatalf("%s/%s: Session-Id = %q, want empty", from, tc.name, got)
+			}
 		}
 	}
 }
@@ -124,11 +107,11 @@ func TestCodexExecutorCacheHelper_ClaudeUsesClaudeCodeSessionID(t *testing.T) {
 		}`),
 	}
 
-	firstHTTPReq, _, _, err := executor.cacheHelper(ctx, sdktranslator.FromString("claude"), url, nil, firstReq, firstReq.Payload, rawJSON)
+	firstHTTPReq, _, _, err := executor.cacheHelper(ctx, sdktranslator.FromString("claude"), url, nil, firstReq, cliproxyexecutor.Options{}, firstReq.Payload, rawJSON)
 	if err != nil {
 		t.Fatalf("cacheHelper first error: %v", err)
 	}
-	secondHTTPReq, _, _, err := executor.cacheHelper(ctx, sdktranslator.FromString("claude"), url, nil, secondReq, secondReq.Payload, rawJSON)
+	secondHTTPReq, _, _, err := executor.cacheHelper(ctx, sdktranslator.FromString("claude"), url, nil, secondReq, cliproxyexecutor.Options{}, secondReq.Payload, rawJSON)
 	if err != nil {
 		t.Fatalf("cacheHelper second error: %v", err)
 	}
@@ -164,7 +147,7 @@ func TestCodexExecutorCacheHelper_ClaudeRejectsBareUserID(t *testing.T) {
 		Payload: []byte(`{"model":"gpt-5.4","metadata":{"user_id":"same-user-across-chats"},"messages":[{"role":"user","content":[{"type":"text","text":"first"}]}]}`),
 	}
 
-	httpReq, _, _, err := executor.cacheHelper(context.Background(), sdktranslator.FromString("claude"), "https://example.com/responses", nil, req, req.Payload, []byte(`{"model":"gpt-5.4","stream":true}`))
+	httpReq, _, _, err := executor.cacheHelper(context.Background(), sdktranslator.FromString("claude"), "https://example.com/responses", nil, req, cliproxyexecutor.Options{}, req.Payload, []byte(`{"model":"gpt-5.4","stream":true}`))
 	if err != nil {
 		t.Fatalf("cacheHelper error: %v", err)
 	}
@@ -204,7 +187,7 @@ func TestCodexExecutorCacheHelper_IdentityConfuseRemapsBodyAndHeaders(t *testing
 	}
 	url := "https://example.com/responses"
 
-	httpReq, body, identityState, err := executor.cacheHelper(ctx, sdktranslator.FromString("openai-response"), url, auth, req, req.Payload, rawJSON)
+	httpReq, body, identityState, err := executor.cacheHelper(ctx, sdktranslator.FromString("openai-response"), url, auth, req, cliproxyexecutor.Options{}, req.Payload, rawJSON)
 	if err != nil {
 		t.Fatalf("cacheHelper error: %v", err)
 	}
@@ -313,11 +296,11 @@ func TestCodexExecutorCacheHelper_ClaudeUsesSessionHeader(t *testing.T) {
 	rawJSON := []byte(`{"model":"gpt-5.4","stream":true}`)
 	url := "https://example.com/responses"
 
-	firstHTTPReq, _, _, err := executor.cacheHelper(ctx, sdktranslator.FromString("claude"), url, nil, firstReq, firstReq.Payload, rawJSON)
+	firstHTTPReq, _, _, err := executor.cacheHelper(ctx, sdktranslator.FromString("claude"), url, nil, firstReq, cliproxyexecutor.Options{}, firstReq.Payload, rawJSON)
 	if err != nil {
 		t.Fatalf("cacheHelper first error: %v", err)
 	}
-	secondHTTPReq, _, _, err := executor.cacheHelper(ctx, sdktranslator.FromString("claude"), url, nil, secondReq, secondReq.Payload, rawJSON)
+	secondHTTPReq, _, _, err := executor.cacheHelper(ctx, sdktranslator.FromString("claude"), url, nil, secondReq, cliproxyexecutor.Options{}, secondReq.Payload, rawJSON)
 	if err != nil {
 		t.Fatalf("cacheHelper second error: %v", err)
 	}

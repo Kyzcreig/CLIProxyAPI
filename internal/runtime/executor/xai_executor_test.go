@@ -1761,3 +1761,55 @@ func testValidGrokEncryptedContent() string {
 	}
 	return base64.RawStdEncoding.EncodeToString(buf[:256])
 }
+
+// t_436837b8: a chat/completions client that sends no session reached xAI with no x-grok-conv-id and
+// no prompt_cache_key, so identical grok-4.6 prompts seconds apart alternated between a full cache
+// read and a 128-token read (live subs.db 2026-09-27). Non-composer models now fall back to a stable
+// per-API-key id; a client key still wins, and no API key keeps the request stateless.
+func TestXAIExecutorUsesResolvedPromptCacheKeyForConvID(t *testing.T) {
+	exec := NewXAIExecutor(&config.Config{})
+	ctx := context.Background()
+	derived := "pck-0123456789abcdef0123456789abcdef"
+	derivedMeta := map[string]any{
+		cliproxyexecutor.PromptCacheKeyMetadataKey:       derived,
+		cliproxyexecutor.PromptCacheKeySourceMetadataKey: cliproxyexecutor.PromptCacheKeySourceDerived,
+		cliproxyexecutor.PromptCacheKeyModeMetadataKey:   cliproxyexecutor.PromptCacheKeyModeEnforce,
+	}
+	passthroughMeta := map[string]any{
+		cliproxyexecutor.PromptCacheKeySourceMetadataKey: cliproxyexecutor.PromptCacheKeySourcePassthrough,
+		cliproxyexecutor.PromptCacheKeyModeMetadataKey:   cliproxyexecutor.PromptCacheKeyModeEnforce,
+	}
+
+	for _, tc := range []struct {
+		name    string
+		meta    map[string]any
+		payload string
+		want    string
+	}{
+		{"absent_uses_derived", derivedMeta, `{"model":"grok-4.6","input":"hello"}`, derived},
+		{"client_key_wins", derivedMeta, `{"model":"grok-4.6","prompt_cache_key":"client-key","input":"hello"}`, "client-key"},
+		{"passthrough_stays_stateless", passthroughMeta, `{"model":"grok-4.6","input":"hello"}`, ""},
+		{"no_policy_no_api_key_stays_stateless", nil, `{"model":"grok-4.6","input":"hello"}`, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			prepared, err := exec.prepareResponsesRequest(ctx, cliproxyexecutor.Request{
+				Model:   "grok-4.6",
+				Payload: []byte(tc.payload),
+			}, cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatOpenAIResponse, Stream: true, Metadata: tc.meta}, true)
+			if err != nil {
+				t.Fatalf("prepareResponsesRequest() error = %v", err)
+			}
+			if prepared.sessionID != tc.want {
+				t.Fatalf("sessionID = %q, want %q", prepared.sessionID, tc.want)
+			}
+			if got := gjson.GetBytes(prepared.body, "prompt_cache_key").String(); got != tc.want {
+				t.Fatalf("prompt_cache_key = %q, want %q", got, tc.want)
+			}
+			httpReq, _ := http.NewRequest(http.MethodPost, "https://example.test/responses", bytes.NewReader(prepared.body))
+			applyXAIHeaders(httpReq, nil, "xai-token", true, prepared.sessionID)
+			if got := httpReq.Header.Get("x-grok-conv-id"); got != tc.want {
+				t.Fatalf("x-grok-conv-id = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}

@@ -18,6 +18,7 @@ func TestUsageQueuePluginPayloadIncludesStableFieldsAndSuccess(t *testing.T) {
 		ctx := internallogging.WithRequestID(context.Background(), "ctx-request-id")
 		ctx = internallogging.WithEndpoint(ctx, "POST /v1/chat/completions")
 		ctx = internallogging.WithResponseStatusHolder(ctx)
+		ctx = coreusage.WithPromptCacheKey(ctx, coreusage.PromptCacheKeyInfo{Source: "derived", ID: "0123456789abcdef"})
 		internallogging.SetResponseStatus(ctx, http.StatusOK)
 		responseHeaders := http.Header{}
 		responseHeaders.Add("X-Upstream-Request-Id", "upstream-req-1")
@@ -60,6 +61,8 @@ func TestUsageQueuePluginPayloadIncludesStableFieldsAndSuccess(t *testing.T) {
 		requireStringField(t, payload, "service_tier", "priority")
 		requireStringField(t, payload, "request_service_tier", "priority")
 		requireStringField(t, payload, "response_service_tier", "default")
+		requireStringField(t, payload, "cache_key_source", "derived")
+		requireStringField(t, payload, "cache_key_id", "0123456789abcdef")
 		requireHeaderField(t, payload, "response_headers", "X-Upstream-Request-Id", []string{"upstream-req-1"})
 		requireHeaderField(t, payload, "response_headers", "Retry-After", []string{"30"})
 		requireBoolField(t, payload, "failed", false)

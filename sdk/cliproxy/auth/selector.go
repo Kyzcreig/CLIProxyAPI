@@ -2,6 +2,8 @@ package auth
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
@@ -433,7 +435,7 @@ func (s *SessionAffinitySelector) Pick(ctx context.Context, provider, model stri
 	if cachedAuthID, ok := s.cache.GetAndRefresh(cacheKey); ok {
 		for _, auth := range available {
 			if auth.ID == cachedAuthID {
-				entry.Infof("session-affinity: cache hit | session=%s auth=%s provider=%s model=%s", truncateSessionID(primaryID), auth.ID, provider, model)
+				entry.Infof("session-affinity: cache hit | session=%s session_key=%s cache_key_source=%s auth=%s provider=%s model=%s", truncateSessionID(primaryID), sessionLogKey(primaryID), cacheKeySourceForLog(opts.Metadata), auth.ID, provider, model)
 				return auth, nil
 			}
 		}
@@ -443,7 +445,7 @@ func (s *SessionAffinitySelector) Pick(ctx context.Context, provider, model stri
 			return nil, err
 		}
 		s.cache.Set(cacheKey, auth.ID)
-		entry.Infof("session-affinity: cache hit but auth unavailable, reselected | session=%s auth=%s provider=%s model=%s", truncateSessionID(primaryID), auth.ID, provider, model)
+		entry.Infof("session-affinity: cache hit but auth unavailable, reselected | session=%s session_key=%s cache_key_source=%s auth=%s provider=%s model=%s", truncateSessionID(primaryID), sessionLogKey(primaryID), cacheKeySourceForLog(opts.Metadata), auth.ID, provider, model)
 		return auth, nil
 	}
 
@@ -453,7 +455,7 @@ func (s *SessionAffinitySelector) Pick(ctx context.Context, provider, model stri
 			for _, auth := range available {
 				if auth.ID == cachedAuthID {
 					s.cache.Set(cacheKey, auth.ID)
-					entry.Infof("session-affinity: fallback cache hit | session=%s fallback=%s auth=%s provider=%s model=%s", truncateSessionID(primaryID), truncateSessionID(fallbackID), auth.ID, provider, model)
+					entry.Infof("session-affinity: fallback cache hit | session=%s session_key=%s cache_key_source=%s fallback=%s auth=%s provider=%s model=%s", truncateSessionID(primaryID), sessionLogKey(primaryID), cacheKeySourceForLog(opts.Metadata), truncateSessionID(fallbackID), auth.ID, provider, model)
 					return auth, nil
 				}
 			}
@@ -465,7 +467,7 @@ func (s *SessionAffinitySelector) Pick(ctx context.Context, provider, model stri
 		return nil, err
 	}
 	s.cache.Set(cacheKey, auth.ID)
-	entry.Infof("session-affinity: cache miss, new binding | session=%s auth=%s provider=%s model=%s", truncateSessionID(primaryID), auth.ID, provider, model)
+	entry.Infof("session-affinity: cache miss, new binding | session=%s session_key=%s cache_key_source=%s auth=%s provider=%s model=%s", truncateSessionID(primaryID), sessionLogKey(primaryID), cacheKeySourceForLog(opts.Metadata), auth.ID, provider, model)
 	return auth, nil
 }
 
@@ -479,12 +481,33 @@ func selectorLogEntry(ctx context.Context) *log.Entry {
 	return log.NewEntry(log.StandardLogger())
 }
 
-// truncateSessionID shortens session ID for logging (first 8 chars + "...")
+// truncateSessionID shortens session ID for logging (first 8 chars + "..."). A caller's
+// own routing key (rule 0, "caller:<key>") is never printed, whatever its length: the
+// hashed session_key beside it is the log identity.
 func truncateSessionID(id string) string {
+	if strings.HasPrefix(id, cliproxyexecutor.PromptCacheKeySourceCaller+":") {
+		return cliproxyexecutor.PromptCacheKeySourceCaller + ":..."
+	}
 	if len(id) <= 20 {
 		return id
 	}
 	return id[:8] + "..."
+}
+
+// sessionLogKey returns a stable, non-reversible log key for a session ID:
+// the ID's kind prefix (e.g. "claude:", "header:", "msg:") followed by the
+// first 16 hex chars of sha256(id). Unlike truncateSessionID it keeps distinct
+// sessions distinct in logs without writing the raw client ID.
+func sessionLogKey(id string) string {
+	if id == "" {
+		return ""
+	}
+	prefix := ""
+	if i := strings.IndexByte(id, ':'); i > 0 && i <= 16 {
+		prefix = id[:i+1]
+	}
+	sum := sha256.Sum256([]byte(id))
+	return prefix + hex.EncodeToString(sum[:])[:16]
 }
 
 // Stop releases resources held by the selector.
@@ -519,7 +542,24 @@ func ExtractSessionID(headers http.Header, payload []byte, metadata map[string]a
 // extractSessionIDs returns (primaryID, fallbackID) for session affinity.
 // primaryID: full hash including assistant response (stable after first turn)
 // fallbackID: short hash without assistant (used to inherit binding from first turn)
+// cacheKeySourceForLog names who supplied the routing key on session-affinity log lines.
+func cacheKeySourceForLog(metadata map[string]any) string {
+	if source := cliproxyexecutor.PromptCacheKeySourceFromMetadata(metadata); source != "" {
+		return source
+	}
+	return "unresolved"
+}
+
 func extractSessionIDs(headers http.Header, payload []byte, metadata map[string]any) (string, string) {
+	// 0. The wire routing key the proxy resolved (prompt-cache policy, resolved once in the
+	// manager; recorded only in enforce mode): the caller's body prompt_cache_key (which
+	// rules 1-8 never read, so a client keying per artifact was pinned by rule 8's hash
+	// instead), the hash of a session id rules 1-3 / 6-7 would read, or the derived prefix
+	// hash. Auth affinity and the upstream routing key are one derivation this way.
+	if key := cliproxyexecutor.WirePromptCacheKeyFromMetadata(metadata); key != "" {
+		return cliproxyexecutor.PromptCacheKeySourceFromMetadata(metadata) + ":" + key, ""
+	}
+
 	// 1. metadata.user_id with Claude Code session format (highest priority)
 	if len(payload) > 0 {
 		userID := gjson.GetBytes(payload, "metadata.user_id").String()
