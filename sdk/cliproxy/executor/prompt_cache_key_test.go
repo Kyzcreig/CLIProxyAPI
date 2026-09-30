@@ -17,7 +17,7 @@ func TestResolvePromptCacheKey_CallerKeyIsPassedThroughUntouched(t *testing.T) {
 	if res.ID != PromptCacheKeyID("fr-abc") || len(res.ID) != 16 {
 		t.Fatalf("id = %q", res.ID)
 	}
-	meta := ApplyPromptCacheKeyMetadata(nil, res, "")
+	meta := ApplyPromptCacheKeyMetadata(nil, res, PromptCacheKeyModeEnforce)
 	if WirePromptCacheKeyFromMetadata(meta) != "fr-abc" {
 		t.Fatalf("the caller key must be the affinity key, verbatim: %#v", meta)
 	}
@@ -34,9 +34,10 @@ func TestResolvePromptCacheKey_SessionSourcesHashOntoTheWire(t *testing.T) {
 		payload  string
 		wantKey  string
 	}{
-		"x-session-id":           {headers: http.Header{"X-Session-Id": {"s1"}}, payload: body, wantKey: "s1"},
-		"codex session_id":       {headers: http.Header{"Session_id": {"s2"}}, payload: body, wantKey: "s2"},
-		"grok conv id":           {headers: http.Header{"X-Grok-Conv-Id": {"s3"}}, payload: body, wantKey: "s3"},
+		"x-session-id": {headers: http.Header{"X-Session-Id": {"s1"}}, payload: body, wantKey: "s1"},
+		// codex Session_id and xAI X-Grok-Conv-Id are vendor-native routing headers: source
+		// caller, forwarded verbatim (TestResolvePromptCacheKey_NativeRoutingHeadersAreCallerKeys).
+		"conversation_id header": {headers: http.Header{"Conversation_id": {"s2"}}, payload: body, wantKey: "s2"},
 		"execution session":      {metadata: map[string]any{ExecutionSessionMetadataKey: "exec-1"}, payload: body, wantKey: "exec-1"},
 		"claude code session":    {payload: `{"model":"m","metadata":{"user_id":"user_abc_account__session_0f0f0f0f-1"},"messages":[{"role":"user","content":"hi"}]}`, wantKey: "0f0f0f0f-1"},
 		"conversation_id":        {payload: `{"model":"m","conversation_id":"conv-9","messages":[{"role":"user","content":"hi"}]}`, wantKey: "conv-9"},
@@ -273,7 +274,7 @@ func TestDerivePromptCacheKey_ResponsesClaudeGeminiShapes(t *testing.T) {
 func TestApplyPromptCacheKeyMetadata_UpdatesInPlace(t *testing.T) {
 	meta := map[string]any{"selected_auth_callback": "cb"}
 	res := ResolvePromptCacheKey("codex", []byte(chatBody), nil, meta)
-	out := ApplyPromptCacheKeyMetadata(meta, res, "")
+	out := ApplyPromptCacheKeyMetadata(meta, res, PromptCacheKeyModeEnforce)
 	if res.Source != PromptCacheKeySourceDerived {
 		t.Fatalf("resolution = %+v", res)
 	}
