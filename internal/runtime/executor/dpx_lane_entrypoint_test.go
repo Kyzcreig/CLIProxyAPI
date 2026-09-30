@@ -181,13 +181,16 @@ func TestDPXAliasLaneGateBeforeDispatch(t *testing.T) {
 			t.Errorf("%s: upstream block %v, want the caller's entrypoint=%s origin=%s untouched", c.lane, fields, c.entrypoint, c.origin)
 		}
 	}
-	// dslx: the lane gate admits sdk-ts (see the table test), but stock CPA's
-	// native-client detection does not confirm an sdk-ts caller, so the alias
-	// route refuses it earlier with native_route_required (t_d25bdc98 finding 1).
-	// Pinned here so the day CPA admits sdk-ts this flips and dslx goes live.
-	calls, _, err := run(t, "dslx", dpxBlock("sdk-ts", "sdk"), "claude-cli/2.1.284 (external, sdk-ts)")
-	var aliasErr contentalias.Error
-	if calls != 0 || !errors.As(err, &aliasErr) || aliasErr != "native_route_required" {
-		t.Errorf("dslx sdk-ts: calls=%d err=%v, want the pre-existing native_route_required", calls, err)
+	// Agent SDK requests must retain their sdk-ts billing block through aliasing.
+	calls, sent, err := run(t, "dslx", dpxBlock("sdk-ts", "sdk"), "claude-cli/2.1.284 (external, sdk-ts)")
+	if err != nil || calls != 1 {
+		t.Fatalf("dslx sdk-ts: calls=%d err=%v, want aliased request forwarded", calls, err)
+	}
+	fields, ok := helps.DPXBillingFields(sent)
+	if !ok || fields["cc_entrypoint"] != "sdk-ts" || fields["cc_turn_origin"] != "sdk" {
+		t.Errorf("dslx sdk-ts: upstream block %v", fields)
+	}
+	if strings.Contains(string(sent), "Hermes") {
+		t.Error("dslx sdk-ts: body not aliased")
 	}
 }
