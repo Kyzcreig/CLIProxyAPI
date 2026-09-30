@@ -1,0 +1,56 @@
+{
+  "method": "POST",
+  "path": "/responses",
+  "headers": {
+    "Accept": [
+      "text/event-stream"
+    ],
+    "Accept-Encoding": [
+      "gzip"
+    ],
+    "Authorization": [
+      "Bearer fleet-wire-upstream-key"
+    ],
+    "Connection": [
+      "Keep-Alive"
+    ],
+    "Content-Length": [
+      "362"
+    ],
+    "Content-Type": [
+      "application/json"
+    ],
+    "Originator": [
+      "codex-tui"
+    ],
+    "Session-Id": [
+      "fb069fcb-5581-5567-9083-01d0d92b246c"
+    ],
+    "User-Agent": [
+      "codex-tui/0.154.0 (Mac OS 26.5.2; arm64) iTerm.app/3.6.11 (codex-tui; 0.154.0)"
+    ]
+  },
+  "body": {
+    "include": [
+      "reasoning.encrypted_content"
+    ],
+    "input": [
+      {
+        "content": "fleet wire probe: summarise the release notes",
+        "role": "user"
+      }
+    ],
+    "instructions": "You are a terse assistant.",
+    "model": "gpt-5.4",
+    "parallel_tool_calls": true,
+    "prompt_cache_key": "fb069fcb-5581-5567-9083-01d0d92b246c",
+    "store": false,
+    "stream": true,
+    "tools": [
+      {
+        "output_format": "png",
+        "type": "image_generation"
+      }
+    ]
+  }
+}
