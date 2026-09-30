@@ -22,6 +22,13 @@ func (e *ClaudeExecutor) prepareDPXAlias(raw []byte, opts execpkg.Options, nativ
 		return nil, nil, contentalias.Error("unsafe_daemon_config")
 	}
 	cfg := e.cfg.DPXContentAlias
+	userAgent := ""
+	if opts.Headers != nil {
+		userAgent = opts.Headers.Get("User-Agent")
+	}
+	if reason := helps.CheckDPXLaneEntrypoint(cfg.Lane, raw, userAgent); reason != "" {
+		return nil, nil, contentalias.Error(reason)
+	}
 	session, err := contentalias.Open(cfg.StoreDirectory, contentalias.Binding{Principal: cfg.Principal, Session: cfg.SessionID, Version: cfg.Version}, contentalias.DefaultManifest())
 	if err != nil {
 		return nil, nil, err

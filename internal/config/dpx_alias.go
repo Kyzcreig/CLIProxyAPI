@@ -8,6 +8,10 @@ type DPXContentAlias struct {
 	Principal      string `yaml:"principal" json:"-"`
 	SessionID      string `yaml:"session-id" json:"-"`
 	Version        string `yaml:"version" json:"version"`
+	// Lane is the grammar-v2 d lane this daemon serves (e.g. "dtlx"). When set,
+	// every request's billing-block entrypoint must be the one that lane's
+	// genuine client emits (helps.CheckDPXLaneEntrypoint); DPX never writes it.
+	Lane string `yaml:"lane" json:"lane"`
 	// Wirelog (site W1): when WirelogSpool is set, every upstream request of an
 	// alias-enabled daemon appends one digest-only v2 row to this file. The
 	// Studio unit keeps it in its RAM state dir and relays rows out.
