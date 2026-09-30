@@ -3032,6 +3032,9 @@ func contextWithRequestedModelAlias(ctx context.Context, opts cliproxyexecutor.O
 			ID:     cliproxyexecutor.PromptCacheKeyIDFromMetadata(opts.Metadata),
 		})
 	}
+	if fp := cliproxyexecutor.PromptFingerprintsFromMetadata(opts.Metadata); fp.Prompt != "" || fp.Prefix != "" {
+		ctx = coreusage.WithPromptFingerprints(ctx, coreusage.PromptFingerprintInfo{Prefix: fp.Prefix, Prompt: fp.Prompt, Parent: fp.Parent})
+	}
 	return ctx
 }
 
@@ -3050,6 +3053,8 @@ func (m *Manager) withPromptCacheKeyPolicy(providers []string, req cliproxyexecu
 	}
 	res := cliproxyexecutor.ResolvePromptCacheKey(strings.Join(providers, ","), payload, opts.Headers, opts.Metadata)
 	opts.Metadata = cliproxyexecutor.ApplyPromptCacheKeyMetadata(opts.Metadata, res, m.promptCachePolicyMode())
+	// Prompt fingerprints (hashes only): usage sinks tell a caller prefix change from a vendor miss.
+	opts.Metadata = cliproxyexecutor.ApplyPromptFingerprintMetadata(opts.Metadata, cliproxyexecutor.ComputePromptFingerprints(payload))
 	return opts
 }
 
