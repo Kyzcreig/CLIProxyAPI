@@ -149,6 +149,18 @@ routing:
   # Ignored when routing.session-affinity is false.
   session-affinity-subagents: true
 
+  # fleet: keys below exist only on the Kyzcreig/CLIProxyAPI `fleet` branch (spec
+  # one-cliproxyapi-lineage D7). A main->fleet merge conflict here is expected; keep them.
+  # fleet: prompt-cache-policy controls the proxy-side prompt-cache resolver for codex/xAI.
+  #   off (default; also when absent or empty): the policy is skipped entirely, no
+  #     cache_key_source labels and no prompt fingerprints (upstream behaviour).
+  #   shadow: labels + prompt fingerprints for usage sinks only; the wire is unchanged.
+  #   enforce: keyless requests get a derived/session key and affinity pins it.
+  #   Any other value warns and runs as shadow. A content-alias daemon
+  #   (dpx-content-alias.enabled: true) must set the literal `off`; anything else is refused.
+  #   Keyless codex/xAI clients get a per-API-key prompt_cache_key default in every mode.
+  # prompt-cache-policy: off
+
   # When true, unprefixed model requests only use credentials without a prefix (except when prefix == model name).
   force-model-prefix: false
 
