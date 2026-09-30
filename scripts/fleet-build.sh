@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # fleet-build.sh - the one build path for the fleet CLIProxyAPI binary (spec
 # one-cliproxyapi-lineage D5). Builds <ref> (default origin/fleet) from a clean detached
-# worktree, with Go VCS stamping ON, and writes the binary OUTSIDE any checkout as
+# checkout (throwaway shared clone), with Go VCS stamping ON, and writes the binary OUTSIDE any checkout as
 #   <out-dir>/cliproxyapi.<sha8>.staged                  (native target)
 #   <out-dir>/cliproxyapi.<sha8>.<goos>-<goarch>.staged  (--target other than native)
 # plus <binary>.pinned: line 1 = full sha (PINNED_COMMIT.txt contract), line 2 = the
@@ -54,10 +54,13 @@ mkdir -p "$out_dir"
 out="$(cd "$out_dir" && pwd)/${name}"
 case "$out" in "$repo"/*) echo "fleet-build: --out-dir must be outside the checkout (vcs.modified)" >&2; exit 2 ;; esac
 
-wt="$(mktemp -d "${TMPDIR:-/tmp}/fleet-build.${sha8}.XXXXXX")"
-cleanup() { git -C "$repo" worktree remove --force "$wt/src" >/dev/null 2>&1 || true; rm -rf "$wt"; }
+# A throwaway shared clone, not a `git worktree`: Go writes no vcs.* stamps when building
+# inside a linked worktree (measured with go1.26.1), which would fail the gate below.
+wt="$(cd "$(mktemp -d "${TMPDIR:-/tmp}/fleet-build.${sha8}.XXXXXX")" && pwd -P)"
+cleanup() { rm -rf "$wt"; }
 trap cleanup EXIT
-git -C "$repo" worktree add -q --detach "$wt/src" "$sha"
+git clone -q --shared --no-checkout "$repo" "$wt/src"
+git -C "$wt/src" checkout -q --detach "$sha"
 
 describe="$(git -C "$wt/src" describe --tags --always "$sha")"
 base="$(git -C "$wt/src" show "${sha}:FLEET-BASE.txt" 2>/dev/null | head -1 | tr -s ' ' '_' || true)"
