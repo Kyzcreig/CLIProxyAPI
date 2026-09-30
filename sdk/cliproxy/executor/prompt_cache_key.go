@@ -19,20 +19,24 @@ import (
 //  1. passthrough - the client opted out (X-Prompt-Cache-Policy: passthrough, or an
 //     explicit empty prompt_cache_key); nothing is derived, attached or pinned. Whatever
 //     the client sent still goes upstream as sent.
-//  2. caller      - the client sent a body prompt_cache_key; forwarded byte for byte.
-//  3. session     - the client sent a session id that is not itself a vendor cache key
-//     (execution session, Claude Code session, X-Session-ID, Session_id, x-grok-conv-id,
-//     conversation ids). Affinity pins on it; the WIRE key is a hash of it, so a
+//  2. caller      - the client sent a body prompt_cache_key, or a vendor-NATIVE routing header
+//     (codex Session_id / Session-Id, xAI x-grok-conv-id): forwarded byte for byte, affinity
+//     pins on the same value. The upstream sees exactly the routing state the client chose.
+//  3. session     - the client sent a session id that is not a vendor cache key (execution
+//     session, Claude Code session, X-Session-ID, Conversation_id, conversation ids, a bare
+//     metadata.user_id). Affinity pins on it; the WIRE key is a hash of it, so a
 //     user/account-bearing identifier is never forwarded to a vendor as a cache key.
 //  4. derived     - "pck-" + sha256(canonical stable prefix)[:32], where the prefix is the
 //     requested model, the system/developer text, the tool definitions and the first
 //     4 KiB of the first user message. Requests that share those bytes share a key, so the
 //     upstream routes them to one machine and the auth selector pins them to one account.
 //
-// Mode (routing.prompt-cache-policy): "enforce" (default) attaches session/derived keys
-// to the wire and feeds the selector; "shadow" only labels the request (usage sinks get
-// cache_key_source / cache_key_id) while the wire and the selector behave as before the
-// policy existed. Shadow is the A/B "before" arm and the runtime kill switch.
+// Mode (routing.prompt-cache-policy): "enforce" attaches caller/session/derived keys to the
+// wire and feeds the selector; "shadow" (the DEFAULT, and what any unset, empty or
+// misspelled value resolves to) only labels the request (usage sinks get cache_key_source /
+// cache_key_id) while the wire and the selector behave as before the policy existed. Shadow
+// is the A/B control arm and the runtime kill switch: a typo in the kill switch can never
+// fail into enforce. Enforce is an explicit opt-in per host.
 const (
 	// PromptCacheKeyMetadataKey carries the wire routing key in Options.Metadata (enforce
 	// mode only): the caller's own key for source caller (so affinity pins on the same key
@@ -88,6 +92,9 @@ func ResolvePromptCacheKey(provider string, payload []byte, headers http.Header,
 			return PromptCacheKeyResolution{Source: PromptCacheKeySourceCaller, Key: key, ID: PromptCacheKeyID(key)}
 		}
 	}
+	if key := nativeRoutingHeader(headers); key != "" {
+		return PromptCacheKeyResolution{Source: PromptCacheKeySourceCaller, Key: key, ID: PromptCacheKeyID(key)}
+	}
 	if sessionID, ok := callerSessionID(payload, headers, metadata); ok {
 		key := hashedPromptCacheKey("session", sessionID)
 		return PromptCacheKeyResolution{Source: PromptCacheKeySourceSession, Key: key, ID: PromptCacheKeyID(key)}
@@ -133,12 +140,21 @@ func ApplyPromptCacheKeyMetadata(metadata map[string]any, res PromptCacheKeyReso
 	return out
 }
 
-// NormalizePromptCacheKeyMode maps a config value to enforce (default) or shadow.
+// NormalizePromptCacheKeyMode maps a config value to enforce or shadow. Only the exact word
+// "enforce" (case-insensitive) enables enforcement; unset, empty and unknown values are
+// shadow, so a misspelled kill switch never fails into enforce. Unknown values are reported
+// by PromptCacheKeyModeUnknown for the config loader to warn about.
 func NormalizePromptCacheKeyMode(mode string) string {
-	if strings.EqualFold(strings.TrimSpace(mode), PromptCacheKeyModeShadow) {
-		return PromptCacheKeyModeShadow
+	if strings.EqualFold(strings.TrimSpace(mode), PromptCacheKeyModeEnforce) {
+		return PromptCacheKeyModeEnforce
 	}
-	return PromptCacheKeyModeEnforce
+	return PromptCacheKeyModeShadow
+}
+
+// PromptCacheKeyModeUnknown reports a non-empty mode value that is neither enforce nor shadow.
+func PromptCacheKeyModeUnknown(mode string) bool {
+	m := strings.ToLower(strings.TrimSpace(mode))
+	return m != "" && m != PromptCacheKeyModeEnforce && m != PromptCacheKeyModeShadow
 }
 
 // PromptCacheKeyModeFromMetadata returns the recorded mode, or "" when unresolved.
@@ -187,6 +203,23 @@ func metadataString(metadata map[string]any, key string) string {
 	}
 }
 
+// nativeRoutingHeaderNames are headers the vendors themselves route by. A value here is
+// forwarded verbatim (source caller), never hashed: hashing would rewrite the routing state
+// the client chose and force a one-time miss.
+var nativeRoutingHeaderNames = []string{"Session_id", "Session-Id", "X-Grok-Conv-Id"}
+
+func nativeRoutingHeader(headers http.Header) string {
+	if headers == nil {
+		return ""
+	}
+	for _, name := range nativeRoutingHeaderNames {
+		if v := strings.TrimSpace(headers.Get(name)); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
 // callerSessionID returns a session identifier the client already sent, in the precedence
 // the session-affinity selector uses for the same fields, so "session" here and the
 // selector's own extraction agree. Per-request ids (X-Client-Request-Id) are not sessions.
@@ -207,7 +240,7 @@ func callerSessionID(payload []byte, headers http.Header, metadata map[string]an
 		}
 	}
 	if headers != nil {
-		for _, name := range []string{"X-Session-ID", "Session-Id", "Session_id", "X-Grok-Conv-Id", "Conversation_id"} {
+		for _, name := range []string{"X-Session-ID", "Conversation_id"} {
 			if v := strings.TrimSpace(headers.Get(name)); v != "" {
 				return v, true
 			}
@@ -370,15 +403,21 @@ func headOf(text string) string {
 }
 
 // canonicalJSON re-encodes raw JSON with sorted object keys and no insignificant
-// whitespace, so two encodings of one tool list hash the same.
+// whitespace, so two encodings of one tool list hash the same. Numbers are kept as their
+// literal digits (no float64 round trip) and <, > and & are not escaped, so the canonical
+// form of a schema with large integers or HTML in a description is its own bytes.
 func canonicalJSON(raw string) string {
+	dec := json.NewDecoder(strings.NewReader(raw))
+	dec.UseNumber()
 	var v any
-	if err := json.Unmarshal([]byte(raw), &v); err != nil {
+	if err := dec.Decode(&v); err != nil {
 		return strings.TrimSpace(raw)
 	}
-	out, err := json.Marshal(v)
-	if err != nil {
+	var buf strings.Builder
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(v); err != nil {
 		return strings.TrimSpace(raw)
 	}
-	return string(out)
+	return strings.TrimSpace(buf.String())
 }

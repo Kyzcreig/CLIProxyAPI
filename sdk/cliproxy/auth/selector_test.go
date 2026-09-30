@@ -2781,6 +2781,17 @@ func TestSessionAffinitySelector_PinsOnResolvedPromptCacheKey(t *testing.T) {
 	}
 }
 
+func TestTruncateSessionID_NeverPrintsACallerKey(t *testing.T) {
+	for _, id := range []string{"caller:fr-1", "caller:fr-0123456789abcdef-repo-diff"} {
+		if got := truncateSessionID(id); got != "caller:..." {
+			t.Fatalf("truncateSessionID(%q) = %q, want caller:...", id, got)
+		}
+	}
+	if got := truncateSessionID("msg:9e80e108efb67fe2"); got != "msg:9e80e108efb67fe2" {
+		t.Fatalf("short native ids still print whole: %q", got)
+	}
+}
+
 // TestSessionCache_HardCapEvictsClosestToExpiry (1e7437e1) is dropped in the v8 re-port: the
 // fork's SetMaxEntries cap is EQUIVALENT-SHIPPED upstream as the LRU capacity in
 // session_cache.go (5679bbf3), covered by TestSessionCache_CapacityEvictionOrder.
