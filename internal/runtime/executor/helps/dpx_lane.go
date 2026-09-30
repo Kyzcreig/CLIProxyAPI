@@ -134,3 +134,32 @@ func CheckDPXLaneEntrypoint(lane string, body []byte, userAgent string) string {
 	}
 	return ""
 }
+
+// ResolveDPXRequestLane gates a request against a unit's lane SET (t_bf75897d)
+// and names the lane it belongs to. It returns the first lane, in configured
+// order, whose policy admits body/userAgent. An empty set is ungated ("", "").
+// Any unparseable lane in the set refuses every request (unknown_lane), and a
+// request no lane admits is refused (lane_entrypoint_mismatch).
+//
+// Ambiguity, stated honestly: the wire does not say whether a cli request came
+// from a t-lane TUI or a bare-lane (dlx) terminal. Both send the same billing
+// block (cc_entrypoint=cli, cc_turn_origin=human) and the same UA
+// "(external, cli)", and no header carries a tty signal. So with
+// lanes [dtlx, dslx, dlx] every cli request is labelled dtlx, sdk-ts dslx and
+// sdk-cli dlx; list the lanes in the order you want ties resolved.
+func ResolveDPXRequestLane(lanes []string, body []byte, userAgent string) (string, string) {
+	if len(lanes) == 0 {
+		return "", ""
+	}
+	for _, lane := range lanes {
+		if _, ok := ResolveDPXLane(lane); !ok {
+			return "", "unknown_lane"
+		}
+	}
+	for _, lane := range lanes {
+		if CheckDPXLaneEntrypoint(lane, body, userAgent) == "" {
+			return strings.TrimSpace(lane), ""
+		}
+	}
+	return "", "lane_entrypoint_mismatch"
+}

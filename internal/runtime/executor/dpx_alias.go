@@ -26,7 +26,7 @@ func (e *ClaudeExecutor) prepareDPXAlias(raw []byte, opts execpkg.Options, nativ
 	if opts.Headers != nil {
 		userAgent = opts.Headers.Get("User-Agent")
 	}
-	if reason := helps.CheckDPXLaneEntrypoint(cfg.Lane, raw, userAgent); reason != "" {
+	if _, reason := helps.ResolveDPXRequestLane(cfg.EffectiveLanes(), raw, userAgent); reason != "" {
 		return nil, nil, contentalias.Error(reason)
 	}
 	session, err := contentalias.Open(cfg.StoreDirectory, contentalias.Binding{Principal: cfg.Principal, Session: cfg.SessionID, Version: cfg.Version}, contentalias.DefaultManifest())
@@ -43,7 +43,7 @@ func (e *ClaudeExecutor) dpxWirelogClient(client *http.Client) *http.Client {
 		return client
 	}
 	cfg := e.cfg.DPXContentAlias
-	return helps.DPXWirelogClient(client, helps.DPXWirelogConfig{Spool: cfg.WirelogSpool, Lane: cfg.WirelogLane, Sub: cfg.WirelogSub, BrandWords: contentalias.DefaultManifest().Words})
+	return helps.DPXWirelogClient(client, helps.DPXWirelogConfig{Spool: cfg.WirelogSpool, Lane: cfg.WirelogLane, Lanes: cfg.Lanes, Sub: cfg.WirelogSub, BrandWords: contentalias.DefaultManifest().Words})
 }
 
 // validateDPXFinalBody enforces that nothing after aliasing changes the upstream

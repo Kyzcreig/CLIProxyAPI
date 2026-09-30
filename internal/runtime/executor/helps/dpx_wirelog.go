@@ -32,8 +32,11 @@ import (
 
 // DPXWirelogConfig names the spool and the row labels.
 type DPXWirelogConfig struct {
-	Spool      string
-	Lane       string
+	Spool string
+	Lane  string
+	// Lanes, when set, labels each row with the lane its request resolves to
+	// (ResolveDPXRequestLane) instead of the static Lane.
+	Lanes      []string
 	Sub        string
 	BrandWords []string
 }
@@ -78,8 +81,18 @@ func (t dpxWirelogTransport) RoundTrip(req *http.Request) (*http.Response, error
 		req.GetBody = func() (io.ReadCloser, error) { return io.NopCloser(bytes.NewReader(raw)), nil }
 	}
 	start := time.Now()
+	lane := t.cfg.Lane
+	if len(t.cfg.Lanes) > 0 {
+		// The gate already admitted this request on the inbound body; the body
+		// that left carries the same billing block (DPX never writes it) and
+		// CPA forwards the caller's UA. "unmatched" would mean they diverged.
+		lane, _ = ResolveDPXRequestLane(t.cfg.Lanes, body, req.Header.Get("User-Agent"))
+		if lane == "" {
+			lane = "unmatched"
+		}
+	}
 	row := map[string]any{
-		"v": 2, "id": dpxRowID(), "lane": t.cfg.Lane, "sub": t.cfg.Sub, "host": dpxHost(),
+		"v": 2, "id": dpxRowID(), "lane": lane, "sub": t.cfg.Sub, "host": dpxHost(),
 		"ts": start.UTC().Format("2006-01-02T15:04:05.000Z"), "capture": "dpx",
 		"req": map[string]any{"method": req.Method, "path": req.URL.RequestURI(), "headers": dpxHeaders(req.Header), "body": DPXBodyDigest(body, t.cfg.BrandWords)},
 	}

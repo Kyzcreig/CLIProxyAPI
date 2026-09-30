@@ -12,10 +12,27 @@ type DPXContentAlias struct {
 	// every request's billing-block entrypoint must be the one that lane's
 	// genuine client emits (helps.CheckDPXLaneEntrypoint); DPX never writes it.
 	Lane string `yaml:"lane" json:"lane"`
+	// Lanes is the set of d lanes one unit serves (e.g. [dtlx, dslx, dlx]).
+	// When non-empty it replaces Lane: a request is admitted when its
+	// entrypoint fits any lane in the set, and its wirelog row is labelled with
+	// the first lane (in this order) that admits it (t_bf75897d).
+	Lanes []string `yaml:"lanes" json:"lanes"`
 	// Wirelog (site W1): when WirelogSpool is set, every upstream request of an
 	// alias-enabled daemon appends one digest-only v2 row to this file. The
 	// Studio unit keeps it in its RAM state dir and relays rows out.
 	WirelogSpool string `yaml:"wirelog-spool" json:"-"`
 	WirelogLane  string `yaml:"wirelog-lane" json:"-"`
 	WirelogSub   string `yaml:"wirelog-sub" json:"-"`
+}
+
+// EffectiveLanes is the lane set the gate enforces: Lanes when set, else the
+// one-element set {Lane}, else nil (ungated legacy lab config).
+func (c DPXContentAlias) EffectiveLanes() []string {
+	if len(c.Lanes) > 0 {
+		return c.Lanes
+	}
+	if c.Lane != "" {
+		return []string{c.Lane}
+	}
+	return nil
 }
