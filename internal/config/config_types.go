@@ -373,6 +373,16 @@ type RoutingConfig struct {
 	// When false, subagents are distributed across the credential pool via the fallback selector.
 	// Default: true. Ignored when SessionAffinity is false.
 	SessionAffinitySubagents *bool `yaml:"session-affinity-subagents,omitempty" json:"session-affinity-subagents,omitempty"`
+
+	// PromptCachePolicy controls the proxy-side prompt-cache routing key for OpenAI-style
+	// upstreams (codex, xai). "enforce" (default): a request that carries no
+	// prompt_cache_key gets one derived from its stable prefix (model + system + tools +
+	// first user message head), or a hash of its session id when it sent one, and session
+	// affinity pins that key to one credential; caller-provided keys are forwarded
+	// untouched. "shadow": the request is only labelled for usage sinks
+	// (cache_key_source / cache_key_id); the wire and the selector behave as before the
+	// policy existed. Shadow is the A/B control arm and the runtime kill switch.
+	PromptCachePolicy string `yaml:"prompt-cache-policy,omitempty" json:"prompt-cache-policy,omitempty"`
 }
 
 // OAuthModelAlias defines a model ID alias for a specific channel.

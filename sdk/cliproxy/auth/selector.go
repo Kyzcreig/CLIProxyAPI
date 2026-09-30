@@ -1062,7 +1062,7 @@ func (s *SessionAffinitySelector) Pick(ctx context.Context, provider, model stri
 		for _, auth := range available {
 			if auth.ID == cachedAuthID {
 				bind(auth.ID)
-				entry.Infof("session-affinity: cache hit | session=%s session_key=%s auth=%s provider=%s model=%s", truncateSessionID(primaryID), sessionLogKey(primaryID), auth.ID, provider, model)
+				entry.Infof("session-affinity: cache hit | session=%s session_key=%s cache_key_source=%s auth=%s provider=%s model=%s", truncateSessionID(primaryID), sessionLogKey(primaryID), cacheKeySourceForLog(opts.Metadata), auth.ID, provider, model)
 				return auth, nil
 			}
 		}
@@ -1075,7 +1075,7 @@ func (s *SessionAffinitySelector) Pick(ctx context.Context, provider, model stri
 			return nil, nil
 		}
 		bind(auth.ID)
-		entry.Infof("session-affinity: cache hit but auth unavailable, reselected | session=%s session_key=%s auth=%s provider=%s model=%s", truncateSessionID(primaryID), sessionLogKey(primaryID), auth.ID, provider, model)
+		entry.Infof("session-affinity: cache hit but auth unavailable, reselected | session=%s session_key=%s cache_key_source=%s auth=%s provider=%s model=%s", truncateSessionID(primaryID), sessionLogKey(primaryID), cacheKeySourceForLog(opts.Metadata), auth.ID, provider, model)
 		return auth, nil
 	}
 
@@ -1086,9 +1086,9 @@ func (s *SessionAffinitySelector) Pick(ctx context.Context, provider, model stri
 					if !isSubagent || s.subagentAffinity {
 						bind(auth.ID)
 						if isFork {
-							entry.Infof("session-affinity: fork cache hit | session=%s session_key=%s parent=%s auth=%s provider=%s model=%s", truncateSessionID(primaryID), sessionLogKey(primaryID), truncateSessionID(fallbackID), auth.ID, provider, model)
+							entry.Infof("session-affinity: fork cache hit | session=%s session_key=%s cache_key_source=%s parent=%s auth=%s provider=%s model=%s", truncateSessionID(primaryID), sessionLogKey(primaryID), cacheKeySourceForLog(opts.Metadata), truncateSessionID(fallbackID), auth.ID, provider, model)
 						} else {
-							entry.Infof("session-affinity: fallback cache hit | session=%s session_key=%s fallback=%s auth=%s provider=%s model=%s", truncateSessionID(primaryID), sessionLogKey(primaryID), truncateSessionID(fallbackID), auth.ID, provider, model)
+							entry.Infof("session-affinity: fallback cache hit | session=%s session_key=%s cache_key_source=%s fallback=%s auth=%s provider=%s model=%s", truncateSessionID(primaryID), sessionLogKey(primaryID), cacheKeySourceForLog(opts.Metadata), truncateSessionID(fallbackID), auth.ID, provider, model)
 						}
 						return auth, nil
 					}
@@ -1106,9 +1106,9 @@ func (s *SessionAffinitySelector) Pick(ctx context.Context, provider, model stri
 	}
 	bind(auth.ID)
 	if isFork && fallbackID != "" {
-		entry.Infof("session-affinity: fork bound to new auth | session=%s session_key=%s parent=%s auth=%s provider=%s model=%s", truncateSessionID(primaryID), sessionLogKey(primaryID), truncateSessionID(fallbackID), auth.ID, provider, model)
+		entry.Infof("session-affinity: fork bound to new auth | session=%s session_key=%s cache_key_source=%s parent=%s auth=%s provider=%s model=%s", truncateSessionID(primaryID), sessionLogKey(primaryID), cacheKeySourceForLog(opts.Metadata), truncateSessionID(fallbackID), auth.ID, provider, model)
 	} else {
-		entry.Infof("session-affinity: cache miss, new binding | session=%s session_key=%s auth=%s provider=%s model=%s", truncateSessionID(primaryID), sessionLogKey(primaryID), auth.ID, provider, model)
+		entry.Infof("session-affinity: cache miss, new binding | session=%s session_key=%s cache_key_source=%s auth=%s provider=%s model=%s", truncateSessionID(primaryID), sessionLogKey(primaryID), cacheKeySourceForLog(opts.Metadata), auth.ID, provider, model)
 	}
 	return auth, nil
 }
@@ -1168,21 +1168,21 @@ func (s *SessionAffinitySelector) pickLCP(ctx context.Context, provider, model s
 					delete(opts.Metadata, cliproxyexecutor.IsCompactionMetadataKey)
 					opts.Metadata[cliproxyexecutor.NodeKindMetadataKey] = "fork"
 				}
-				entry.Infof("session-affinity: LCP fork hit | session=%s session_key=%s parent=%s prefix=%d auth=%s provider=%s model=%s", truncateSessionID(match.SessionID), sessionLogKey(match.SessionID), truncateSessionID(match.ParentSessionID), match.PrefixLength, auth.ID, provider, model)
+				entry.Infof("session-affinity: LCP fork hit | session=%s session_key=%s cache_key_source=%s parent=%s prefix=%d auth=%s provider=%s model=%s", truncateSessionID(match.SessionID), sessionLogKey(match.SessionID), cacheKeySourceForLog(opts.Metadata), truncateSessionID(match.ParentSessionID), match.PrefixLength, auth.ID, provider, model)
 			} else if match.IsCompaction {
 				if opts.Metadata != nil {
 					opts.Metadata[cliproxyexecutor.IsCompactionMetadataKey] = true
 					delete(opts.Metadata, cliproxyexecutor.IsForkMetadataKey)
 					opts.Metadata[cliproxyexecutor.NodeKindMetadataKey] = "compaction"
 				}
-				entry.Infof("session-affinity: LCP compaction hit | session=%s session_key=%s parent=%s prefix=%d auth=%s provider=%s model=%s", truncateSessionID(match.SessionID), sessionLogKey(match.SessionID), truncateSessionID(match.ParentSessionID), match.PrefixLength, auth.ID, provider, model)
+				entry.Infof("session-affinity: LCP compaction hit | session=%s session_key=%s cache_key_source=%s parent=%s prefix=%d auth=%s provider=%s model=%s", truncateSessionID(match.SessionID), sessionLogKey(match.SessionID), cacheKeySourceForLog(opts.Metadata), truncateSessionID(match.ParentSessionID), match.PrefixLength, auth.ID, provider, model)
 			} else {
 				if opts.Metadata != nil {
 					delete(opts.Metadata, cliproxyexecutor.IsForkMetadataKey)
 					delete(opts.Metadata, cliproxyexecutor.IsCompactionMetadataKey)
 					delete(opts.Metadata, cliproxyexecutor.NodeKindMetadataKey)
 				}
-				entry.Infof("session-affinity: LCP cache hit | session=%s session_key=%s prefix=%d auth=%s provider=%s model=%s", truncateSessionID(match.SessionID), sessionLogKey(match.SessionID), match.PrefixLength, auth.ID, provider, model)
+				entry.Infof("session-affinity: LCP cache hit | session=%s session_key=%s cache_key_source=%s prefix=%d auth=%s provider=%s model=%s", truncateSessionID(match.SessionID), sessionLogKey(match.SessionID), cacheKeySourceForLog(opts.Metadata), match.PrefixLength, auth.ID, provider, model)
 			}
 			return auth, true, nil
 		}
@@ -1213,21 +1213,21 @@ func (s *SessionAffinitySelector) pickLCP(ctx context.Context, provider, model s
 				delete(opts.Metadata, cliproxyexecutor.IsCompactionMetadataKey)
 				opts.Metadata[cliproxyexecutor.NodeKindMetadataKey] = "fork"
 			}
-			entry.Infof("session-affinity: LCP fork bound to new auth | session=%s session_key=%s parent=%s auth=%s provider=%s model=%s", truncateSessionID(bindRes.SessionID), sessionLogKey(bindRes.SessionID), truncateSessionID(bindRes.ParentSessionID), auth.ID, provider, model)
+			entry.Infof("session-affinity: LCP fork bound to new auth | session=%s session_key=%s cache_key_source=%s parent=%s auth=%s provider=%s model=%s", truncateSessionID(bindRes.SessionID), sessionLogKey(bindRes.SessionID), cacheKeySourceForLog(opts.Metadata), truncateSessionID(bindRes.ParentSessionID), auth.ID, provider, model)
 		} else if bindRes.IsCompaction {
 			if opts.Metadata != nil {
 				opts.Metadata[cliproxyexecutor.IsCompactionMetadataKey] = true
 				delete(opts.Metadata, cliproxyexecutor.IsForkMetadataKey)
 				opts.Metadata[cliproxyexecutor.NodeKindMetadataKey] = "compaction"
 			}
-			entry.Infof("session-affinity: LCP compaction bound to new auth | session=%s session_key=%s parent=%s auth=%s provider=%s model=%s", truncateSessionID(bindRes.SessionID), sessionLogKey(bindRes.SessionID), truncateSessionID(bindRes.ParentSessionID), auth.ID, provider, model)
+			entry.Infof("session-affinity: LCP compaction bound to new auth | session=%s session_key=%s cache_key_source=%s parent=%s auth=%s provider=%s model=%s", truncateSessionID(bindRes.SessionID), sessionLogKey(bindRes.SessionID), cacheKeySourceForLog(opts.Metadata), truncateSessionID(bindRes.ParentSessionID), auth.ID, provider, model)
 		} else {
 			if opts.Metadata != nil {
 				delete(opts.Metadata, cliproxyexecutor.IsForkMetadataKey)
 				delete(opts.Metadata, cliproxyexecutor.IsCompactionMetadataKey)
 				delete(opts.Metadata, cliproxyexecutor.NodeKindMetadataKey)
 			}
-			entry.Infof("session-affinity: LCP cache miss, new binding | session=%s session_key=%s auth=%s provider=%s model=%s", truncateSessionID(bindRes.SessionID), sessionLogKey(bindRes.SessionID), auth.ID, provider, model)
+			entry.Infof("session-affinity: LCP cache miss, new binding | session=%s session_key=%s cache_key_source=%s auth=%s provider=%s model=%s", truncateSessionID(bindRes.SessionID), sessionLogKey(bindRes.SessionID), cacheKeySourceForLog(opts.Metadata), auth.ID, provider, model)
 		}
 	}
 	return auth, true, nil
@@ -1669,7 +1669,23 @@ func extractExplicitSessionIDs(headers http.Header, payload []byte, metadata map
 // extractSessionIDs returns (primaryID, fallbackID) for session affinity.
 // fallbackID preserves an earlier binding when a stronger body identifier appears
 // later, and lets callers bind both identifiers when both are present.
+// cacheKeySourceForLog names who supplied the routing key on session-affinity log lines.
+func cacheKeySourceForLog(metadata map[string]any) string {
+	if source := cliproxyexecutor.PromptCacheKeySourceFromMetadata(metadata); source != "" {
+		return source
+	}
+	return "unresolved"
+}
+
 func extractSessionIDs(headers http.Header, payload []byte, metadata map[string]any) (string, string) {
+	// 0. The wire routing key the proxy resolved for a caller that sent no prompt_cache_key
+	// (prompt-cache policy, resolved once in the manager; recorded only in enforce mode).
+	// Using it here keeps auth affinity and the upstream key on one derivation instead of
+	// two. Session-sourced keys hash the same ids the explicit rules read, so the binding
+	// is the same session either way; derived keys replace the content-hash fallback.
+	if key := cliproxyexecutor.DerivedPromptCacheKeyFromMetadata(metadata); key != "" {
+		return cliproxyexecutor.PromptCacheKeySourceFromMetadata(metadata) + ":" + key, ""
+	}
 	if primaryID, fallbackID := extractExplicitSessionIDs(headers, payload, metadata); primaryID != "" {
 		return primaryID, fallbackID
 	}

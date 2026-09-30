@@ -355,13 +355,16 @@ func xaiResolveComposerSessionID(ctx context.Context, req cliproxyexecutor.Reque
 		return sessionID, nil
 	}
 	if !xaiRequiresIsolatedConversation(baseModel) {
-		// A client that sends no session gets a stable per-API-key conversation id. xAI routes by
-		// x-grok-conv-id / prompt_cache_key; without one, identical prompts land on arbitrary servers
-		// and only hit the prompt cache by chance (docs.x.ai prompt-caching/maximizing-cache-hits).
-		// Same derivation as the codex chat/completions path. It precedes the derived-session
-		// fallback so the fork's keyless-client wire behaviour is unchanged on this base.
-		if apiKey := strings.TrimSpace(helps.APIKeyFromContext(ctx)); apiKey != "" {
-			return uuid.NewSHA1(uuid.NameSpaceOID, []byte("cli-proxy-api:xai:prompt-cache:"+apiKey)).String(), nil
+		// A client that sends no session gets the conversation id the manager DERIVED from the
+		// request's stable prefix (sdk/cliproxy/executor/prompt_cache_key.go). xAI routes by
+		// x-grok-conv-id / prompt_cache_key; without one, prompts that share a prefix land on
+		// arbitrary servers and only hit the prompt cache by chance (docs.x.ai
+		// prompt-caching/maximizing-cache-hits). A per-API-key id (the previous default) put every
+		// prefix of one caller on one server; a prefix hash shares a server only between requests
+		// that can read each other's cache. It precedes the upstream derived-session fallback so
+		// the fork's keyless-client wire behaviour is unchanged on this base.
+		if key := resolvedPromptCacheKey(ctx, opts, "xai"); key != "" {
+			return key, nil
 		}
 	}
 	if derived := helps.DerivedSessionUUID("xai", opts.Metadata, req.Metadata); derived != "" {

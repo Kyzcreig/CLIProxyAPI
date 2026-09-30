@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"net/http"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -261,4 +262,35 @@ func (m *Manager) ResultPolicy() ResultPolicy {
 		return nil
 	}
 	return holder.policy
+}
+
+// withPromptCacheKeyPolicy resolves the prompt-cache routing key ONCE per request, before
+// auth selection, and records it in opts.Metadata for the selector (affinity), the
+// executors (wire key when the caller sent none) and the usage sinks (attribution).
+// Idempotent: a metadata copy that already carries a source is returned as is, so the
+// retry loop and nested executions do not re-derive.
+func (m *Manager) withPromptCacheKeyPolicy(providers []string, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) cliproxyexecutor.Options {
+	if cliproxyexecutor.PromptCacheKeySourceFromMetadata(opts.Metadata) != "" {
+		return opts
+	}
+	payload := req.Payload
+	if len(payload) == 0 {
+		payload = opts.OriginalRequest
+	}
+	res := cliproxyexecutor.ResolvePromptCacheKey(strings.Join(providers, ","), payload, opts.Headers, opts.Metadata)
+	opts.Metadata = cliproxyexecutor.ApplyPromptCacheKeyMetadata(opts.Metadata, res, m.promptCachePolicyMode())
+	return opts
+}
+
+// promptCachePolicyMode reads routing.prompt-cache-policy from the live config snapshot
+// (hot-reloaded through SetConfig), so flipping enforce<->shadow needs no restart.
+func (m *Manager) promptCachePolicyMode() string {
+	if m == nil {
+		return cliproxyexecutor.PromptCacheKeyModeEnforce
+	}
+	cfg, _ := m.runtimeConfig.Load().(*internalconfig.Config)
+	if cfg == nil {
+		return cliproxyexecutor.PromptCacheKeyModeEnforce
+	}
+	return cliproxyexecutor.NormalizePromptCacheKeyMode(cfg.Routing.PromptCachePolicy)
 }

@@ -7046,29 +7046,36 @@ func TestXAIExecutorFoldsNamespaceNamedWebSearchWithoutAliasing(t *testing.T) {
 // no prompt_cache_key, so identical grok-4.6 prompts seconds apart alternated between a full cache
 // read and a 128-token read (live subs.db 2026-09-27). Non-composer models now fall back to a stable
 // per-API-key id; a client key still wins, and no API key keeps the request stateless.
-func TestXAIExecutorDefaultsConvIDFromAPIKey(t *testing.T) {
+func TestXAIExecutorUsesResolvedPromptCacheKeyForConvID(t *testing.T) {
 	exec := NewXAIExecutor(&config.Config{})
-	recorder := httptest.NewRecorder()
-	ginCtx, _ := gin.CreateTestContext(recorder)
-	ginCtx.Set("userApiKey", "test-api-key")
-	withKey := context.WithValue(context.Background(), "gin", ginCtx)
-	apiKeyID := uuid.NewSHA1(uuid.NameSpaceOID, []byte("cli-proxy-api:xai:prompt-cache:test-api-key")).String()
+	ctx := context.Background()
+	derived := "pck-0123456789abcdef0123456789abcdef"
+	derivedMeta := map[string]any{
+		cliproxyexecutor.PromptCacheKeyMetadataKey:       derived,
+		cliproxyexecutor.PromptCacheKeySourceMetadataKey: cliproxyexecutor.PromptCacheKeySourceDerived,
+		cliproxyexecutor.PromptCacheKeyModeMetadataKey:   cliproxyexecutor.PromptCacheKeyModeEnforce,
+	}
+	passthroughMeta := map[string]any{
+		cliproxyexecutor.PromptCacheKeySourceMetadataKey: cliproxyexecutor.PromptCacheKeySourcePassthrough,
+		cliproxyexecutor.PromptCacheKeyModeMetadataKey:   cliproxyexecutor.PromptCacheKeyModeEnforce,
+	}
 
 	for _, tc := range []struct {
 		name    string
-		ctx     context.Context
+		meta    map[string]any
 		payload string
 		want    string
 	}{
-		{"absent_with_api_key", withKey, `{"model":"grok-4.6","input":"hello"}`, apiKeyID},
-		{"client_key_wins", withKey, `{"model":"grok-4.6","prompt_cache_key":"client-key","input":"hello"}`, "client-key"},
-		{"no_api_key_stays_stateless", context.Background(), `{"model":"grok-4.6","input":"hello"}`, ""},
+		{"absent_uses_derived", derivedMeta, `{"model":"grok-4.6","input":"hello"}`, derived},
+		{"client_key_wins", derivedMeta, `{"model":"grok-4.6","prompt_cache_key":"client-key","input":"hello"}`, "client-key"},
+		{"passthrough_stays_stateless", passthroughMeta, `{"model":"grok-4.6","input":"hello"}`, ""},
+		{"no_policy_no_api_key_stays_stateless", nil, `{"model":"grok-4.6","input":"hello"}`, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			prepared, err := exec.prepareResponsesRequest(tc.ctx, cliproxyexecutor.Request{
+			prepared, err := exec.prepareResponsesRequest(ctx, cliproxyexecutor.Request{
 				Model:   "grok-4.6",
 				Payload: []byte(tc.payload),
-			}, cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatOpenAIResponse, Stream: true}, true)
+			}, cliproxyexecutor.Options{SourceFormat: sdktranslator.FormatOpenAIResponse, Stream: true, Metadata: tc.meta}, true)
 			if err != nil {
 				t.Fatalf("prepareResponsesRequest() error = %v", err)
 			}
