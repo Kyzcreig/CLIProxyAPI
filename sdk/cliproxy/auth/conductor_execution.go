@@ -1606,6 +1606,9 @@ func contextWithRequestedModelAlias(ctx context.Context, opts cliproxyexecutor.O
 			ID:     cliproxyexecutor.PromptCacheKeyIDFromMetadata(opts.Metadata),
 		})
 	}
+	if fp := cliproxyexecutor.PromptFingerprintsFromMetadata(opts.Metadata); fp.Prompt != "" || fp.Prefix != "" {
+		ctx = coreusage.WithPromptFingerprints(ctx, coreusage.PromptFingerprintInfo{Prefix: fp.Prefix, Prompt: fp.Prompt, Parent: fp.Parent})
+	}
 	ctx = coreusage.WithStream(ctx, opts.Stream)
 	return ctx
 }

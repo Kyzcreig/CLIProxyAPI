@@ -320,6 +320,36 @@ func PromptCacheKeyFromContext(ctx context.Context) PromptCacheKeyInfo {
 	return info
 }
 
+type promptFingerprintContextKey struct{}
+
+// PromptFingerprintInfo carries the prompt fingerprints of one request (sha256 hex, 16 chars):
+// the stable head, the whole prompt, and the prompt before its last assistant turn. Never content.
+type PromptFingerprintInfo struct {
+	Prefix string
+	Prompt string
+	Parent string
+}
+
+// WithPromptFingerprints stores the prompt fingerprints for usage sinks.
+func WithPromptFingerprints(ctx context.Context, info PromptFingerprintInfo) context.Context {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if info == (PromptFingerprintInfo{}) {
+		return ctx
+	}
+	return context.WithValue(ctx, promptFingerprintContextKey{}, info)
+}
+
+// PromptFingerprintsFromContext returns the prompt fingerprints stored in ctx.
+func PromptFingerprintsFromContext(ctx context.Context) PromptFingerprintInfo {
+	if ctx == nil {
+		return PromptFingerprintInfo{}
+	}
+	info, _ := ctx.Value(promptFingerprintContextKey{}).(PromptFingerprintInfo)
+	return info
+}
+
 // Plugin consumes usage records emitted by the proxy runtime.
 type Plugin interface {
 	HandleUsage(ctx context.Context, record Record)

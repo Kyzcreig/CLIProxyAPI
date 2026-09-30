@@ -75,6 +75,7 @@ func (p *usageQueuePlugin) HandleUsage(ctx context.Context, record coreusage.Rec
 	}
 	responseServiceTier := strings.TrimSpace(record.ResponseServiceTier)
 	promptCacheKey := coreusage.PromptCacheKeyFromContext(ctx)
+	promptFP := coreusage.PromptFingerprintsFromContext(ctx)
 	responseModel := strings.TrimSpace(record.ResponseModel)
 	clientRequestMetadata := internallogging.GetClientRequestMetadata(ctx)
 	sessionID := strings.TrimSpace(record.SessionID)
@@ -158,6 +159,9 @@ func (p *usageQueuePlugin) HandleUsage(ctx context.Context, record coreusage.Rec
 		ResponseModel:       responseModel,
 		CacheKeySource:      promptCacheKey.Source,
 		CacheKeyID:          promptCacheKey.ID,
+		PrefixFP:            promptFP.Prefix,
+		PromptFP:            promptFP.Prompt,
+		ParentFP:            promptFP.Parent,
 	})
 	if err != nil {
 		return
@@ -193,6 +197,12 @@ type queuedUsageDetail struct {
 	CacheKeySource string `json:"cache_key_source,omitempty"`
 	// CacheKeyID is sha256(wire key)[:16]; never the key. Joins requests that share a key.
 	CacheKeyID string `json:"cache_key_id,omitempty"`
+	// PrefixFP / PromptFP / ParentFP are sha256[:16] prompt fingerprints (never content): the
+	// stable head, the whole prompt, and the prompt before its last assistant turn. A leg whose
+	// ParentFP equals the previous leg's PromptFP sent the vendor an unchanged cacheable prefix.
+	PrefixFP string `json:"prefix_fp,omitempty"`
+	PromptFP string `json:"prompt_fp,omitempty"`
+	ParentFP string `json:"parent_fp,omitempty"`
 }
 
 type requestDetail struct {
