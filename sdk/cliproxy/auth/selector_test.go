@@ -1305,3 +1305,90 @@ func TestSessionLogKey(t *testing.T) {
 		t.Fatalf("empty id should give empty key")
 	}
 }
+
+// t_708c4393: the manager resolves one prompt-cache routing key per request; when it
+// recorded a wire key (enforce mode, sources session/derived) the selector pins on THAT
+// key, so affinity and the upstream prompt_cache_key are one derivation.
+func TestSessionAffinitySelector_PinsOnResolvedPromptCacheKey(t *testing.T) {
+	selector := NewSessionAffinitySelector(&RoundRobinSelector{})
+	auths := []*Auth{{ID: "a"}, {ID: "b"}, {ID: "c"}}
+	body := []byte(`{"model":"gpt-5.4","messages":[{"role":"system","content":"S"},{"role":"user","content":"same prefix"}]}`)
+	enforced := func(key string) cliproxyexecutor.Options {
+		return cliproxyexecutor.Options{OriginalRequest: body, Metadata: map[string]any{
+			cliproxyexecutor.PromptCacheKeyMetadataKey:       key,
+			cliproxyexecutor.PromptCacheKeySourceMetadataKey: cliproxyexecutor.PromptCacheKeySourceDerived,
+			cliproxyexecutor.PromptCacheKeyModeMetadataKey:   cliproxyexecutor.PromptCacheKeyModeEnforce,
+		}}
+	}
+	first, err := selector.Pick(context.Background(), "codex", "gpt-5.4", enforced("pck-1"), auths)
+	if err != nil {
+		t.Fatalf("Pick() error = %v", err)
+	}
+	for i := 0; i < 5; i++ {
+		got, errPick := selector.Pick(context.Background(), "codex", "gpt-5.4", enforced("pck-1"), auths)
+		if errPick != nil || got.ID != first.ID {
+			t.Fatalf("same key must stay on %s, got %v (%v)", first.ID, got, errPick)
+		}
+	}
+	// A different resolved key on the same bytes is a different binding (round-robin moves on).
+	other, err := selector.Pick(context.Background(), "codex", "gpt-5.4", enforced("pck-2"), auths)
+	if err != nil {
+		t.Fatalf("Pick() error = %v", err)
+	}
+	if other.ID == first.ID {
+		t.Fatalf("distinct keys bound to the same auth %s (round-robin should have moved)", first.ID)
+	}
+	// Shadow mode records no wire key: the selector falls back to its own extraction
+	// (rule 8 message hash here), untouched by the policy.
+	shadow := cliproxyexecutor.Options{OriginalRequest: body, Metadata: map[string]any{
+		cliproxyexecutor.PromptCacheKeySourceMetadataKey: cliproxyexecutor.PromptCacheKeySourceDerived,
+		cliproxyexecutor.PromptCacheKeyModeMetadataKey:   cliproxyexecutor.PromptCacheKeyModeShadow,
+	}}
+	primary, _ := extractSessionIDs(nil, body, shadow.Metadata)
+	if strings.HasPrefix(primary, "derived:") || primary == "" {
+		t.Fatalf("shadow mode must use the native extraction, got %q", primary)
+	}
+	if got := cacheKeySourceForLog(shadow.Metadata); got != "derived" {
+		t.Fatalf("cache_key_source for log = %q", got)
+	}
+	if got := cacheKeySourceForLog(nil); got != "unresolved" {
+		t.Fatalf("cache_key_source for log without policy = %q", got)
+	}
+}
+
+func TestSessionCache_HardCapEvictsClosestToExpiry(t *testing.T) {
+	cache := NewSessionCache(time.Hour)
+	defer cache.Stop()
+	cache.SetMaxEntries(3)
+	cache.Set("s1", "a")
+	cache.Set("s2", "b")
+	cache.Set("s3", "c")
+	if cache.Len() != 3 {
+		t.Fatalf("len = %d", cache.Len())
+	}
+	// Refreshing s1 makes it the newest; s2 is now the closest to expiry.
+	if _, ok := cache.GetAndRefresh("s1"); !ok {
+		t.Fatalf("s1 missing")
+	}
+	cache.Set("s4", "d")
+	if cache.Len() != 3 {
+		t.Fatalf("cap not enforced: len = %d", cache.Len())
+	}
+	if _, ok := cache.Get("s2"); ok {
+		t.Fatalf("s2 should have been evicted")
+	}
+	for _, sid := range []string{"s1", "s3", "s4"} {
+		if _, ok := cache.Get(sid); !ok {
+			t.Fatalf("%s should survive", sid)
+		}
+	}
+	// Re-setting an existing key never evicts.
+	cache.Set("s3", "c2")
+	if cache.Len() != 3 {
+		t.Fatalf("update evicted: len = %d", cache.Len())
+	}
+	cache.SetMaxEntries(0)
+	if cache.maxEntries != DefaultSessionCacheMaxEntries {
+		t.Fatalf("SetMaxEntries(0) must restore the default")
+	}
+}

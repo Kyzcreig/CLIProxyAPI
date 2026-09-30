@@ -11,12 +11,19 @@ type sessionEntry struct {
 	expiresAt time.Time
 }
 
+// DefaultSessionCacheMaxEntries bounds the session-to-auth map. Derived prompt-cache keys
+// give every distinct prefix its own binding, so without a cap a key flood (one-shot
+// callers, fuzzers) would grow the map until the TTL sweep; at the cap the entries closest
+// to expiry are evicted first.
+const DefaultSessionCacheMaxEntries = 50000
+
 // SessionCache provides TTL-based session to auth mapping with automatic cleanup.
 type SessionCache struct {
-	mu      sync.RWMutex
-	entries map[string]sessionEntry
-	ttl     time.Duration
-	stopCh  chan struct{}
+	mu         sync.RWMutex
+	entries    map[string]sessionEntry
+	ttl        time.Duration
+	maxEntries int
+	stopCh     chan struct{}
 }
 
 // NewSessionCache creates a cache with the specified TTL.
@@ -26,12 +33,56 @@ func NewSessionCache(ttl time.Duration) *SessionCache {
 		ttl = 30 * time.Minute
 	}
 	c := &SessionCache{
-		entries: make(map[string]sessionEntry),
-		ttl:     ttl,
-		stopCh:  make(chan struct{}),
+		entries:    make(map[string]sessionEntry),
+		ttl:        ttl,
+		maxEntries: DefaultSessionCacheMaxEntries,
+		stopCh:     make(chan struct{}),
 	}
 	go c.cleanupLoop()
 	return c
+}
+
+// SetMaxEntries changes the hard cap on bindings (<= 0 restores the default).
+func (c *SessionCache) SetMaxEntries(n int) {
+	if n <= 0 {
+		n = DefaultSessionCacheMaxEntries
+	}
+	c.mu.Lock()
+	c.maxEntries = n
+	c.mu.Unlock()
+}
+
+// Len reports the number of bindings currently held (expired ones included until swept).
+func (c *SessionCache) Len() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return len(c.entries)
+}
+
+// evictForInsertLocked makes room for one more binding when the cap is reached: expired
+// entries go first, then the entries closest to expiry. Caller holds c.mu.
+func (c *SessionCache) evictForInsertLocked(now time.Time) {
+	if c.maxEntries <= 0 || len(c.entries) < c.maxEntries {
+		return
+	}
+	for sid, entry := range c.entries {
+		if now.After(entry.expiresAt) {
+			delete(c.entries, sid)
+		}
+	}
+	for len(c.entries) >= c.maxEntries {
+		var victim string
+		var victimExpiry time.Time
+		for sid, entry := range c.entries {
+			if victim == "" || entry.expiresAt.Before(victimExpiry) {
+				victim, victimExpiry = sid, entry.expiresAt
+			}
+		}
+		if victim == "" {
+			return
+		}
+		delete(c.entries, victim)
+	}
 }
 
 // Get retrieves the auth ID bound to a session, if still valid.
@@ -85,10 +136,14 @@ func (c *SessionCache) Set(sessionID, authID string) {
 	if sessionID == "" || authID == "" {
 		return
 	}
+	now := time.Now()
 	c.mu.Lock()
+	if _, exists := c.entries[sessionID]; !exists {
+		c.evictForInsertLocked(now)
+	}
 	c.entries[sessionID] = sessionEntry{
 		authID:    authID,
-		expiresAt: time.Now().Add(c.ttl),
+		expiresAt: now.Add(c.ttl),
 	}
 	c.mu.Unlock()
 }

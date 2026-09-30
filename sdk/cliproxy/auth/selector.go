@@ -435,7 +435,7 @@ func (s *SessionAffinitySelector) Pick(ctx context.Context, provider, model stri
 	if cachedAuthID, ok := s.cache.GetAndRefresh(cacheKey); ok {
 		for _, auth := range available {
 			if auth.ID == cachedAuthID {
-				entry.Infof("session-affinity: cache hit | session=%s session_key=%s auth=%s provider=%s model=%s", truncateSessionID(primaryID), sessionLogKey(primaryID), auth.ID, provider, model)
+				entry.Infof("session-affinity: cache hit | session=%s session_key=%s cache_key_source=%s auth=%s provider=%s model=%s", truncateSessionID(primaryID), sessionLogKey(primaryID), cacheKeySourceForLog(opts.Metadata), auth.ID, provider, model)
 				return auth, nil
 			}
 		}
@@ -445,7 +445,7 @@ func (s *SessionAffinitySelector) Pick(ctx context.Context, provider, model stri
 			return nil, err
 		}
 		s.cache.Set(cacheKey, auth.ID)
-		entry.Infof("session-affinity: cache hit but auth unavailable, reselected | session=%s session_key=%s auth=%s provider=%s model=%s", truncateSessionID(primaryID), sessionLogKey(primaryID), auth.ID, provider, model)
+		entry.Infof("session-affinity: cache hit but auth unavailable, reselected | session=%s session_key=%s cache_key_source=%s auth=%s provider=%s model=%s", truncateSessionID(primaryID), sessionLogKey(primaryID), cacheKeySourceForLog(opts.Metadata), auth.ID, provider, model)
 		return auth, nil
 	}
 
@@ -455,7 +455,7 @@ func (s *SessionAffinitySelector) Pick(ctx context.Context, provider, model stri
 			for _, auth := range available {
 				if auth.ID == cachedAuthID {
 					s.cache.Set(cacheKey, auth.ID)
-					entry.Infof("session-affinity: fallback cache hit | session=%s session_key=%s fallback=%s auth=%s provider=%s model=%s", truncateSessionID(primaryID), sessionLogKey(primaryID), truncateSessionID(fallbackID), auth.ID, provider, model)
+					entry.Infof("session-affinity: fallback cache hit | session=%s session_key=%s cache_key_source=%s fallback=%s auth=%s provider=%s model=%s", truncateSessionID(primaryID), sessionLogKey(primaryID), cacheKeySourceForLog(opts.Metadata), truncateSessionID(fallbackID), auth.ID, provider, model)
 					return auth, nil
 				}
 			}
@@ -467,7 +467,7 @@ func (s *SessionAffinitySelector) Pick(ctx context.Context, provider, model stri
 		return nil, err
 	}
 	s.cache.Set(cacheKey, auth.ID)
-	entry.Infof("session-affinity: cache miss, new binding | session=%s session_key=%s auth=%s provider=%s model=%s", truncateSessionID(primaryID), sessionLogKey(primaryID), auth.ID, provider, model)
+	entry.Infof("session-affinity: cache miss, new binding | session=%s session_key=%s cache_key_source=%s auth=%s provider=%s model=%s", truncateSessionID(primaryID), sessionLogKey(primaryID), cacheKeySourceForLog(opts.Metadata), auth.ID, provider, model)
 	return auth, nil
 }
 
@@ -537,7 +537,24 @@ func ExtractSessionID(headers http.Header, payload []byte, metadata map[string]a
 // extractSessionIDs returns (primaryID, fallbackID) for session affinity.
 // primaryID: full hash including assistant response (stable after first turn)
 // fallbackID: short hash without assistant (used to inherit binding from first turn)
+// cacheKeySourceForLog names who supplied the routing key on session-affinity log lines.
+func cacheKeySourceForLog(metadata map[string]any) string {
+	if source := cliproxyexecutor.PromptCacheKeySourceFromMetadata(metadata); source != "" {
+		return source
+	}
+	return "unresolved"
+}
+
 func extractSessionIDs(headers http.Header, payload []byte, metadata map[string]any) (string, string) {
+	// 0. The wire routing key the proxy resolved for a caller that sent no prompt_cache_key
+	// (prompt-cache policy, resolved once in the manager; recorded only in enforce mode).
+	// Using it here keeps auth affinity and the upstream key on one derivation instead of
+	// two. Session-sourced keys hash the same ids rules 1-3 and 6-7 read, so the binding
+	// is the same session either way; derived keys replace rule 8's 100-char hash.
+	if key := cliproxyexecutor.DerivedPromptCacheKeyFromMetadata(metadata); key != "" {
+		return cliproxyexecutor.PromptCacheKeySourceFromMetadata(metadata) + ":" + key, ""
+	}
+
 	// 1. metadata.user_id with Claude Code session format (highest priority)
 	if len(payload) > 0 {
 		userID := gjson.GetBytes(payload, "metadata.user_id").String()
