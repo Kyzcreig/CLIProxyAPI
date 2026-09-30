@@ -16,7 +16,7 @@ import (
 //   - shadow mode, or a request that never went through the policy (direct executor use):
 //     the legacy per-API-key UUID, i.e. the wire behaviour before the policy existed.
 func resolvedPromptCacheKey(ctx context.Context, opts cliproxyexecutor.Options, provider string) string {
-	if key := cliproxyexecutor.DerivedPromptCacheKeyFromMetadata(opts.Metadata); key != "" {
+	if key := cliproxyexecutor.WirePromptCacheKeyFromMetadata(opts.Metadata); key != "" {
 		return key
 	}
 	if cliproxyexecutor.PromptCacheKeyEnforced(opts.Metadata) {

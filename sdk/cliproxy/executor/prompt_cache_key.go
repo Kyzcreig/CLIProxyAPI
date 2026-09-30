@@ -34,8 +34,9 @@ import (
 // cache_key_source / cache_key_id) while the wire and the selector behave as before the
 // policy existed. Shadow is the A/B "before" arm and the runtime kill switch.
 const (
-	// PromptCacheKeyMetadataKey carries the wire routing key in Options.Metadata for
-	// sources session and derived (enforce mode only). Caller keys stay in the body.
+	// PromptCacheKeyMetadataKey carries the wire routing key in Options.Metadata (enforce
+	// mode only): the caller's own key for source caller (so affinity pins on the same key
+	// the upstream routes by), the hashed session id for session, the prefix hash for derived.
 	PromptCacheKeyMetadataKey = "prompt_cache_key"
 	// PromptCacheKeySourceMetadataKey carries the resolution source.
 	PromptCacheKeySourceMetadataKey = "prompt_cache_key_source"
@@ -126,8 +127,7 @@ func ApplyPromptCacheKeyMetadata(metadata map[string]any, res PromptCacheKeyReso
 	if res.ID != "" {
 		out[PromptCacheKeyIDMetadataKey] = res.ID
 	}
-	if mode == PromptCacheKeyModeEnforce && res.Key != "" &&
-		(res.Source == PromptCacheKeySourceDerived || res.Source == PromptCacheKeySourceSession) {
+	if mode == PromptCacheKeyModeEnforce && res.Key != "" && res.Source != PromptCacheKeySourcePassthrough {
 		out[PromptCacheKeyMetadataKey] = res.Key
 	}
 	return out
@@ -151,10 +151,11 @@ func PromptCacheKeyEnforced(metadata map[string]any) bool {
 	return PromptCacheKeyModeFromMetadata(metadata) == PromptCacheKeyModeEnforce
 }
 
-// DerivedPromptCacheKeyFromMetadata returns the wire key recorded by
-// ApplyPromptCacheKeyMetadata (sources session and derived, enforce mode), or "" when the
-// request was caller-keyed, passthrough, or resolved in shadow mode.
-func DerivedPromptCacheKeyFromMetadata(metadata map[string]any) string {
+// WirePromptCacheKeyFromMetadata returns the wire key recorded by
+// ApplyPromptCacheKeyMetadata (sources caller, session and derived; enforce mode), or ""
+// when the request was passthrough or resolved in shadow mode. For source caller it is
+// the caller's own body key verbatim.
+func WirePromptCacheKeyFromMetadata(metadata map[string]any) string {
 	return metadataString(metadata, PromptCacheKeyMetadataKey)
 }
 

@@ -1678,12 +1678,13 @@ func cacheKeySourceForLog(metadata map[string]any) string {
 }
 
 func extractSessionIDs(headers http.Header, payload []byte, metadata map[string]any) (string, string) {
-	// 0. The wire routing key the proxy resolved for a caller that sent no prompt_cache_key
-	// (prompt-cache policy, resolved once in the manager; recorded only in enforce mode).
-	// Using it here keeps auth affinity and the upstream key on one derivation instead of
-	// two. Session-sourced keys hash the same ids the explicit rules read, so the binding
-	// is the same session either way; derived keys replace the content-hash fallback.
-	if key := cliproxyexecutor.DerivedPromptCacheKeyFromMetadata(metadata); key != "" {
+	// 0. The wire routing key the proxy resolved (prompt-cache policy, resolved once in the
+	// manager; recorded only in enforce mode): the caller's body prompt_cache_key (which
+	// the explicit rules never read, so a client keying per artifact was pinned by the
+	// content-hash fallback instead), the hash of a session id the explicit rules would read,
+	// or the derived prefix hash. Auth affinity and the upstream routing key are one
+	// derivation this way.
+	if key := cliproxyexecutor.WirePromptCacheKeyFromMetadata(metadata); key != "" {
 		return cliproxyexecutor.PromptCacheKeySourceFromMetadata(metadata) + ":" + key, ""
 	}
 	if primaryID, fallbackID := extractExplicitSessionIDs(headers, payload, metadata); primaryID != "" {

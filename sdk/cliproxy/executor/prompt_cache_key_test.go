@@ -18,8 +18,8 @@ func TestResolvePromptCacheKey_CallerKeyIsPassedThroughUntouched(t *testing.T) {
 		t.Fatalf("id = %q", res.ID)
 	}
 	meta := ApplyPromptCacheKeyMetadata(nil, res, "")
-	if DerivedPromptCacheKeyFromMetadata(meta) != "" {
-		t.Fatalf("a caller key must never be recorded as derived: %#v", meta)
+	if WirePromptCacheKeyFromMetadata(meta) != "fr-abc" {
+		t.Fatalf("the caller key must be the affinity key, verbatim: %#v", meta)
 	}
 	if PromptCacheKeySourceFromMetadata(meta) != PromptCacheKeySourceCaller || PromptCacheKeyIDFromMetadata(meta) != res.ID {
 		t.Fatalf("metadata = %#v", meta)
@@ -54,7 +54,7 @@ func TestResolvePromptCacheKey_SessionSourcesHashOntoTheWire(t *testing.T) {
 			t.Fatalf("%s: key shape %q", name, res.Key)
 		}
 		meta := ApplyPromptCacheKeyMetadata(nil, res, PromptCacheKeyModeEnforce)
-		if DerivedPromptCacheKeyFromMetadata(meta) != res.Key {
+		if WirePromptCacheKeyFromMetadata(meta) != res.Key {
 			t.Fatalf("%s: session key must reach the wire in enforce mode: %#v", name, meta)
 		}
 	}
@@ -81,7 +81,7 @@ func TestApplyPromptCacheKeyMetadata_ShadowModeLabelsWithoutAWireKey(t *testing.
 		t.Fatalf("resolution = %+v", res)
 	}
 	meta := ApplyPromptCacheKeyMetadata(nil, res, "shadow")
-	if DerivedPromptCacheKeyFromMetadata(meta) != "" {
+	if WirePromptCacheKeyFromMetadata(meta) != "" {
 		t.Fatalf("shadow mode must not put a key on the wire: %#v", meta)
 	}
 	if PromptCacheKeySourceFromMetadata(meta) != PromptCacheKeySourceDerived || PromptCacheKeyIDFromMetadata(meta) != res.ID {
@@ -112,7 +112,7 @@ func TestResolvePromptCacheKey_PassthroughDerivesNothing(t *testing.T) {
 		t.Fatalf("explicit empty key opt-out: %+v", res)
 	}
 	meta := ApplyPromptCacheKeyMetadata(map[string]any{"keep": 1}, res, "")
-	if meta["keep"] != 1 || DerivedPromptCacheKeyFromMetadata(meta) != "" || PromptCacheKeySourceFromMetadata(meta) != PromptCacheKeySourcePassthrough {
+	if meta["keep"] != 1 || WirePromptCacheKeyFromMetadata(meta) != "" || PromptCacheKeySourceFromMetadata(meta) != PromptCacheKeySourcePassthrough {
 		t.Fatalf("metadata = %#v", meta)
 	}
 	// Nothing to hash -> passthrough, never a key shared by every empty request.
@@ -218,7 +218,7 @@ func TestApplyPromptCacheKeyMetadata_UpdatesInPlace(t *testing.T) {
 	if res.Source != PromptCacheKeySourceDerived {
 		t.Fatalf("resolution = %+v", res)
 	}
-	if DerivedPromptCacheKeyFromMetadata(meta) != res.Key || meta["selected_auth_callback"] != "cb" {
+	if WirePromptCacheKeyFromMetadata(meta) != res.Key || meta["selected_auth_callback"] != "cb" {
 		t.Fatalf("caller's map not updated in place: %#v", meta)
 	}
 	if PromptCacheKeyIDFromMetadata(out) != PromptCacheKeyID(res.Key) {
