@@ -349,13 +349,14 @@ type RoutingConfig struct {
 	SessionAffinityTTL string `yaml:"session-affinity-ttl,omitempty" json:"session-affinity-ttl,omitempty"`
 
 	// PromptCachePolicy controls the proxy-side prompt-cache routing key for OpenAI-style
-	// upstreams (codex, xai). "enforce" (default): a request that carries no
-	// prompt_cache_key gets one derived from its stable prefix (model + system + tools +
-	// first user message head), or a hash of its session id when it sent one, and session
-	// affinity pins that key to one credential; caller-provided keys are forwarded
-	// untouched. "shadow": the request is only labelled for usage sinks
-	// (cache_key_source / cache_key_id); the wire and the selector behave as before the
-	// policy existed. Shadow is the A/B control arm and the runtime kill switch.
+	// upstreams (codex, xai). "enforce": a request that carries no prompt_cache_key gets one
+	// derived from its stable prefix (model + system + tools + first user message head), or a
+	// hash of its session id when it sent one, and session affinity pins that key to one
+	// credential; caller-provided keys and vendor-native routing headers are forwarded
+	// untouched. "shadow" (default; also any unset or unrecognised value, with a warning):
+	// the request is only labelled for usage sinks (cache_key_source / cache_key_id); the
+	// wire and the selector behave as before the policy existed. Shadow is the A/B control
+	// arm and the runtime kill switch; enforce is an explicit per-host opt-in.
 	PromptCachePolicy string `yaml:"prompt-cache-policy,omitempty" json:"prompt-cache-policy,omitempty"`
 }
 

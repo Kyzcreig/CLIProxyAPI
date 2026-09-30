@@ -65,6 +65,37 @@ func TestResolvePromptCacheKey_SessionSourcesHashOntoTheWire(t *testing.T) {
 	}
 }
 
+// Vendor-native routing headers are the caller's own routing state: forwarded verbatim and
+// pinned on, never hashed (hashing would force a one-time miss and rewrite what the client chose).
+func TestResolvePromptCacheKey_NativeRoutingHeadersAreCallerKeys(t *testing.T) {
+	for name, headers := range map[string]http.Header{
+		"codex Session_id": {"Session_id": {"sess-codex-1"}},
+		"codex Session-Id": {"Session-Id": {"sess-codex-2"}},
+		"xai conv id":      {"X-Grok-Conv-Id": {"conv-xai-1"}},
+	} {
+		res := ResolvePromptCacheKey("codex", []byte(chatBody), headers, nil)
+		if res.Source != PromptCacheKeySourceCaller {
+			t.Fatalf("%s: source = %q, want caller", name, res.Source)
+		}
+		var want string
+		for _, v := range headers {
+			want = v[0]
+		}
+		if res.Key != want {
+			t.Fatalf("%s: key = %q, want the header value %q verbatim", name, res.Key, want)
+		}
+		meta := ApplyPromptCacheKeyMetadata(nil, res, PromptCacheKeyModeEnforce)
+		if WirePromptCacheKeyFromMetadata(meta) != want {
+			t.Fatalf("%s: affinity must pin on the native header: %#v", name, meta)
+		}
+	}
+	// Body prompt_cache_key still wins over a native header.
+	res := ResolvePromptCacheKey("codex", []byte(`{"model":"m","prompt_cache_key":"body-1","messages":[{"role":"user","content":"hi"}]}`), http.Header{"Session_id": {"sess"}}, nil)
+	if res.Key != "body-1" {
+		t.Fatalf("body key must win over a native header: %+v", res)
+	}
+}
+
 func TestResolvePromptCacheKey_OptOutBeatsEverySource(t *testing.T) {
 	headers := http.Header{"X-Session-Id": {"s1"}}
 	headers.Set(PromptCachePolicyHeader, "passthrough")
@@ -90,13 +121,22 @@ func TestApplyPromptCacheKeyMetadata_ShadowModeLabelsWithoutAWireKey(t *testing.
 	if PromptCacheKeyEnforced(meta) || PromptCacheKeyModeFromMetadata(meta) != PromptCacheKeyModeShadow {
 		t.Fatalf("mode = %q", PromptCacheKeyModeFromMetadata(meta))
 	}
-	for _, raw := range []string{"", "enforce", "ENFORCE", "bogus"} {
-		if NormalizePromptCacheKeyMode(raw) != PromptCacheKeyModeEnforce {
+	// Only the exact word enforces; unset, empty and misspelled values are shadow (a kill-switch
+	// typo must never fail into enforce), and misspellings are reported for a warning.
+	for _, raw := range []string{"enforce", "ENFORCE", " Enforce "} {
+		if NormalizePromptCacheKeyMode(raw) != PromptCacheKeyModeEnforce || PromptCacheKeyModeUnknown(raw) {
 			t.Fatalf("%q must normalise to enforce", raw)
 		}
 	}
-	if NormalizePromptCacheKeyMode(" Shadow ") != PromptCacheKeyModeShadow {
-		t.Fatalf("shadow must normalise to shadow")
+	for _, raw := range []string{"", " Shadow ", "bogus", "enforced", "on", "off"} {
+		if NormalizePromptCacheKeyMode(raw) != PromptCacheKeyModeShadow {
+			t.Fatalf("%q must normalise to shadow", raw)
+		}
+	}
+	for raw, unknown := range map[string]bool{"": false, "shadow": false, "bogus": true, "enforced": true} {
+		if PromptCacheKeyModeUnknown(raw) != unknown {
+			t.Fatalf("PromptCacheKeyModeUnknown(%q) = %v", raw, !unknown)
+		}
 	}
 }
 
@@ -149,6 +189,25 @@ func TestDerivePromptCacheKey_DeterministicAcrossEncodings(t *testing.T) {
 	parts := strings.Replace(chatBody, `"content":"Review this diff: ..."`, `"content":[{"type":"text","text":"Review this diff: ..."}]`, 1)
 	if b := DerivePromptCacheKey("codex", []byte(parts)); b != a {
 		t.Fatalf("text-part content changed the key: %q vs %q", a, b)
+	}
+}
+
+// Pinned canonicalisation vectors: large integers keep their digits (no float64 round trip),
+// HTML characters are not escaped, key order and whitespace are normalised. An upstream
+// re-implementation must reproduce these bytes or every derived key changes.
+func TestCanonicalJSON_PinnedVectors(t *testing.T) {
+	for raw, want := range map[string]string{
+		`[{"b": 1, "a": {"y": 2, "x": [3, 4]}}]`:                 `[{"a":{"x":[3,4],"y":2},"b":1}]`,
+		`[{"max":9007199254740993,"min":-18446744073709551617}]`: `[{"max":9007199254740993,"min":-18446744073709551617}]`,
+		`[{"desc":"a < b && c > d","f":1.50}]`:                   `[{"desc":"a < b && c > d","f":1.50}]`,
+		"[ {\"n\" : \"read_file\" ,\n \"p\" : {} } ]":            `[{"n":"read_file","p":{}}]`,
+	} {
+		if got := canonicalJSON(raw); got != want {
+			t.Fatalf("canonicalJSON(%s) = %s, want %s", raw, got, want)
+		}
+	}
+	if canonicalJSON("not json") != "not json" {
+		t.Fatalf("invalid JSON must pass through trimmed")
 	}
 }
 

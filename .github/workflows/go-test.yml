@@ -4,6 +4,10 @@ name: go-test
 # packages the fork patches so a PR's tests actually execute somewhere.
 on:
   pull_request:
+  push:
+    branches:
+      - 'fix/**'
+      - 'feat/**'
 
 permissions:
   contents: read

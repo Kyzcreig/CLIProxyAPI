@@ -1356,6 +1356,17 @@ func TestSessionAffinitySelector_PinsOnResolvedPromptCacheKey(t *testing.T) {
 	}
 }
 
+func TestTruncateSessionID_NeverPrintsACallerKey(t *testing.T) {
+	for _, id := range []string{"caller:fr-1", "caller:fr-0123456789abcdef-repo-diff"} {
+		if got := truncateSessionID(id); got != "caller:..." {
+			t.Fatalf("truncateSessionID(%q) = %q, want caller:...", id, got)
+		}
+	}
+	if got := truncateSessionID("msg:9e80e108efb67fe2"); got != "msg:9e80e108efb67fe2" {
+		t.Fatalf("short native ids still print whole: %q", got)
+	}
+}
+
 func TestSessionCache_HardCapEvictsClosestToExpiry(t *testing.T) {
 	cache := NewSessionCache(time.Hour)
 	defer cache.Stop()

@@ -481,8 +481,13 @@ func selectorLogEntry(ctx context.Context) *log.Entry {
 	return log.NewEntry(log.StandardLogger())
 }
 
-// truncateSessionID shortens session ID for logging (first 8 chars + "...")
+// truncateSessionID shortens session ID for logging (first 8 chars + "..."). A caller's
+// own routing key (rule 0, "caller:<key>") is never printed, whatever its length: the
+// hashed session_key beside it is the log identity.
 func truncateSessionID(id string) string {
+	if strings.HasPrefix(id, cliproxyexecutor.PromptCacheKeySourceCaller+":") {
+		return cliproxyexecutor.PromptCacheKeySourceCaller + ":..."
+	}
 	if len(id) <= 20 {
 		return id
 	}

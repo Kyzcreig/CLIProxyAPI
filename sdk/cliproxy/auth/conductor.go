@@ -251,6 +251,8 @@ type Manager struct {
 	// runtimeConfig stores the latest application config for request-time decisions.
 	// It is initialized in NewManager; never Load() before first Store().
 	runtimeConfig atomic.Value
+	// promptCachePolicyWarnOnce rate-limits the unknown prompt-cache-policy warning to one line.
+	promptCachePolicyWarnOnce sync.Once
 
 	// Optional HTTP RoundTripper provider injected by host.
 	rtProvider RoundTripperProvider
@@ -3054,11 +3056,16 @@ func (m *Manager) withPromptCacheKeyPolicy(providers []string, req cliproxyexecu
 // (hot-reloaded through SetConfig), so flipping enforce<->shadow needs no restart.
 func (m *Manager) promptCachePolicyMode() string {
 	if m == nil {
-		return cliproxyexecutor.PromptCacheKeyModeEnforce
+		return cliproxyexecutor.PromptCacheKeyModeShadow
 	}
 	cfg, _ := m.runtimeConfig.Load().(*internalconfig.Config)
 	if cfg == nil {
-		return cliproxyexecutor.PromptCacheKeyModeEnforce
+		return cliproxyexecutor.PromptCacheKeyModeShadow
+	}
+	if cliproxyexecutor.PromptCacheKeyModeUnknown(cfg.Routing.PromptCachePolicy) {
+		m.promptCachePolicyWarnOnce.Do(func() {
+			log.Warnf("routing.prompt-cache-policy=%q is not enforce|shadow; running as shadow", cfg.Routing.PromptCachePolicy)
+		})
 	}
 	return cliproxyexecutor.NormalizePromptCacheKeyMode(cfg.Routing.PromptCachePolicy)
 }
