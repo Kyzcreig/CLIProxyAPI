@@ -2736,6 +2736,8 @@ func TestSessionLogKey(t *testing.T) {
 // key, so affinity and the upstream prompt_cache_key are one derivation.
 func TestSessionAffinitySelector_PinsOnResolvedPromptCacheKey(t *testing.T) {
 	selector := NewSessionAffinitySelector(&RoundRobinSelector{})
+	// Real derived keys are "pck-" + 32 hex; short fakes would dodge truncateSessionID.
+	const pck1, pck2 = "pck-11111111111111111111111111111111", "pck-22222222222222222222222222222222"
 	auths := []*Auth{{ID: "a"}, {ID: "b"}, {ID: "c"}}
 	body := []byte(`{"model":"gpt-5.4","messages":[{"role":"system","content":"S"},{"role":"user","content":"same prefix"}]}`)
 	enforced := func(key string) cliproxyexecutor.Options {
@@ -2745,28 +2747,28 @@ func TestSessionAffinitySelector_PinsOnResolvedPromptCacheKey(t *testing.T) {
 			cliproxyexecutor.PromptCacheKeyModeMetadataKey:   cliproxyexecutor.PromptCacheKeyModeEnforce,
 		}}
 	}
-	first, err := selector.Pick(context.Background(), "codex", "gpt-5.4", enforced("pck-1"), auths)
+	first, err := selector.Pick(context.Background(), "codex", "gpt-5.4", enforced(pck1), auths)
 	if err != nil {
 		t.Fatalf("Pick() error = %v", err)
 	}
 	for i := 0; i < 5; i++ {
-		got, errPick := selector.Pick(context.Background(), "codex", "gpt-5.4", enforced("pck-1"), auths)
+		got, errPick := selector.Pick(context.Background(), "codex", "gpt-5.4", enforced(pck1), auths)
 		if errPick != nil || got.ID != first.ID {
 			t.Fatalf("same key must stay on %s, got %v (%v)", first.ID, got, errPick)
 		}
 	}
 	// CB-2 (Momus pass 3): two distinct derived keys must be two distinct affinity identities AND
 	// two distinct logged session_key values (the log identity is a hash of the wire key).
-	id1, _ := extractSessionIDs(nil, body, enforced("pck-1").Metadata)
-	id2, _ := extractSessionIDs(nil, body, enforced("pck-2").Metadata)
-	if id1 != "derived:pck-1" || id2 != "derived:pck-2" {
+	id1, _ := extractSessionIDs(nil, body, enforced(pck1).Metadata)
+	id2, _ := extractSessionIDs(nil, body, enforced(pck2).Metadata)
+	if id1 != "derived:"+pck1 || id2 != "derived:"+pck2 {
 		t.Fatalf("affinity ids = %q, %q; want derived:<wire key>", id1, id2)
 	}
 	if sessionLogKey(id1) == sessionLogKey(id2) || truncateSessionID(id1) != "derived:..." {
 		t.Fatalf("log identity does not follow the wire key: %q / %q / %q", sessionLogKey(id1), sessionLogKey(id2), truncateSessionID(id1))
 	}
 	// A different resolved key on the same bytes is a different binding (round-robin moves on).
-	other, err := selector.Pick(context.Background(), "codex", "gpt-5.4", enforced("pck-2"), auths)
+	other, err := selector.Pick(context.Background(), "codex", "gpt-5.4", enforced(pck2), auths)
 	if err != nil {
 		t.Fatalf("Pick() error = %v", err)
 	}
