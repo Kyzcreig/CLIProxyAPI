@@ -60,6 +60,10 @@ func fleetWireArms() []fleetWireArm {
 		{Name: "codex-keyless-absent", Provider: "codex", Model: "gpt-5.4", Policy: "", Payload: fmt.Sprintf(keyless, "gpt-5.4")},
 		{Name: "xai-keyless-shadow", Provider: "xai", Model: "grok-4.6", Policy: "shadow", Payload: fmt.Sprintf(keyless, "grok-4.6")},
 		{Name: "xai-keyless-enforce", Provider: "xai", Model: "grok-4.6", Policy: "enforce", Payload: fmt.Sprintf(keyless, "grok-4.6")},
+		// Phase 1 `off` arms: the new zero value, explicit and absent.
+		{Name: "codex-keyless-off", Provider: "codex", Model: "gpt-5.4", Policy: "off", Payload: fmt.Sprintf(keyless, "gpt-5.4")},
+		{Name: "xai-keyless-off", Provider: "xai", Model: "grok-4.6", Policy: "off", Payload: fmt.Sprintf(keyless, "grok-4.6")},
+		{Name: "xai-keyless-absent", Provider: "xai", Model: "grok-4.6", Policy: "", Payload: fmt.Sprintf(keyless, "grok-4.6")},
 		// STRIDE: client-supplied look-alikes of the policy metadata must not short-circuit
 		// the resolver (opts.Metadata is built by the handler from a fixed key set).
 		{
@@ -73,6 +77,37 @@ func fleetWireArms() []fleetWireArm {
 // fleetRecordWire drives one request through the real Manager + provider executor against a
 // loopback fake vendor and returns what the vendor received.
 func fleetRecordWire(t *testing.T, arm fleetWireArm) fleetWireRecord {
+	t.Helper()
+	rec, _ := fleetRecordWireWith(t, arm, false)
+	return rec
+}
+
+// fleetRecordWireMeta is fleetRecordWire that also returns a copy of the Options.Metadata the
+// provider executor was called with (captured by a pass-through wrapper around it).
+func fleetRecordWireMeta(t *testing.T, arm fleetWireArm) (fleetWireRecord, map[string]any) {
+	t.Helper()
+	return fleetRecordWireWith(t, arm, true)
+}
+
+// fleetMetaCapture wraps a provider executor and records the metadata of each stream call.
+type fleetMetaCapture struct {
+	cliproxyauth.ProviderExecutor
+	seen chan map[string]any
+}
+
+func (c fleetMetaCapture) ExecuteStream(ctx context.Context, auth *cliproxyauth.Auth, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) (*cliproxyexecutor.StreamResult, error) {
+	cp := make(map[string]any, len(opts.Metadata))
+	for k, v := range opts.Metadata {
+		cp[k] = v
+	}
+	select {
+	case c.seen <- cp:
+	default:
+	}
+	return c.ProviderExecutor.ExecuteStream(ctx, auth, req, opts)
+}
+
+func fleetRecordWireWith(t *testing.T, arm fleetWireArm, captureMeta bool) (fleetWireRecord, map[string]any) {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	records := make(chan fleetWireRecord, 4)
@@ -101,14 +136,20 @@ func fleetRecordWire(t *testing.T, arm fleetWireArm) fleetWireRecord {
 	manager := cliproxyauth.NewManager(nil, &cliproxyauth.RoundRobinSelector{}, nil)
 	manager.SetRetryConfig(0, 0, 0)
 	manager.SetConfig(cfg)
+	var exec cliproxyauth.ProviderExecutor
 	switch arm.Provider {
 	case "codex":
-		manager.RegisterExecutor(runtimeexecutor.NewCodexExecutor(cfg))
+		exec = runtimeexecutor.NewCodexExecutor(cfg)
 	case "xai":
-		manager.RegisterExecutor(runtimeexecutor.NewXAIExecutor(cfg))
+		exec = runtimeexecutor.NewXAIExecutor(cfg)
 	default:
 		t.Fatalf("unknown provider %q", arm.Provider)
 	}
+	seen := make(chan map[string]any, 4)
+	if captureMeta {
+		exec = fleetMetaCapture{ProviderExecutor: exec, seen: seen}
+	}
+	manager.RegisterExecutor(exec)
 	authID := "fleet-wire-" + arm.Name
 	registry.GetGlobalRegistry().RegisterClient(authID, arm.Provider, []*registry.ModelInfo{{ID: arm.Model}})
 	t.Cleanup(func() { registry.GetGlobalRegistry().UnregisterClient(authID) })
@@ -143,11 +184,19 @@ func fleetRecordWire(t *testing.T, arm fleetWireArm) fleetWireRecord {
 	}
 	select {
 	case rec := <-records:
-		return rec
+		if !captureMeta {
+			return rec, nil
+		}
+		select {
+		case meta := <-seen:
+			return rec, meta
+		default:
+			t.Fatalf("%s: executor wrapper saw no call", arm.Name)
+		}
 	default:
 		t.Fatalf("%s: fake vendor received no request", arm.Name)
 	}
-	return fleetWireRecord{}
+	return fleetWireRecord{}, nil
 }
 
 // fleetWireVolatileHeaders are per-request random values upstream generates on every call

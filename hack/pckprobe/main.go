@@ -50,7 +50,9 @@ func main() {
 	rp := cliproxyexecutor.ResolvePromptCacheKey("codex", []byte(`{"model":"m","prompt_cache_key":"fr-1","messages":[{"role":"user","content":"u"}]}`), h, nil)
 	check("passthrough beats caller+session", rp.Source == "passthrough" && rp.Key == "", rp)
 	// mode
-	check("mode default shadow", cliproxyexecutor.NormalizePromptCacheKeyMode("") == "shadow" && cliproxyexecutor.NormalizePromptCacheKeyMode("enforced") == "shadow" && cliproxyexecutor.NormalizePromptCacheKeyMode(" ENFORCE ") == "enforce")
+	absentMode, _ := cliproxyexecutor.PromptCachePolicyModeFromConfig("")
+	typoMode, typoUnknown := cliproxyexecutor.PromptCachePolicyModeFromConfig("enforced")
+	check("mode default off, typo shadow", absentMode == "off" && typoMode == "shadow" && typoUnknown && cliproxyexecutor.NormalizePromptCacheKeyMode(" ENFORCE ") == "enforce")
 	check("mode unknown reported", cliproxyexecutor.PromptCacheKeyModeUnknown("bogus") && !cliproxyexecutor.PromptCacheKeyModeUnknown("") && !cliproxyexecutor.PromptCacheKeyModeUnknown("shadow"))
 	mShadow := cliproxyexecutor.ApplyPromptCacheKeyMetadata(nil, r1, "shadow")
 	check("shadow records no wire key", cliproxyexecutor.WirePromptCacheKeyFromMetadata(mShadow) == "" && cliproxyexecutor.PromptCacheKeySourceFromMetadata(mShadow) == "derived" && cliproxyexecutor.PromptCacheKeyIDFromMetadata(mShadow) == r1.ID)

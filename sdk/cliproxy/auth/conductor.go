@@ -272,9 +272,15 @@ func (m *Manager) ResultPolicy() ResultPolicy {
 // auth selection, and records it in opts.Metadata for the selector (affinity), the
 // executors (wire key when the caller sent none) and the usage sinks (attribution).
 // Idempotent: a metadata copy that already carries a source is returned as is, so the
-// retry loop and nested executions do not re-derive.
+// retry loop and nested executions do not re-derive. In "off" mode (the zero value) opts is
+// returned untouched: no resolver, no fingerprints, no metadata; executors then attach only
+// their keyless-client defaults, exactly as for a request that bypasses the manager.
 func (m *Manager) withPromptCacheKeyPolicy(providers []string, req cliproxyexecutor.Request, opts cliproxyexecutor.Options) cliproxyexecutor.Options {
 	if cliproxyexecutor.PromptCacheKeySourceFromMetadata(opts.Metadata) != "" {
+		return opts
+	}
+	mode := m.promptCachePolicyMode()
+	if mode == cliproxyexecutor.PromptCacheKeyModeOff {
 		return opts
 	}
 	payload := req.Payload
@@ -282,27 +288,30 @@ func (m *Manager) withPromptCacheKeyPolicy(providers []string, req cliproxyexecu
 		payload = opts.OriginalRequest
 	}
 	res := cliproxyexecutor.ResolvePromptCacheKey(strings.Join(providers, ","), payload, opts.Headers, opts.Metadata)
-	opts.Metadata = cliproxyexecutor.ApplyPromptCacheKeyMetadata(opts.Metadata, res, m.promptCachePolicyMode())
+	opts.Metadata = cliproxyexecutor.ApplyPromptCacheKeyMetadata(opts.Metadata, res, mode)
 	// Prompt fingerprints (hashes only): usage sinks tell a caller prefix change from a vendor miss.
 	opts.Metadata = cliproxyexecutor.ApplyPromptFingerprintMetadata(opts.Metadata, cliproxyexecutor.ComputePromptFingerprints(payload))
 	return opts
 }
 
 // promptCachePolicyMode reads routing.prompt-cache-policy from the live config snapshot
-// (hot-reloaded through SetConfig), so flipping enforce<->shadow needs no restart.
+// (hot-reloaded through SetConfig), so flipping off|shadow|enforce needs no restart. A nil
+// manager or config, and an absent key, run as off (upstream behaviour).
 func (m *Manager) promptCachePolicyMode() string {
 	if m == nil {
-		return cliproxyexecutor.PromptCacheKeyModeShadow
+		return cliproxyexecutor.PromptCacheKeyModeOff
 	}
 	cfg, _ := m.runtimeConfig.Load().(*internalconfig.Config)
 	if cfg == nil {
-		return cliproxyexecutor.PromptCacheKeyModeShadow
+		return cliproxyexecutor.PromptCacheKeyModeOff
 	}
-	if raw := cfg.Routing.PromptCachePolicy; cliproxyexecutor.PromptCacheKeyModeUnknown(raw) {
+	raw := cfg.Routing.PromptCachePolicy
+	mode, unknown := cliproxyexecutor.PromptCachePolicyModeFromConfig(raw)
+	if unknown {
 		if last, _ := m.promptCachePolicyWarned.Load().(string); last != raw {
 			m.promptCachePolicyWarned.Store(raw)
-			log.Warnf("routing.prompt-cache-policy=%q is not enforce|shadow; running as shadow", raw)
+			log.Warnf("routing.prompt-cache-policy=%q is not off|shadow|enforce; running as shadow", raw)
 		}
 	}
-	return cliproxyexecutor.NormalizePromptCacheKeyMode(cfg.Routing.PromptCachePolicy)
+	return mode
 }
