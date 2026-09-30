@@ -19,6 +19,7 @@ func TestUsageQueuePluginPayloadIncludesStableFieldsAndSuccess(t *testing.T) {
 		ctx = internallogging.WithEndpoint(ctx, "POST /v1/chat/completions")
 		ctx = internallogging.WithResponseStatusHolder(ctx)
 		ctx = coreusage.WithPromptCacheKey(ctx, coreusage.PromptCacheKeyInfo{Source: "derived", ID: "0123456789abcdef"})
+		ctx = coreusage.WithPromptFingerprints(ctx, coreusage.PromptFingerprintInfo{Prefix: "1111111111111111", Prompt: "2222222222222222", Parent: "3333333333333333"})
 		internallogging.SetResponseStatus(ctx, http.StatusOK)
 		responseHeaders := http.Header{}
 		responseHeaders.Add("X-Upstream-Request-Id", "upstream-req-1")
@@ -63,6 +64,9 @@ func TestUsageQueuePluginPayloadIncludesStableFieldsAndSuccess(t *testing.T) {
 		requireStringField(t, payload, "response_service_tier", "default")
 		requireStringField(t, payload, "cache_key_source", "derived")
 		requireStringField(t, payload, "cache_key_id", "0123456789abcdef")
+		requireStringField(t, payload, "prefix_fp", "1111111111111111")
+		requireStringField(t, payload, "prompt_fp", "2222222222222222")
+		requireStringField(t, payload, "parent_fp", "3333333333333333")
 		requireHeaderField(t, payload, "response_headers", "X-Upstream-Request-Id", []string{"upstream-req-1"})
 		requireHeaderField(t, payload, "response_headers", "Retry-After", []string{"30"})
 		requireBoolField(t, payload, "failed", false)
