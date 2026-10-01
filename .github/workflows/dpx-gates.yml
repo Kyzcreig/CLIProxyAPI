@@ -1,0 +1,72 @@
+name: dpx-gates
+
+# The six DPX lab_gate.py arms (spec one-cliproxyapi-lineage D5, §7 Phase 2) run against
+# this checkout: build, alias_proofs, wire_capture, signer_equiv, cli_window, model_catalog.
+# A GitHub runner has no pinned Claude Code binary, no macOS sandbox-exec and no cch.js, so
+# the three CLI arms run their hermetic forms (--no-cli; summary.json says
+# `mode: hermetic-no-cli`); the genuine-CLI forms are the fleet-host run (update lane).
+# Fleet hosts deny local `go test`, so this is where the alias/wire gates execute.
+on:
+  pull_request:
+    paths:
+      - 'internal/contentalias/**'
+      - 'internal/config/**'
+      - 'internal/runtime/executor/**'
+      - 'cmd/dpx-*/**'
+      - 'cmd/server/**'
+      - 'test/**'
+      - 'scripts/dpx/**'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/dpx-gates.yml'
+  push:
+    branches:
+      - fleet
+      - 'feat/dpx-**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dpx-gates-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dpx-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: lab_gate (6 arms, hermetic)
+        env:
+          # The fleet CLI pin and the Claude model ids DPX units route (model_catalog arm).
+          DPX_CLI_PIN: '2.1.283'
+          DPX_MODELS: 'claude-haiku-4-5-20251001,claude-sonnet-4-6,claude-opus-5-5'
+        run: |
+          python3 scripts/dpx/lab_gate.py --source . --out "$RUNNER_TEMP/dpx-gates" \
+            --cli-version "$DPX_CLI_PIN" --models "$DPX_MODELS" --no-cli
+      - name: gate summary
+        if: always()
+        run: |
+          python3 - "$RUNNER_TEMP/dpx-gates/summary.json" <<'EOF'
+          import json, sys
+          s = json.load(open(sys.argv[1]))
+          print('sha', s['sha'], 'green', s['green'], 'cli_present', s['cli_present'])
+          for k, v in s['gates'].items():
+              print('%-14s %-5s %s' % (k, 'PASS' if v['pass'] else 'FAIL', v.get('mode', 'genuine')))
+              if not v['pass']:
+                  print(v.get('tail') or v.get('reason') or v)
+          EOF
+      - name: upload summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dpx-gates-summary
+          path: ${{ runner.temp }}/dpx-gates/summary.json
+          if-no-files-found: ignore

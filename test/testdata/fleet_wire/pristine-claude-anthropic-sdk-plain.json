@@ -1,0 +1,31 @@
+{
+  "method": "POST",
+  "path": "/v1/messages",
+  "headers": {
+    "Accept": [
+      "application/json"
+    ],
+    "Accept-Encoding": [
+      "gzip, deflate, br, zstd"
+    ],
+    "Anthropic-Version": [
+      "2023-06-01"
+    ],
+    "Authorization": [
+      "Bearer fleet-claude-wire-upstream-key"
+    ],
+    "Content-Length": [
+      "189"
+    ],
+    "Content-Type": [
+      "application/json"
+    ],
+    "User-Agent": [
+      "anthropic-sdk-python/0.49.0"
+    ],
+    "X-Stainless-Lang": [
+      "python"
+    ]
+  },
+  "body": "{\"model\":\"claude-sonnet-4-6\",\"max_tokens\":128,\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"fleet wire probe: say ok\",\"cache_control\":{\"type\":\"ephemeral\"}}]}],\"stream\":false}"
+}

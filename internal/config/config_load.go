@@ -206,6 +206,13 @@ func LoadConfigOptional(configFile string, optional bool) (*Config, error) {
 	// Validate raw payload rules and drop invalid entries.
 	cfg.SanitizePayloadRules()
 
+	// Content-alias daemon shape (D4): snapshot the credential count at load so the
+	// alias seam can refuse a multi-credential (shared-proxy) shape. Alias-off
+	// deployments skip this entirely.
+	if cfg.DPXContentAlias.Enabled {
+		cfg.DPXContentAlias.SnapshotAuthFiles(cfg.AuthDir)
+	}
+
 	// Only conflicting legacy fields are removed on load. A legacy-only document
 	// stays legacy until a v8 configuration write explicitly migrates it.
 	current, errRead := os.ReadFile(configFile)

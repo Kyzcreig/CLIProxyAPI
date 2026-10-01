@@ -1,0 +1,31 @@
+{
+  "method": "POST",
+  "path": "/v1/messages",
+  "headers": {
+    "Accept": [
+      "text/event-stream"
+    ],
+    "Accept-Encoding": [
+      "identity"
+    ],
+    "Anthropic-Version": [
+      "2023-06-01"
+    ],
+    "Authorization": [
+      "Bearer fleet-claude-wire-upstream-key"
+    ],
+    "Content-Length": [
+      "260"
+    ],
+    "Content-Type": [
+      "application/json"
+    ],
+    "User-Agent": [
+      "claude-cli/2.1.283 (external, sdk-cli)"
+    ],
+    "X-App": [
+      "cli"
+    ]
+  },
+  "body": "{\"model\":\"claude-sonnet-4-6\",\"max_tokens\":128,\"stream\":true,\"system\":\"Hermes\",\"messages\":[{\"role\":\"user\",\"content\":\"hi\"},{\"role\":\"assistant\",\"content\":\"hello\"},{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"and now?\",\"cache_control\":{\"type\":\"ephemeral\"}}]}]}"
+}

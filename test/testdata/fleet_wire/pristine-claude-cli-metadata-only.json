@@ -1,0 +1,67 @@
+{
+  "method": "POST",
+  "path": "/v1/messages",
+  "headers": {
+    "Accept": [
+      "application/json"
+    ],
+    "Accept-Encoding": [
+      "gzip, deflate, br, zstd"
+    ],
+    "Anthropic-Beta": [
+      "claude-code-20250219,oauth-2025-04-20"
+    ],
+    "Anthropic-Dangerous-Direct-Browser-Access": [
+      "true"
+    ],
+    "Anthropic-Version": [
+      "2023-06-01"
+    ],
+    "Authorization": [
+      "Bearer fleet-claude-wire-upstream-key"
+    ],
+    "Connection": [
+      "keep-alive"
+    ],
+    "Content-Length": [
+      "336"
+    ],
+    "Content-Type": [
+      "application/json"
+    ],
+    "User-Agent": [
+      "claude-cli/2.1.283 (external, cli)"
+    ],
+    "X-App": [
+      "cli"
+    ],
+    "X-Claude-Code-Session-Id": [
+      "\u003cvolatile\u003e"
+    ],
+    "X-Stainless-Arch": [
+      "x64"
+    ],
+    "X-Stainless-Lang": [
+      "js"
+    ],
+    "X-Stainless-Os": [
+      "Linux"
+    ],
+    "X-Stainless-Package-Version": [
+      "0.112.1"
+    ],
+    "X-Stainless-Retry-Count": [
+      "0"
+    ],
+    "X-Stainless-Runtime": [
+      "node"
+    ],
+    "X-Stainless-Runtime-Version": [
+      "v26.3.0"
+    ],
+    "X-Stainless-Timeout": [
+      "600"
+    ]
+  },
+  "body": "{\"model\":\"claude-haiku-4-5-20251001\",\"max_tokens\":64,\"metadata\":{\"user_id\":\"{\\\"device_id\\\":\\\"0000000000000000000000000000000000000000000000000000000000000000\\\",\\\"account_uuid\\\":\\\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\\\",\\\"session_id\\\":\\\"11111111-2222-4333-8444-555555555555\\\"}\"},\"messages\":[{\"role\":\"user\",\"content\":\"ok\"}],\"stream\":false}"
+}

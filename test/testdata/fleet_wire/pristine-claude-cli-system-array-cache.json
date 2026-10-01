@@ -1,0 +1,43 @@
+{
+  "method": "POST",
+  "path": "/v1/messages",
+  "headers": {
+    "Accept": [
+      "text/event-stream"
+    ],
+    "Accept-Encoding": [
+      "identity"
+    ],
+    "Anthropic-Beta": [
+      "claude-code-20250219,oauth-2025-04-20"
+    ],
+    "Anthropic-Version": [
+      "2023-06-01"
+    ],
+    "Authorization": [
+      "Bearer fleet-claude-wire-upstream-key"
+    ],
+    "Content-Length": [
+      "308"
+    ],
+    "Content-Type": [
+      "application/json"
+    ],
+    "User-Agent": [
+      "claude-cli/2.1.283 (external, cli)"
+    ],
+    "X-App": [
+      "cli"
+    ],
+    "X-Stainless-Lang": [
+      "js"
+    ],
+    "X-Stainless-Package-Version": [
+      "0.52.0"
+    ],
+    "X-Stainless-Runtime": [
+      "node"
+    ]
+  },
+  "body": "{\"model\":\"claude-opus-5-5\",\"max_tokens\":512,\"stream\":true,\"system\":[{\"type\":\"text\",\"text\":\"You are Claude Code, Anthropic's official CLI for Claude.\",\"cache_control\":{\"type\":\"ephemeral\"}},{\"type\":\"text\",\"text\":\"Hermes sandbox\"}],\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"read sandbox\"}]}]}"
+}

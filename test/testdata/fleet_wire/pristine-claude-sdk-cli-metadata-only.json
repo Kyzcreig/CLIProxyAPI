@@ -1,0 +1,31 @@
+{
+  "method": "POST",
+  "path": "/v1/messages",
+  "headers": {
+    "Accept": [
+      "application/json"
+    ],
+    "Accept-Encoding": [
+      "gzip, deflate, br, zstd"
+    ],
+    "Anthropic-Version": [
+      "2023-06-01"
+    ],
+    "Authorization": [
+      "Bearer fleet-claude-wire-upstream-key"
+    ],
+    "Content-Length": [
+      "398"
+    ],
+    "Content-Type": [
+      "application/json"
+    ],
+    "User-Agent": [
+      "claude-cli/2.1.283 (external, sdk-cli)"
+    ],
+    "X-App": [
+      "cli"
+    ]
+  },
+  "body": "{\"model\":\"claude-haiku-4-5-20251001\",\"max_tokens\":64,\"metadata\":{\"user_id\":\"{\\\"device_id\\\":\\\"0000000000000000000000000000000000000000000000000000000000000000\\\",\\\"account_uuid\\\":\\\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\\\",\\\"session_id\\\":\\\"11111111-2222-4333-8444-555555555555\\\"}\"},\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"ok\",\"cache_control\":{\"type\":\"ephemeral\"}}]}],\"stream\":false}"
+}

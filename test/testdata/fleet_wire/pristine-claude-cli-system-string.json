@@ -1,0 +1,43 @@
+{
+  "method": "POST",
+  "path": "/v1/messages",
+  "headers": {
+    "Accept": [
+      "text/event-stream"
+    ],
+    "Accept-Encoding": [
+      "identity"
+    ],
+    "Anthropic-Beta": [
+      "claude-code-20250219,oauth-2025-04-20"
+    ],
+    "Anthropic-Version": [
+      "2023-06-01"
+    ],
+    "Authorization": [
+      "Bearer fleet-claude-wire-upstream-key"
+    ],
+    "Content-Length": [
+      "299"
+    ],
+    "Content-Type": [
+      "application/json"
+    ],
+    "User-Agent": [
+      "claude-cli/2.1.283 (external, cli)"
+    ],
+    "X-App": [
+      "cli"
+    ],
+    "X-Stainless-Lang": [
+      "js"
+    ],
+    "X-Stainless-Package-Version": [
+      "0.52.0"
+    ],
+    "X-Stainless-Runtime": [
+      "node"
+    ]
+  },
+  "body": "{\"model\":\"claude-sonnet-4-6\",\"max_tokens\":256,\"stream\":true,\"system\":[{\"type\":\"text\",\"text\":\"You are Hermes, a terse assistant.\",\"cache_control\":{\"type\":\"ephemeral\"}}],\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"summarise the release notes\",\"cache_control\":{\"type\":\"ephemeral\"}}]}]}"
+}

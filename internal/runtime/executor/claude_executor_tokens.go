@@ -54,6 +54,9 @@ func (e *ClaudeExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.Aut
 
 	// Custom API-key gateways without a native count_tokens contract continue to
 	// use the local estimator without injecting generation-only CLI instructions.
+	_, detection := detectIncomingClaudeCodeRequest(ctx, opts.Headers, req.Payload, true, e.cfg)
+	body, _, aliasErr := e.prepareDPXAlias(body, opts, detection.Confirmed, false)
+	if aliasErr != nil { return cliproxyexecutor.Response{}, aliasErr }
 	count, err := helps.CountClaudeInputTokens(body)
 	if err != nil {
 		return cliproxyexecutor.Response{}, fmt.Errorf("claude executor: token counting failed: %w", err)
@@ -217,6 +220,8 @@ func (e *ClaudeExecutor) countTokensUpstream(ctx context.Context, auth *cliproxy
 	if errMidSystem := validateClaudeMidSystemMessageModel(body, confirmedClaudeCode, directAnthropic); errMidSystem != nil {
 		return cliproxyexecutor.Response{}, errMidSystem
 	}
+	body, _, aliasErr := e.prepareDPXAlias(body, opts, confirmedClaudeCode, cloaked)
+	if aliasErr != nil { return cliproxyexecutor.Response{}, aliasErr }
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return cliproxyexecutor.Response{}, err
@@ -243,12 +248,17 @@ func (e *ClaudeExecutor) countTokensUpstream(ctx context.Context, auth *cliproxy
 	})
 
 	httpClient := helps.NewUtlsHTTPClient(ctx, e.cfg, auth, 0)
+	httpClient = e.dpxWirelogClient(httpClient)
 	resp, err := doClaudeUpstreamRequest(httpClient, httpReq)
 	if err != nil {
 		helps.RecordAPIResponseError(ctx, e.cfg, err)
 		return cliproxyexecutor.Response{}, err
 	}
 	helps.RecordAPIResponseMetadata(ctx, e.cfg, resp.StatusCode, resp.Header.Clone())
+	if e.dpxAliasEnabled() && (resp.StatusCode < 200 || resp.StatusCode >= 300) {
+		resp.Body.Close()
+		return cliproxyexecutor.Response{}, dpxAliasHTTPError{resp.StatusCode}
+	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		// Decompress error responses — pass the Content-Encoding value (may be empty)
 		// and let decodeResponseBody handle both header-declared and magic-byte-detected
