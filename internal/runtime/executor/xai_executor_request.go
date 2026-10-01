@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -343,11 +344,25 @@ func applyXAIChatHeaders(r *http.Request, auth *cliproxyauth.Auth, token string,
 	if xaiIsCLIChatProxyBaseURL(xaiChatBaseURL(auth)) {
 		r.Header.Set(xaiTokenAuthHeader, xaiTokenAuthValue)
 		r.Header.Set(xaiClientVersionHeader, xaiClientVersionValue)
-		r.Header.Set("User-Agent", "xai-grok-workspace/"+xaiClientVersionValue)
+		r.Header.Set("User-Agent", xaiCLIUserAgent(runtime.GOOS, runtime.GOARCH))
 		r.Header.Set(xaiClientIdentifierHeader, xaiClientIdentifierValue)
 		r.Header.Set(xaiAuthenticateResponseHeader, xaiAuthenticateResponseValue)
+		r.Header.Set(xaiClientModeHeader, xaiClientModeValue)
 	}
 	applyXAICustomHeaders(r, auth, clientHeaders...)
+}
+
+// xaiCLIUserAgent renders the Grok CLI user agent, e.g. "grok-shell/1.0.46 (macos; aarch64)".
+func xaiCLIUserAgent(goos, goarch string) string {
+	osName := map[string]string{"darwin": "macos"}[goos]
+	if osName == "" {
+		osName = goos
+	}
+	arch := map[string]string{"arm64": "aarch64", "amd64": "x86_64"}[goarch]
+	if arch == "" {
+		arch = goarch
+	}
+	return "grok-shell/" + xaiClientVersionValue + " (" + osName + "; " + arch + ")"
 }
 
 func xaiResolveComposerSessionID(ctx context.Context, req cliproxyexecutor.Request, opts cliproxyexecutor.Options, baseModel string) (string, error) {

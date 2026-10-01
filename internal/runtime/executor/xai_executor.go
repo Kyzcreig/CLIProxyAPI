@@ -57,6 +57,11 @@ const (
 	xaiClientIdentifierValue      = "grok-shell"
 	xaiAuthenticateResponseHeader = "x-authenticateresponse"
 	xaiAuthenticateResponseValue  = "authenticate-response"
+	// x-grok-client-mode and the grok-shell User-Agent complete the identity the real Grok CLI
+	// sends to chat-proxy (mitm capture of grok 1.0.45 c33bff361a6f, 2026-09-30, t_f1437191).
+	// Upstream e400d719 ships the identifier/authenticate-response pair above.
+	xaiClientModeHeader = "x-grok-client-mode"
+	xaiClientModeValue  = "headless"
 	// xaiUsingAPIAttr enables the official API path for HTTP chat and media.
 	xaiUsingAPIAttr = "using_api"
 )
