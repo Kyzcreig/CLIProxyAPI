@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/auth/codex"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
@@ -21,6 +22,9 @@ type LoginOptions struct {
 
 	// CallbackPort overrides the local OAuth callback port when set (>0).
 	CallbackPort int
+
+	// CallbackTimeout overrides the callback/paste wait when set (>0).
+	CallbackTimeout time.Duration
 
 	// Prompt allows the caller to provide interactive input when needed.
 	Prompt func(prompt string) (string, error)
@@ -46,10 +50,11 @@ func DoCodexLogin(cfg *config.Config, options *LoginOptions) {
 	manager := newAuthManager()
 
 	authOpts := &sdkAuth.LoginOptions{
-		NoBrowser:    options.NoBrowser,
-		CallbackPort: options.CallbackPort,
-		Metadata:     map[string]string{},
-		Prompt:       promptFn,
+		NoBrowser:       options.NoBrowser,
+		CallbackPort:    options.CallbackPort,
+		CallbackTimeout: options.CallbackTimeout,
+		Metadata:        map[string]string{},
+		Prompt:          promptFn,
 	}
 
 	_, savedPath, err := manager.Login(context.Background(), "codex", cfg, authOpts)

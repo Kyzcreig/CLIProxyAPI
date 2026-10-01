@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -6180,6 +6181,18 @@ func TestXAICompactBaseURL(t *testing.T) {
 	}
 }
 
+func TestXAICLIUserAgent(t *testing.T) {
+	for _, tc := range []struct{ goos, goarch, want string }{
+		{"darwin", "arm64", "grok-shell/" + xaiClientVersionValue + " (macos; aarch64)"}, // captured shape
+		{"linux", "amd64", "grok-shell/" + xaiClientVersionValue + " (linux; x86_64)"},
+		{"windows", "386", "grok-shell/" + xaiClientVersionValue + " (windows; 386)"},
+	} {
+		if got := xaiCLIUserAgent(tc.goos, tc.goarch); got != tc.want {
+			t.Fatalf("xaiCLIUserAgent(%q, %q) = %q, want %q", tc.goos, tc.goarch, got, tc.want)
+		}
+	}
+}
+
 func TestApplyXAIChatHeaders(t *testing.T) {
 	t.Run("non OAuth defaults to official API headers", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "https://example.invalid/responses", nil)
@@ -6200,7 +6213,7 @@ func TestApplyXAIChatHeaders(t *testing.T) {
 		if got := req.Header.Get(xaiClientVersionHeader); got != "" {
 			t.Fatalf("%s = %q, want empty for official API", xaiClientVersionHeader, got)
 		}
-		for _, header := range []string{"x-grok-client-identifier", "x-authenticateresponse"} {
+		for _, header := range []string{"x-grok-client-identifier", "x-authenticateresponse", "x-grok-client-mode"} {
 			if got := req.Header.Get(header); got != "" {
 				t.Fatalf("%s = %q, want empty for official API", header, got)
 			}
@@ -6238,8 +6251,11 @@ func TestApplyXAIChatHeaders(t *testing.T) {
 		if got := req.Header.Get("x-authenticateresponse"); got != "authenticate-response" {
 			t.Fatalf("x-authenticateresponse = %q, want authenticate-response", got)
 		}
-		if got := req.Header.Get("User-Agent"); got != "xai-grok-workspace/"+xaiClientVersionValue {
-			t.Fatalf("User-Agent = %q, want xai-grok-workspace/%s", got, xaiClientVersionValue)
+		if got := req.Header.Get("x-grok-client-mode"); got != "headless" {
+			t.Fatalf("x-grok-client-mode = %q, want headless", got)
+		}
+		if got := req.Header.Get("User-Agent"); got != xaiCLIUserAgent(runtime.GOOS, runtime.GOARCH) {
+			t.Fatalf("User-Agent = %q, want %q", got, xaiCLIUserAgent(runtime.GOOS, runtime.GOARCH))
 		}
 	})
 
@@ -7091,5 +7107,20 @@ func TestXAIExecutorUsesResolvedPromptCacheKeyForConvID(t *testing.T) {
 				t.Fatalf("x-grok-conv-id = %q, want %q", got, tc.want)
 			}
 		})
+	}
+}
+
+// TestXAIChatHeadersClientVersionMeetsChatProxyFloor pins the literal client version sent to the
+// CLI chat-proxy. Since 2026-09-30 chat-proxy answers HTTP 426 for Grok CLI versions below 1.0.13.
+func TestXAIChatHeadersClientVersionMeetsChatProxyFloor(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, xaiauth.CLIChatProxyBaseURL+"/responses", nil)
+	// v8.0.4: chat-proxy headers ride the OAuth path (auth_kind oauth), not a bare base_url.
+	auth := &cliproxyauth.Auth{
+		Attributes: map[string]string{"auth_kind": "oauth", "base_url": xaiauth.DefaultAPIBaseURL},
+	}
+	applyXAIChatHeaders(req, auth, "xai-token", true, "conv-1")
+
+	if got := req.Header.Get("x-grok-client-version"); got != "1.0.46" {
+		t.Fatalf("x-grok-client-version = %q, want 1.0.46", got)
 	}
 }

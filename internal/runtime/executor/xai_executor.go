@@ -49,11 +49,19 @@ const (
 	xaiTokenAuthValue           = "xai-grok-cli"
 	xaiClientVersionHeader      = "x-grok-client-version"
 	// Keep in sync with the current Grok CLI client version that chat-proxy expects.
-	xaiClientVersionValue         = "0.2.120"
+	// 2026-09-30: chat-proxy began refusing 0.2.93 with HTTP 426 {"error":"Your Grok CLI
+	// version (0.2.93) is outdated. Please update to version 1.0.13 or later via grok update..."}.
+	// 1.0.46 matches the published @xai-official/grok npm latest on that date.
+	xaiClientVersionValue         = "1.0.46"
 	xaiClientIdentifierHeader     = "x-grok-client-identifier"
 	xaiClientIdentifierValue      = "grok-shell"
 	xaiAuthenticateResponseHeader = "x-authenticateresponse"
 	xaiAuthenticateResponseValue  = "authenticate-response"
+	// x-grok-client-mode and the grok-shell User-Agent complete the identity the real Grok CLI
+	// sends to chat-proxy (mitm capture of grok 1.0.45 c33bff361a6f, 2026-09-30, t_f1437191).
+	// Upstream e400d719 ships the identifier/authenticate-response pair above.
+	xaiClientModeHeader = "x-grok-client-mode"
+	xaiClientModeValue  = "headless"
 	// xaiUsingAPIAttr enables the official API path for HTTP chat and media.
 	xaiUsingAPIAttr = "using_api"
 )

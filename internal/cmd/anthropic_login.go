@@ -32,10 +32,11 @@ func DoClaudeLogin(cfg *config.Config, options *LoginOptions) {
 	manager := newAuthManager()
 
 	authOpts := &sdkAuth.LoginOptions{
-		NoBrowser:    options.NoBrowser,
-		CallbackPort: options.CallbackPort,
-		Metadata:     map[string]string{},
-		Prompt:       promptFn,
+		NoBrowser:       options.NoBrowser,
+		CallbackPort:    options.CallbackPort,
+		CallbackTimeout: options.CallbackTimeout,
+		Metadata:        map[string]string{},
+		Prompt:          promptFn,
 	}
 
 	_, savedPath, err := manager.Login(context.Background(), "claude", cfg, authOpts)
