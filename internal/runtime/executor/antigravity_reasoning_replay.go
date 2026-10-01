@@ -237,6 +237,18 @@ func antigravityReasoningReplayResolveContentIndex(payload []byte, cached int) i
 	return -1
 }
 
+// antigravityReasoningReplayContentIsModel reports whether contents[contentIndex]
+// exists and is a model turn. Replay items (thought signatures, function-call
+// parts) belong only on model turns; writing them onto a user turn leaks a prior
+// response's signature into an unrelated request that shares the replay scope.
+func antigravityReasoningReplayContentIsModel(payload []byte, contentIndex int) bool {
+	if contentIndex < 0 {
+		return false
+	}
+	role := gjson.GetBytes(payload, fmt.Sprintf("request.contents.%d.role", contentIndex))
+	return strings.EqualFold(strings.TrimSpace(role.String()), "model")
+}
+
 // logAntigravityReasoningReplayDegraded reports that a replay-state operation
 // failed and the request continued without it. A Home that predates the CAS
 // command fails every call, and the Home client already warns once about that,
@@ -2098,7 +2110,7 @@ func mergeAntigravityFunctionCallPartReplayWithSchemas(index *antigravityReplayR
 	}
 
 	ci := antigravityReasoningReplayResolveContentIndex(payload, int(itemResult.Get("contentIndex").Int()))
-	if ci < 0 || !index.contextMatches(itemResult, ci) {
+	if ci < 0 || !antigravityReasoningReplayContentIsModel(payload, ci) || !index.contextMatches(itemResult, ci) {
 		return payload, false
 	}
 	pi := int(itemResult.Get("partIndex").Int())

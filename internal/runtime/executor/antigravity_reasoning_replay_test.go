@@ -1982,3 +1982,44 @@ func TestPrepareAntigravityGeminiReasoningReplayDegradesWhenReplayBreaksPairing(
 		t.Fatalf("out = %s, want original payload %s", out, payload)
 	}
 }
+
+func TestPrepareAntigravityGeminiReasoningReplaySkipsFunctionCallFallbackOnUserTurn(t *testing.T) {
+	internalcache.ClearAntigravityReasoningReplayCache()
+	t.Cleanup(internalcache.ClearAntigravityReasoningReplayCache)
+
+	// No call_id: the fallback path resolves a content index; with no model turn
+	// it must not write a functionCall part onto the user turn.
+	item := []byte(`{"type":"function_call_part","contentIndex":1,"partIndex":0,"name":"Read","args":{"file_path":"/a"},"thoughtSignature":"sig-fc"}`)
+	internalcache.CacheAntigravityReasoningReplayItems("gemini-3-flash-agent", "session:sess-fc-user", [][]byte{item})
+
+	payload := []byte(`{"sessionId":"sess-fc-user","request":{"contents":[{"role":"user","parts":[{"text":"hi"}]}]}}`)
+	out, _, err := prepareAntigravityGeminiReasoningReplayPayload(context.Background(), "gemini-3-flash-agent", cliproxyexecutor.Request{}, cliproxyexecutor.Options{}, payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(out) != string(payload) {
+		t.Fatalf("payload changed: got %s want %s", out, payload)
+	}
+}
+
+// v8 shape of ANG fleet #8 (t_860be00d): a cached function_call_part WITH a call_id
+// that matches nothing in the new request reaches the numeric-slot fallback in
+// mergeAntigravityFunctionCallPartReplayWithSchemas. Its cached contentIndex is in range
+// but is a user turn here; neither the call nor its signature may land on that turn.
+func TestMergeAntigravityFunctionCallPartReplaySkipsCallIDFallbackOnUserTurn(t *testing.T) {
+	item := gjson.Parse(`{"type":"function_call_part","contentIndex":0,"partIndex":0,"call_id":"call-from-request-1","name":"Read","args":{"file_path":"/a"},"thoughtSignature":"sig-fc-user-turn-0123456789abcdef"}`)
+	for _, payload := range [][]byte{
+		[]byte(`{"request":{"contents":[{"role":"user","parts":[{"text":"hi"}]}]}}`),
+		[]byte(`{"request":{"contents":[{"role":"user"}]}}`),
+	} {
+		out, changed := mergeAntigravityFunctionCallPartReplayWithSchemas(newAntigravityReplayRequestIndex(payload), payload, item, nil)
+		if changed || string(out) != string(payload) {
+			t.Fatalf("replay item written onto a user turn: changed=%v got %s want %s", changed, out, payload)
+		}
+	}
+	// Positive control: the same item on a model turn at that slot is still replayed.
+	model := []byte(`{"request":{"contents":[{"role":"model"}]}}`)
+	if _, changed := mergeAntigravityFunctionCallPartReplayWithSchemas(newAntigravityReplayRequestIndex(model), model, item, nil); !changed {
+		t.Fatal("positive control: function-call replay onto a model turn should still apply")
+	}
+}
