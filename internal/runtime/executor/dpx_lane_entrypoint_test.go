@@ -48,9 +48,12 @@ func dpxLaneBody(block string) []byte {
 
 // TestDPXAliasLaneNeverCLIWithoutTUI is the invariant: across EVERY d lane the
 // grammar can name, a cli billing block (cli/human, UA "(external, cli)") is
-// admitted only on the t lanes (a genuine interactive TUI on a PTY) and on the
-// open bare lanes, which pass the genuine caller's identity through untouched.
-// If a future change lets h, s or a (the slim emulator) carry cli, this fails.
+// admitted only on the t lanes (a genuine interactive TUI on a PTY), on the
+// d-a LOCAL lanes (dalx/dalr + f/s — Ace ruling 2026-09-30 18:46 PT, kanban
+// t_0feddd7e: these are Ace's own interactive lanes, the human drives them, so
+// cli/human is the truthful stamp there), and on the open bare lanes, which
+// pass the genuine caller's identity through untouched. If a future change lets
+// h, s or the a-p lanes carry cli, this fails.
 func TestDPXAliasLaneNeverCLIWithoutTUI(t *testing.T) {
 	cli := dpxLaneBody(dpxBlock("cli", "human"))
 	const cliUA = "claude-cli/2.1.284 (external, cli)"
@@ -65,15 +68,17 @@ func TestDPXAliasLaneNeverCLIWithoutTUI(t *testing.T) {
 		}
 		admitted := helps.CheckDPXLaneEntrypoint(lane, cli, cliUA) == ""
 		genuineTUI := policy.Mode == "t"
-		if admitted && !genuineTUI && !policy.Open {
-			t.Errorf("lane %q (mode %q) admits cli without a real TUI on the wire", lane, policy.Mode)
+		aceInteractiveALocal := policy.Mode == "a" && policy.Host == "l"
+		cliOK := genuineTUI || policy.Open || aceInteractiveALocal
+		if admitted && !cliOK {
+			t.Errorf("lane %q (mode %q host %q) admits cli without a real TUI on the wire", lane, policy.Mode, policy.Host)
 		}
-		if !admitted && (genuineTUI || policy.Open) {
-			t.Errorf("lane %q (mode %q) refuses the genuine interactive client", lane, policy.Mode)
+		if !admitted && cliOK {
+			t.Errorf("lane %q (mode %q host %q) refuses the genuine interactive client", lane, policy.Mode, policy.Host)
 		}
 		for _, ep := range policy.Allowed {
-			if ep == helps.DPXEntrypointCLI && !genuineTUI {
-				t.Errorf("lane %q policy lists cli but is mode %q", lane, policy.Mode)
+			if ep == helps.DPXEntrypointCLI && !genuineTUI && !aceInteractiveALocal {
+				t.Errorf("lane %q policy lists cli but is mode %q host %q", lane, policy.Mode, policy.Host)
 			}
 		}
 	}
@@ -95,11 +100,26 @@ func TestDPXAliasLaneEntrypointTable(t *testing.T) {
 		{"dhlx", "sdk-ts", "sdk", ua("sdk-ts"), false},
 		{"dslr", "sdk-ts", "sdk", ua("sdk-ts"), true},
 		{"dslx", "sdk-cli", "sdk", ua("sdk-cli"), false},
-		{"dalx", "cli", "human", ua("cli"), false},
-		{"dalxs", "cli", "human", ua("cli"), false},
-		{"dalxf", "cli", "human", ua("cli"), false},
-		{"dalx", "sdk-cli", "sdk", ua("sdk-cli"), true},
-		{"dalr", "sdk-ts", "sdk", ua("sdk-ts"), true},
+		{"dalx", "cli", "human", ua("cli"), true},
+		{"dalxs", "cli", "human", ua("cli"), true},
+		{"dalxf", "cli", "human", ua("cli"), true},
+		{"dalx", "sdk-cli", "sdk", ua("sdk-cli"), true},  // fallback override stays admissible
+		{"dalr", "sdk-ts", "sdk", ua("sdk-ts"), false},
+		// Ace ruling 2026-09-30 18:46 PT (t_0feddd7e): the d-a LOCAL faces are
+		// Ace's own interactive lanes and stamp cli/human — cli is ADMITTED on
+		// dalx/dalr (+ f/s). sdk-cli stays admissible too (the apx parity
+		// fallback is a deliberate degraded-honest mode). The p host keeps the
+		// honest sdk stamp (a headless emulator unit, no human).
+		{"dalr", "cli", "human", ua("cli"), true},
+		{"dalrs", "cli", "human", ua("cli"), true},
+		{"dalrf", "cli", "human", ua("cli"), true},
+		{"dalx-25", "cli", "human", ua("cli"), true},
+		{"claude-dalx", "cli", "human", ua("cli"), true},
+		{"dapx", "cli", "human", ua("cli"), false},
+		{"dapxs", "cli", "human", ua("cli"), false},
+		{"daprs", "cli", "human", ua("cli"), false},
+		{"dapr", "sdk-cli", "sdk", ua("sdk-cli"), true},
+		{"daprs", "sdk-ts", "sdk", ua("sdk-ts"), true},
 		// turn_origin and UA must agree with the entrypoint.
 		{"dtlx", "cli", "sdk", ua("cli"), false},
 		{"dhlx", "sdk-cli", "human", ua("sdk-cli"), false},
@@ -157,7 +177,7 @@ func TestDPXAliasLaneGateBeforeDispatch(t *testing.T) {
 		return calls, sent, err
 	}
 	refused := []struct{ lane, entrypoint, origin string }{
-		{"dalx", "cli", "human"}, {"dhlx", "cli", "human"}, {"dslx", "cli", "human"}, {"dtlx", "sdk-cli", "sdk"},
+		{"dhlx", "cli", "human"}, {"dslx", "cli", "human"}, {"dtlx", "sdk-cli", "sdk"}, {"dapx", "cli", "human"}, {"dalr", "sdk-ts", "sdk"},
 	}
 	for _, c := range refused {
 		mode := c.entrypoint
@@ -168,7 +188,7 @@ func TestDPXAliasLaneGateBeforeDispatch(t *testing.T) {
 		}
 	}
 	admitted := []struct{ lane, entrypoint, origin string }{
-		{"dtlx", "cli", "human"}, {"dhlx", "sdk-cli", "sdk"}, {"dalx", "sdk-cli", "sdk"}, {"dlx", "cli", "human"},
+		{"dtlx", "cli", "human"}, {"dhlx", "sdk-cli", "sdk"}, {"dalx", "cli", "human"}, {"dalrs", "cli", "human"}, {"dalx", "sdk-cli", "sdk"}, {"dlx", "cli", "human"},
 	}
 	for _, c := range admitted {
 		calls, sent, err := run(t, c.lane, dpxBlock(c.entrypoint, c.origin), "claude-cli/2.1.284 (external, "+c.entrypoint+")")

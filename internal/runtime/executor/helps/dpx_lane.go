@@ -42,6 +42,7 @@ var dpxLaneRE = regexp.MustCompile(`^(?:claude-)?d([thsa]?)[pl][xr][fs]?(?:-[0-9
 // through; pre-decided lanes admit exactly the entrypoints in Allowed.
 type DPXLanePolicy struct {
 	Mode    string // "", "t", "h", "s" or "a"
+	Host    string // "p" or "l"
 	Open    bool
 	Allowed []string
 }
@@ -54,6 +55,7 @@ func ResolveDPXLane(lane string) (DPXLanePolicy, bool) {
 		return DPXLanePolicy{}, false
 	}
 	p := DPXLanePolicy{Mode: m[1]}
+	p.Host = dpxLaneHost(lane, m)
 	switch m[1] {
 	case "":
 		p.Open = true
@@ -64,9 +66,34 @@ func ResolveDPXLane(lane string) (DPXLanePolicy, bool) {
 	case "s":
 		p.Allowed = []string{DPXEntrypointSDKTS}
 	case "a":
-		p.Allowed = []string{DPXEntrypointSDKCLI, DPXEntrypointSDKTS}
+		// Ace ruling 2026-09-30 18:46 PT (kanban t_0feddd7e): the d-a LOCAL
+		// faces (dalx/dalr and their f/s variants) are Ace's own interactive
+		// lanes — the human drives them, so cli/human is the truthful stamp
+		// there (overrides the t_fb6450bc a-mode honest-stamp default for the
+		// l host only). sdk-cli STAYS admitted on l: the apx identity-parity
+		// fallback (APX_IDENTITY_PARITY_FALLBACK=1) is the deliberate
+		// operator-named degraded-honest mode and must not be refused here.
+		// The p host (dapx/dapr) stays sdk-only: it is a headless emulator
+		// unit on the sub box.
+		if p.Host == "l" {
+			p.Allowed = []string{DPXEntrypointCLI, DPXEntrypointSDKCLI}
+		} else {
+			p.Allowed = []string{DPXEntrypointSDKCLI, DPXEntrypointSDKTS}
+		}
 	}
 	return p, true
+}
+
+// dpxLaneHost extracts the host letter (p|l) from a matched d lane name. The
+// regex guarantees the shape: [claude-]d<mode?><host><face><harness?>[-N].
+func dpxLaneHost(lane string, m []string) string {
+	rest := strings.TrimPrefix(lane, "claude-")
+	// rest = d<mode?><host>... ; the host letter follows 'd' + the mode letter.
+	i := 1 + len(m[1])
+	if len(rest) > i {
+		return string(rest[i])
+	}
+	return ""
 }
 
 // DPXTurnOriginFor is the cc_turn_origin that genuinely accompanies an
