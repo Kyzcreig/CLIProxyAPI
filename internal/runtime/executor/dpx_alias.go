@@ -11,8 +11,21 @@ import (
 )
 
 func (e *ClaudeExecutor) dpxAliasEnabled() bool { return e.cfg != nil && e.cfg.DPXContentAlias.Enabled }
+
+// dpxLaneGateEnabled is separate from aliasing (t_40200f8a): the d-family
+// lane gate + W1 wirelog run on a re-sign-only unit (alias OFF — apx is the
+// one aliasing layer per Ace 2026-09-29). Gated on the alias SECTION being
+// declared (lane set or wirelog spool), so a legacy config without the
+// section is untouched byte-for-byte.
+func (e *ClaudeExecutor) dpxLaneGateEnabled() bool {
+	if e.cfg == nil {
+		return false
+	}
+	c := e.cfg.DPXContentAlias
+	return c.Enabled || len(c.Lanes) > 0 || c.Lane != "" || c.WirelogSpool != ""
+}
 func (e *ClaudeExecutor) prepareDPXAlias(raw []byte, opts execpkg.Options, native, cloaked bool) ([]byte, *contentalias.RequestMap, error) {
-	if !e.dpxAliasEnabled() {
+	if !e.dpxLaneGateEnabled() {
 		return raw, nil, nil
 	}
 	if opts.SourceFormat != translator.FromString("claude") || !native || cloaked {
@@ -26,8 +39,13 @@ func (e *ClaudeExecutor) prepareDPXAlias(raw []byte, opts execpkg.Options, nativ
 	if opts.Headers != nil {
 		userAgent = opts.Headers.Get("User-Agent")
 	}
+	// The lane gate runs even when aliasing is off (a re-sign-only d-family
+	// unit still admits only the entrypoints its lanes declare, t_40200f8a).
 	if _, reason := helps.ResolveDPXRequestLane(cfg.EffectiveLanes(), raw, userAgent); reason != "" {
 		return nil, nil, contentalias.Error(reason)
+	}
+	if !e.dpxAliasEnabled() {
+		return raw, nil, nil
 	}
 	session, err := contentalias.Open(cfg.StoreDirectory, contentalias.Binding{Principal: cfg.Principal, Session: cfg.SessionID, Version: cfg.Version}, contentalias.DefaultManifest())
 	if err != nil {
@@ -36,10 +54,12 @@ func (e *ClaudeExecutor) prepareDPXAlias(raw []byte, opts execpkg.Options, nativ
 	return contentalias.Prepare(raw, session)
 }
 
-// dpxWirelogClient adds the W1 wirelog row writer to an alias-enabled daemon's
-// upstream client. Off (client returned unchanged) unless wirelog-spool is set.
+// dpxWirelogClient adds the W1 wirelog row writer to a declared d-family
+// unit's upstream client (the alias SECTION present — lane and/or spool —
+// even with alias enabled=false, the re-sign-only shape). Off unless
+// wirelog-spool is set.
 func (e *ClaudeExecutor) dpxWirelogClient(client *http.Client) *http.Client {
-	if !e.dpxAliasEnabled() || e.cfg.DPXContentAlias.WirelogSpool == "" {
+	if !e.dpxLaneGateEnabled() || e.cfg.DPXContentAlias.WirelogSpool == "" {
 		return client
 	}
 	cfg := e.cfg.DPXContentAlias
