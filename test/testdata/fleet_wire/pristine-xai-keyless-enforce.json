@@ -1,0 +1,46 @@
+{
+  "method": "POST",
+  "path": "/responses",
+  "headers": {
+    "Accept": [
+      "text/event-stream"
+    ],
+    "Accept-Encoding": [
+      "gzip"
+    ],
+    "Authorization": [
+      "Bearer fleet-wire-upstream-key"
+    ],
+    "Connection": [
+      "Keep-Alive"
+    ],
+    "Content-Length": [
+      "276"
+    ],
+    "Content-Type": [
+      "application/json"
+    ],
+    "User-Agent": [
+      "Go-http-client/1.1"
+    ],
+    "X-Grok-Conv-Id": [
+      "0079a468-3f3b-546c-b3fc-4ecacf33c598"
+    ]
+  },
+  "body": {
+    "include": [
+      "reasoning.encrypted_content"
+    ],
+    "input": [
+      {
+        "content": "fleet wire probe: summarise the release notes",
+        "role": "user"
+      }
+    ],
+    "instructions": "You are a terse assistant.",
+    "model": "grok-4.6",
+    "prompt_cache_key": "0079a468-3f3b-546c-b3fc-4ecacf33c598",
+    "store": false,
+    "stream": true
+  }
+}
