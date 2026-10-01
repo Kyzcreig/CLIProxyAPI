@@ -28,4 +28,5 @@ jobs:
       - name: Test
         run: |
           go test ./sdk/cliproxy/executor/... ./sdk/cliproxy/auth/... ./sdk/cliproxy/usage/... \
-            ./internal/redisqueue/... ./internal/runtime/executor/... ./internal/config/...
+            ./internal/redisqueue/... ./internal/runtime/executor/... ./internal/config/... \
+            ./sdk/auth/... ./internal/cmd/...

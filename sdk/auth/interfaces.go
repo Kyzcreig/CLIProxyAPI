@@ -17,8 +17,22 @@ type LoginOptions struct {
 	NoBrowser    bool
 	ProjectID    string
 	CallbackPort int
-	Metadata     map[string]string
-	Prompt       func(prompt string) (string, error)
+	// CallbackTimeout bounds how long callback/paste login flows wait for the
+	// OAuth redirect. Zero means DefaultCallbackTimeout.
+	CallbackTimeout time.Duration
+	Metadata        map[string]string
+	Prompt          func(prompt string) (string, error)
+}
+
+// DefaultCallbackTimeout is the callback/paste wait used when LoginOptions.CallbackTimeout is unset.
+const DefaultCallbackTimeout = 5 * time.Minute
+
+// callbackWait returns the effective callback/paste wait for opts.
+func callbackWait(opts *LoginOptions) time.Duration {
+	if opts == nil || opts.CallbackTimeout <= 0 {
+		return DefaultCallbackTimeout
+	}
+	return opts.CallbackTimeout
 }
 
 // Authenticator manages login and optional refresh flows for a provider.

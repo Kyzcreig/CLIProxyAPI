@@ -87,7 +87,7 @@ func (AntigravityAuthenticator) Login(ctx context.Context, cfg *config.Config, o
 	fmt.Println("Waiting for antigravity authentication callback...")
 
 	var cbRes callbackResult
-	timeoutTimer := time.NewTimer(5 * time.Minute)
+	timeoutTimer := time.NewTimer(callbackWait(opts))
 	defer timeoutTimer.Stop()
 
 	var manualPromptTimer *time.Timer

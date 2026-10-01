@@ -109,6 +109,7 @@ func main() {
 	var claudeLogin bool
 	var noBrowser bool
 	var oauthCallbackPort int
+	var loginTimeout time.Duration
 	var antigravityLogin bool
 	var kimiLogin bool
 	var kimiAILogin bool
@@ -138,6 +139,7 @@ func main() {
 	flag.BoolVar(&claudeLogin, "claude-login", false, "Login to Claude using OAuth")
 	flag.BoolVar(&noBrowser, "no-browser", false, "Don't open browser automatically for OAuth")
 	flag.IntVar(&oauthCallbackPort, "oauth-callback-port", 0, "Override OAuth callback port (defaults to provider-specific port)")
+	flag.DurationVar(&loginTimeout, "login-timeout", 0, "Callback/paste wait for -*-login flows, e.g. 30m; 0 keeps the 5m default (env CLIPROXYAPI_LOGIN_TIMEOUT)")
 	flag.BoolVar(&antigravityLogin, "antigravity-login", false, "Login to Antigravity using OAuth")
 	flag.BoolVar(&kimiLogin, "kimi-login", false, "Login to Kimi (.com) using OAuth")
 	flag.BoolVar(&kimiAILogin, "kimi-ai-login", false, "Login to Kimi.ai using OAuth")
@@ -649,9 +651,15 @@ func main() {
 	managementasset.SetCurrentConfig(cfg)
 
 	// Create login options to be used in authentication flows.
+	resolvedLoginTimeout, errLoginTimeout := cmd.ResolveLoginTimeout(loginTimeout, os.Getenv(cmd.LoginTimeoutEnv))
+	if errLoginTimeout != nil {
+		log.Warnf("ignoring login timeout, using the 5m default: %v", errLoginTimeout)
+		resolvedLoginTimeout = 0
+	}
 	options := &cmd.LoginOptions{
-		NoBrowser:    noBrowser,
-		CallbackPort: oauthCallbackPort,
+		NoBrowser:       noBrowser,
+		CallbackPort:    oauthCallbackPort,
+		CallbackTimeout: resolvedLoginTimeout,
 	}
 
 	commandMode := vertexImport != "" || antigravityLogin || codexLogin || codexDeviceLogin || claudeLogin || kimiLogin || kimiAILogin || xaiLogin || devinLogin || metaLogin

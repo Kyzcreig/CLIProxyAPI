@@ -107,7 +107,7 @@ func (a *ClaudeAuthenticator) Login(ctx context.Context, cfg *config.Config, opt
 	manualDescription := ""
 
 	go func() {
-		result, errWait := oauthServer.WaitForCallback(5 * time.Minute)
+		result, errWait := oauthServer.WaitForCallback(callbackWait(opts))
 		if errWait != nil {
 			callbackErrCh <- errWait
 			return
