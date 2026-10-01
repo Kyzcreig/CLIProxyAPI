@@ -8,7 +8,14 @@
 # machine line `sha=<full> describe=<d> base=<FLEET-BASE> built=<iso> host=<h> target=<t> sha256=<bin>`.
 # Refuses (exit 3) unless `go version -m` reports vcs.revision == sha and vcs.modified=false.
 #
+# --dpx-bin-dir <dir> (spec Phase 3, DPX units): ALSO build ./cmd/dpx-mapctl from the same
+# checkout, gate it the same way, and install both into <dir> content-addressed, the DPX row
+# convention (docs/studio-unit.md): <dir>/cpa-<sha256(bin)[:8]> and <dir>/dpx-mapctl-<sha256(bin)[:8]>,
+# each with a .pinned sidecar. Existing files are never overwritten (same name = same bytes);
+# running units keep their binaries until their row is repointed.
+#
 # Usage: scripts/fleet-build.sh [--check] [--ref <rev>] [--target <goos/goarch>] [--out-dir <dir>]
+#                              [--dpx-bin-dir <dir>]
 #   --check   print the sha that would be built and sha256(go.sum) at it; build nothing.
 # Exit: 0 ok, 2 usage, 3 build/verification refused.
 set -euo pipefail
@@ -17,13 +24,15 @@ ref="origin/fleet"
 target=""
 out_dir="${HOME}/.hermes/cliproxyapi"
 check=0
+dpx_dir=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --check) check=1 ;;
     --ref) ref="${2:?--ref needs a value}"; shift ;;
     --target) target="${2:?--target needs goos/goarch}"; shift ;;
     --out-dir) out_dir="${2:?--out-dir needs a value}"; shift ;;
-    -h|--help) sed -n '2,15p' "$0"; exit 0 ;;
+    --dpx-bin-dir) dpx_dir="${2:?--dpx-bin-dir needs a value}"; shift ;;
+    -h|--help) sed -n '2,22p' "$0"; exit 0 ;;
     *) echo "fleet-build: unknown argument: $1" >&2; exit 2 ;;
   esac
   shift
@@ -66,27 +75,55 @@ describe="$(git -C "$wt/src" describe --tags --always "$sha")"
 base="$(git -C "$wt/src" show "${sha}:FLEET-BASE.txt" 2>/dev/null | head -1 | tr -s ' ' '_' || true)"
 built="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-(
-  cd "$wt/src"
-  CGO_ENABLED="$cgo" GOOS="$goos" GOARCH="$goarch" go build -trimpath -buildvcs=true \
-    -ldflags "-s -w -X main.Version=${describe} -X main.Commit=${sha} -X main.BuildDate=${built}" \
-    -o "$out.tmp" ./cmd/server
-)
+build_one() {  # build_one <pkg> <out>: stamped build + vcs gate; removes <out> on refusal
+  (
+    cd "$wt/src"
+    CGO_ENABLED="$cgo" GOOS="$goos" GOARCH="$goarch" go build -trimpath -buildvcs=true \
+      -ldflags "-s -w -X main.Version=${describe} -X main.Commit=${sha} -X main.BuildDate=${built}" \
+      -o "$2" "$1"
+  )
+  local info rev mod
+  info="$(go version -m "$2")"
+  rev="$(printf '%s\n' "$info" | awk '$2=="vcs.revision"{split($3,a,"=");print a[2]} $2 ~ /^vcs.revision=/{split($2,a,"=");print a[2]}' | head -1)"
+  mod="$(printf '%s\n' "$info" | awk '$2 ~ /^vcs.modified=/{split($2,a,"=");print a[2]}' | head -1)"
+  if [ "$rev" != "$sha" ] || [ "$mod" != "false" ]; then
+    rm -f "$2"
+    echo "fleet-build: REFUSED $1 vcs.revision=${rev:-<none>} vcs.modified=${mod:-<none>} (want ${sha} / false)" >&2
+    exit 3
+  fi
+}
 
-info="$(go version -m "$out.tmp")"
-rev="$(printf '%s\n' "$info" | awk '$2=="vcs.revision"{split($3,a,"=");print a[2]} $2 ~ /^vcs.revision=/{split($2,a,"=");print a[2]}' | head -1)"
-mod="$(printf '%s\n' "$info" | awk '$2 ~ /^vcs.modified=/{split($2,a,"=");print a[2]}' | head -1)"
-if [ "$rev" != "$sha" ] || [ "$mod" != "false" ]; then
-  rm -f "$out.tmp"
-  echo "fleet-build: REFUSED vcs.revision=${rev:-<none>} vcs.modified=${mod:-<none>} (want ${sha} / false)" >&2
-  exit 3
+build_one ./cmd/server "$out.tmp"
+if [ -n "$dpx_dir" ]; then
+  build_one ./cmd/dpx-mapctl "$wt/dpx-mapctl"
 fi
 mv -f "$out.tmp" "$out"
 bin_sha="$(shasum -a 256 "$out" | cut -d' ' -f1)"
 host="$(hostname -s)"
+pinned_line() {  # pinned_line <sha256>
+  echo "sha=${sha} describe=${describe} base=${base:-unknown} built=${built} host=${host} target=${goos}/${goarch} sha256=$1"
+}
 {
   echo "$sha"
-  echo "sha=${sha} describe=${describe} base=${base:-unknown} built=${built} host=${host} target=${goos}/${goarch} sha256=${bin_sha}"
+  pinned_line "$bin_sha"
 } >"$out.pinned"
 echo "built ${out}"
 cat "$out.pinned"
+
+if [ -n "$dpx_dir" ]; then
+  mkdir -p "$dpx_dir"
+  dpx_dir="$(cd "$dpx_dir" && pwd)"
+  install_dpx() {  # install_dpx <src> <prefix> <sha256>: content-addressed, never overwrites
+    local dst="${dpx_dir}/$2-${3:0:8}"
+    if [ -e "$dst" ]; then
+      [ "$(shasum -a 256 "$dst" | cut -d' ' -f1)" = "$3" ] || {
+        echo "fleet-build: REFUSED ${dst} exists with different bytes" >&2; exit 3; }
+    else
+      cp "$1" "$dst.tmp" && chmod 755 "$dst.tmp" && mv -f "$dst.tmp" "$dst"
+    fi
+    { echo "$sha"; pinned_line "$3"; } >"$dst.pinned"
+    echo "dpx ${dst}"
+  }
+  install_dpx "$out" cpa "$bin_sha"
+  install_dpx "$wt/dpx-mapctl" dpx-mapctl "$(shasum -a 256 "$wt/dpx-mapctl" | cut -d' ' -f1)"
+fi
