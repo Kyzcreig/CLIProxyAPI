@@ -114,6 +114,13 @@ func TestDPXCouplingProbe(t *testing.T) {
 	}
 
 	window := []string{"2.1.258", "2.1.279", "2.1.280", "2.1.284", "2.1.999", "2.2.0", "3.0.0"}
+	// DPX_COUPLING_WINDOW_EXTRA: the fleet CLI pin lab_gate.py asks about (hermetic
+	// cli_window arm when no CLI binary is installed, e.g. the fork's CI).
+	for _, v := range strings.Split(os.Getenv("DPX_COUPLING_WINDOW_EXTRA"), ",") {
+		if v = strings.TrimSpace(v); v != "" {
+			window = append(window, v)
+		}
+	}
 	var ver []map[string]any
 	for _, v := range window {
 		ua := "claude-cli/" + v + " (external, cli)"
