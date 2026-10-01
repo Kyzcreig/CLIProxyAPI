@@ -18,15 +18,35 @@ type Client struct {
 	http      *http.Client
 }
 
-// NewClient creates a new management API client.
+// NewClient creates a new management API client targeting localhost on the given port.
 func NewClient(port int, secretKey string) *Client {
+	return NewClientWithBaseURL(fmt.Sprintf("http://127.0.0.1:%d", port), secretKey)
+}
+
+// NewClientWithBaseURL creates a new management API client targeting the specified base URL.
+func NewClientWithBaseURL(baseURL string, secretKey string) *Client {
+	baseURL = strings.TrimSpace(baseURL)
+	if baseURL == "" {
+		baseURL = "http://127.0.0.1:8317"
+	} else {
+		lower := strings.ToLower(baseURL)
+		if !strings.HasPrefix(lower, "http://") && !strings.HasPrefix(lower, "https://") {
+			baseURL = "http://" + baseURL
+		}
+		baseURL = strings.TrimRight(baseURL, "/")
+	}
 	return &Client{
-		baseURL:   fmt.Sprintf("http://127.0.0.1:%d", port),
+		baseURL:   baseURL,
 		secretKey: strings.TrimSpace(secretKey),
 		http: &http.Client{
 			Timeout: 10 * time.Second,
 		},
 	}
+}
+
+// BaseURL returns the client's configured management API base URL.
+func (c *Client) BaseURL() string {
+	return c.baseURL
 }
 
 // SetSecretKey updates management API bearer token used by this client.
@@ -180,6 +200,16 @@ func (c *Client) PatchAuthFileFields(name string, fields map[string]any) error {
 	return err
 }
 
+// RefreshAuthFile triggers a forced refresh of a single auth credential.
+func (c *Client) RefreshAuthFile(name string) error {
+	return c.postJSON("/v0/management/auth-files/refresh", map[string]any{"name": name})
+}
+
+// RefreshAllAuthFiles triggers a forced refresh of all auth credentials.
+func (c *Client) RefreshAllAuthFiles() error {
+	return c.postJSON("/v0/management/auth-files/refresh", map[string]any{"all": true})
+}
+
 // GetLogs fetches log lines from the server.
 func (c *Client) GetLogs(after int64, limit int) ([]string, int64, error) {
 	query := url.Values{}
@@ -304,6 +334,11 @@ func (c *Client) GetClaudeKeys() ([]map[string]any, error) {
 // GetCodexKeys fetches Codex API keys.
 func (c *Client) GetCodexKeys() ([]map[string]any, error) {
 	return c.getWrappedKeyList("/v0/management/codex-api-key", "codex-api-key")
+}
+
+// GetXAIKeys fetches xAI API keys.
+func (c *Client) GetXAIKeys() ([]map[string]any, error) {
+	return c.getWrappedKeyList("/v0/management/xai-api-key", "xai-api-key")
 }
 
 // GetVertexKeys fetches Vertex API keys.

@@ -5,14 +5,15 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/router-for-me/CLIProxyAPI/v7/internal/misc"
-	"github.com/router-for-me/CLIProxyAPI/v7/internal/util"
+	translatorcommon "github.com/router-for-me/CLIProxyAPI/v8/internal/translator/common"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/util"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
 
 func ConvertInteractionsRequestToAntigravity(modelName string, inputRawJSON []byte, stream bool) []byte {
 	root := gjson.ParseBytes(inputRawJSON)
+	functionNameMap := util.SanitizedFunctionNameMap(inputRawJSON)
 	out := []byte(`{"project":"","request":{"contents":[]},"model":""}`)
 	out, _ = sjson.SetBytes(out, "model", modelName)
 	if stream || root.Get("stream").Bool() {
@@ -20,9 +21,111 @@ func ConvertInteractionsRequestToAntigravity(modelName string, inputRawJSON []by
 	}
 	out = copyInteractionsSystemToAntigravity(out, root)
 	out = copyInteractionsGenerationConfigToAntigravity(out, root)
-	out = appendInteractionsInputToAntigravity(out, root.Get("input"))
-	out = copyInteractionsToolsToAntigravity(out, root)
+	contentItems := translatorcommon.NewRawArrayItems(root.Get("input.#").Int())
+	appendInteractionsInputToAntigravity(&contentItems, root.Get("input"))
+	out = translatorcommon.SetRawArrayItems(out, "request.contents", contentItems)
+	out = copyInteractionsToolsToAntigravity(out, root, functionNameMap)
+	if gjson.GetBytes(out, "request.toolConfig.functionCallingConfig.mode").String() == "NONE" {
+		out, _ = sjson.DeleteBytes(out, "request.tools")
+	}
+	out = rewriteInteractionsFunctionNames(out, functionNameMap)
 	out = attachDefaultAntigravitySafetySettings(out)
+	return out
+}
+
+func rewriteInteractionsFunctionNames(out []byte, functionNameMap map[string]string) []byte {
+	contents := gjson.GetBytes(out, "request.contents")
+	canBatchContents := contents.IsArray()
+	if canBatchContents {
+		contents.ForEach(func(_, content gjson.Result) bool {
+			parts := content.Get("parts")
+			if parts.Exists() && !parts.IsArray() {
+				canBatchContents = false
+				return false
+			}
+			return true
+		})
+	}
+	if canBatchContents {
+		contentsChanged := false
+		contentItems := translatorcommon.NewRawArrayItems(contents.Get("#").Int())
+		contents.ForEach(func(_, content gjson.Result) bool {
+			contentJSON := []byte(content.Raw)
+			partsChanged := false
+			partItems := make([][]byte, 0, 4)
+			content.Get("parts").ForEach(func(_, part gjson.Result) bool {
+				partJSON := []byte(part.Raw)
+				for _, field := range []string{"functionCall", "functionResponse"} {
+					nameResult := part.Get(field + ".name")
+					name := nameResult.String()
+					if name == "" {
+						continue
+					}
+					mappedName := util.MapSanitizedFunctionName(functionNameMap, name)
+					if nameResult.Type == gjson.String && mappedName == name {
+						continue
+					}
+					partJSON, _ = sjson.SetBytes(partJSON, field+".name", mappedName)
+					partsChanged = true
+				}
+				partItems = append(partItems, partJSON)
+				return true
+			})
+			if partsChanged {
+				contentJSON, _ = sjson.SetRawBytes(contentJSON, "parts", translatorcommon.JoinRawArray(partItems))
+				contentsChanged = true
+			}
+			contentItems = append(contentItems, contentJSON)
+			return true
+		})
+		if contentsChanged {
+			out, _ = sjson.SetRawBytes(out, "request.contents", translatorcommon.JoinRawArray(contentItems))
+		}
+	} else {
+		for contentIndex, content := range contents.Array() {
+			for partIndex, part := range content.Get("parts").Array() {
+				for _, field := range []string{"functionCall", "functionResponse"} {
+					nameResult := part.Get(field + ".name")
+					name := nameResult.String()
+					if name == "" {
+						continue
+					}
+					mappedName := util.MapSanitizedFunctionName(functionNameMap, name)
+					if nameResult.Type == gjson.String && mappedName == name {
+						continue
+					}
+					path := fmt.Sprintf("request.contents.%d.parts.%d.%s.name", contentIndex, partIndex, field)
+					out, _ = sjson.SetBytes(out, path, mappedName)
+				}
+			}
+		}
+	}
+
+	allowedPath := "request.toolConfig.functionCallingConfig.allowedFunctionNames"
+	allowedNames := gjson.GetBytes(out, allowedPath)
+	if allowedNames.IsArray() {
+		namesChanged := false
+		nameItems := make([][]byte, 0, 4)
+		allowedNames.ForEach(func(_, name gjson.Result) bool {
+			mappedName := util.MapSanitizedFunctionName(functionNameMap, name.String())
+			namesChanged = namesChanged || name.Type != gjson.String || mappedName != name.String()
+			mappedNameJSON, _ := json.Marshal(mappedName)
+			nameItems = append(nameItems, mappedNameJSON)
+			return true
+		})
+		if namesChanged {
+			out, _ = sjson.SetRawBytes(out, allowedPath, translatorcommon.JoinRawArray(nameItems))
+		}
+	} else {
+		for index, name := range allowedNames.Array() {
+			mappedName := util.MapSanitizedFunctionName(functionNameMap, name.String())
+			if name.Type == gjson.String && mappedName == name.String() {
+				continue
+			}
+			path := fmt.Sprintf("%s.%d", allowedPath, index)
+			out, _ = sjson.SetBytes(out, path, mappedName)
+		}
+	}
 	return out
 }
 
@@ -95,12 +198,13 @@ func copyInteractionsReasoningToAntigravity(out []byte, root gjson.Result) []byt
 		effort = strings.ToLower(strings.TrimSpace(reasoning.Get("thinking_level").String()))
 	}
 	if effort != "" {
+		// Thinking amount and summary visibility are independent. This OpenAI-style
+		// compatibility alias controls only the amount; includeThoughts is written
+		// below only for an explicit Interactions summary selector.
 		if effort == "auto" {
 			out, _ = sjson.SetBytes(out, "request.generationConfig.thinkingConfig.thinkingBudget", -1)
-			out, _ = sjson.SetBytes(out, "request.generationConfig.thinkingConfig.includeThoughts", true)
 		} else {
 			out, _ = sjson.SetBytes(out, "request.generationConfig.thinkingConfig.thinkingLevel", effort)
-			out, _ = sjson.SetBytes(out, "request.generationConfig.thinkingConfig.includeThoughts", effort != "none")
 		}
 	}
 	if summary := reasoning.Get("summary"); summary.Exists() {
@@ -169,12 +273,12 @@ func copyInteractionsToolChoiceToAntigravity(out []byte, root gjson.Result) []by
 			mode = "ANY"
 		case "function":
 			mode = "ANY"
-			if name := strings.TrimSpace(toolChoice.Get("function.name").String()); name != "" {
+			if name := toolChoice.Get("function.name").String(); strings.TrimSpace(name) != "" {
 				allowedNames = append(allowedNames, name)
 			}
 		case "tool":
 			mode = "ANY"
-			if name := strings.TrimSpace(toolChoice.Get("name").String()); name != "" {
+			if name := toolChoice.Get("name").String(); strings.TrimSpace(name) != "" {
 				allowedNames = append(allowedNames, name)
 			}
 		}
@@ -189,37 +293,56 @@ func copyInteractionsToolChoiceToAntigravity(out []byte, root gjson.Result) []by
 	return out
 }
 
-func appendInteractionsInputToAntigravity(out []byte, input gjson.Result) []byte {
+type antigravityInteractionsInputContext struct {
+	items            [][]byte
+	inModelTurn      bool
+	lastStepType     string
+	pendingSignature string
+}
+
+func appendInteractionsInputToAntigravity(items *[][]byte, input gjson.Result) {
 	if !input.Exists() {
-		return out
+		return
+	}
+	ctx := &antigravityInteractionsInputContext{
+		items: *items,
 	}
 	if input.Type == gjson.String {
-		return appendAntigravityTextContent(out, "user", input.String())
+		appendAntigravityTextContent(&ctx.items, "user", input.String())
+		ctx.lastStepType = "text"
+		*items = ctx.items
+		return
 	}
 	if input.IsArray() {
 		input.ForEach(func(_, item gjson.Result) bool {
-			out = appendInteractionsStepToAntigravity(out, item, "user")
+			appendInteractionsStepToAntigravity(ctx, item, "user")
 			return true
 		})
-		return out
-	}
-	if steps := input.Get("steps"); steps.Exists() && steps.IsArray() {
+	} else if steps := input.Get("steps"); steps.Exists() && steps.IsArray() {
 		defaultRole := "user"
 		if role := input.Get("role").String(); role == "model" || role == "assistant" {
 			defaultRole = "model"
 		}
 		steps.ForEach(func(_, step gjson.Result) bool {
-			out = appendInteractionsStepToAntigravity(out, step, defaultRole)
+			appendInteractionsStepToAntigravity(ctx, step, defaultRole)
 			return true
 		})
-		return out
+	} else {
+		appendInteractionsStepToAntigravity(ctx, input, "user")
 	}
-	return appendInteractionsStepToAntigravity(out, input, "user")
+	flushPendingAntigravitySignature(ctx)
+	*items = ctx.items
 }
 
-func appendInteractionsStepToAntigravity(out []byte, step gjson.Result, defaultRole string) []byte {
+func appendInteractionsStepToAntigravity(ctx *antigravityInteractionsInputContext, step gjson.Result, defaultRole string) {
 	if step.Type == gjson.String {
-		return appendAntigravityTextContent(out, defaultRole, step.String())
+		if ctx.inModelTurn {
+			flushPendingAntigravitySignature(ctx)
+			ctx.inModelTurn = false
+		}
+		appendAntigravityTextContent(&ctx.items, defaultRole, step.String())
+		ctx.lastStepType = "text"
+		return
 	}
 	if steps := step.Get("steps"); steps.Exists() && steps.IsArray() {
 		role := defaultRole
@@ -229,117 +352,343 @@ func appendInteractionsStepToAntigravity(out []byte, step gjson.Result, defaultR
 			role = "user"
 		}
 		steps.ForEach(func(_, child gjson.Result) bool {
-			out = appendInteractionsStepToAntigravity(out, child, role)
+			appendInteractionsStepToAntigravity(ctx, child, role)
 			return true
 		})
-		return out
+		return
 	}
 	switch step.Get("type").String() {
 	case "model_output":
-		return appendInteractionsStepContentToAntigravity(out, "model", step, false)
+		if ctx.pendingSignature != "" {
+			carrier := antigravityTextPartJSON("", false)
+			carrier, _ = sjson.SetBytes(carrier, "thoughtSignature", ctx.pendingSignature)
+			ctx.pendingSignature = ""
+			if ctx.inModelTurn && len(ctx.items) > 0 && gjson.GetBytes(ctx.items[len(ctx.items)-1], "role").String() == "model" {
+				ctx.items[len(ctx.items)-1] = appendGeminiContentPart(ctx.items[len(ctx.items)-1], carrier)
+			} else {
+				ctx.items = append(ctx.items, antigravityContent("model", [][]byte{carrier}))
+			}
+		}
+		partItems := extractInteractionsStepContentPartsToAntigravity(step, false)
+		if len(partItems) > 0 {
+			if ctx.inModelTurn && len(ctx.items) > 0 && gjson.GetBytes(ctx.items[len(ctx.items)-1], "role").String() == "model" {
+				ctx.items[len(ctx.items)-1] = appendGeminiContentParts(ctx.items[len(ctx.items)-1], partItems)
+			} else {
+				ctx.items = append(ctx.items, antigravityContent("model", partItems))
+			}
+		}
+		ctx.inModelTurn = true
+		ctx.lastStepType = "model_output"
 	case "thought":
-		return appendInteractionsStepContentToAntigravity(out, "model", step, true)
+		if sig := firstNonEmptyString(step.Get("signature").String(), step.Get("thought_signature").String(), step.Get("thoughtSignature").String()); sig != "" {
+			if ctx.pendingSignature != "" && ctx.pendingSignature != sig {
+				carrier := antigravityTextPartJSON("", false)
+				carrier, _ = sjson.SetBytes(carrier, "thoughtSignature", ctx.pendingSignature)
+				if ctx.inModelTurn && len(ctx.items) > 0 && gjson.GetBytes(ctx.items[len(ctx.items)-1], "role").String() == "model" {
+					ctx.items[len(ctx.items)-1] = appendGeminiContentPart(ctx.items[len(ctx.items)-1], carrier)
+				} else {
+					ctx.items = append(ctx.items, antigravityContent("model", [][]byte{carrier}))
+				}
+			}
+			ctx.pendingSignature = sig
+		}
+		partItems := extractInteractionsThoughtPartsToAntigravity(step)
+		if len(partItems) > 0 {
+			if ctx.inModelTurn && len(ctx.items) > 0 && gjson.GetBytes(ctx.items[len(ctx.items)-1], "role").String() == "model" {
+				ctx.items[len(ctx.items)-1] = appendGeminiContentParts(ctx.items[len(ctx.items)-1], partItems)
+			} else {
+				ctx.items = append(ctx.items, antigravityContent("model", partItems))
+			}
+		}
+		ctx.inModelTurn = true
+		ctx.lastStepType = "thought"
 	case "function_call":
-		return appendInteractionsFunctionCallToAntigravity(out, step)
+		part := buildAntigravityFunctionCallPart(step)
+		sig := firstNonEmptyString(step.Get("signature").String(), step.Get("thought_signature").String(), step.Get("thoughtSignature").String())
+		if sig == "" && ctx.pendingSignature != "" {
+			sig = ctx.pendingSignature
+			ctx.pendingSignature = ""
+		} else if sig != "" && ctx.pendingSignature != "" {
+			if ctx.pendingSignature == sig {
+				ctx.pendingSignature = ""
+			} else {
+				carrier := antigravityTextPartJSON("", false)
+				carrier, _ = sjson.SetBytes(carrier, "thoughtSignature", ctx.pendingSignature)
+				ctx.pendingSignature = ""
+				if ctx.inModelTurn && len(ctx.items) > 0 && gjson.GetBytes(ctx.items[len(ctx.items)-1], "role").String() == "model" {
+					ctx.items[len(ctx.items)-1] = appendGeminiContentPart(ctx.items[len(ctx.items)-1], carrier)
+				} else {
+					ctx.items = append(ctx.items, antigravityContent("model", [][]byte{carrier}))
+				}
+			}
+		}
+		if sig != "" {
+			part, _ = sjson.SetBytes(part, "thoughtSignature", sig)
+		}
+		if ctx.inModelTurn && len(ctx.items) > 0 && gjson.GetBytes(ctx.items[len(ctx.items)-1], "role").String() == "model" {
+			ctx.items[len(ctx.items)-1] = appendGeminiContentPart(ctx.items[len(ctx.items)-1], part)
+		} else {
+			ctx.items = append(ctx.items, antigravityContent("model", [][]byte{part}))
+		}
+		ctx.inModelTurn = true
+		ctx.lastStepType = "function_call"
 	case "function_result":
-		return appendInteractionsFunctionResultToAntigravity(out, step)
+		if ctx.inModelTurn {
+			flushPendingAntigravitySignature(ctx)
+			ctx.inModelTurn = false
+		}
+		part := buildAntigravityFunctionResultPart(step)
+		if ctx.lastStepType == "function_result" && len(ctx.items) > 0 && gjson.GetBytes(ctx.items[len(ctx.items)-1], "role").String() == "user" {
+			ctx.items[len(ctx.items)-1] = appendGeminiUserContentPart(ctx.items[len(ctx.items)-1], part)
+		} else {
+			ctx.items = append(ctx.items, antigravityContent("user", [][]byte{part}))
+		}
+		ctx.lastStepType = "function_result"
 	case "user_input", "":
-		if step.Get("parts").Exists() {
-			return appendInteractionsNativeContentToAntigravity(out, step, defaultRole)
+		if ctx.inModelTurn {
+			flushPendingAntigravitySignature(ctx)
+			ctx.inModelTurn = false
 		}
-		return appendInteractionsContentListToAntigravity(out, defaultRole, step.Get("content"))
+		if step.Get("parts").Exists() {
+			appendInteractionsNativeContentToAntigravity(&ctx.items, step, defaultRole)
+		} else {
+			appendInteractionsContentListToAntigravity(&ctx.items, defaultRole, step.Get("content"))
+		}
+		ctx.lastStepType = "user_input"
 	default:
+		if ctx.inModelTurn {
+			flushPendingAntigravitySignature(ctx)
+			ctx.inModelTurn = false
+		}
 		if step.Get("parts").Exists() {
-			return appendInteractionsNativeContentToAntigravity(out, step, defaultRole)
+			appendInteractionsNativeContentToAntigravity(&ctx.items, step, defaultRole)
+		} else if step.Get("content").Exists() {
+			appendInteractionsContentListToAntigravity(&ctx.items, defaultRole, step.Get("content"))
+		} else if text := step.Get("text"); text.Exists() {
+			appendAntigravityTextContent(&ctx.items, defaultRole, text.String())
 		}
-		if step.Get("content").Exists() {
-			return appendInteractionsContentListToAntigravity(out, defaultRole, step.Get("content"))
-		}
-		if text := step.Get("text"); text.Exists() {
-			return appendAntigravityTextContent(out, defaultRole, text.String())
-		}
+		ctx.lastStepType = "default"
 	}
-	return out
 }
 
-func appendInteractionsNativeContentToAntigravity(out []byte, step gjson.Result, defaultRole string) []byte {
-	parts := step.Get("parts")
-	if !parts.Exists() || !parts.IsArray() {
-		return out
+func flushPendingAntigravitySignature(ctx *antigravityInteractionsInputContext) {
+	if ctx.pendingSignature == "" {
+		return
 	}
-	contentObj := []byte(`{"role":"","parts":[]}`)
-	contentObj, _ = sjson.SetBytes(contentObj, "role", antigravityContentRole(step.Get("role").String(), defaultRole))
-	parts.ForEach(func(_, part gjson.Result) bool {
-		if partJSON := interactionsNativeAntigravityPart(part); len(partJSON) > 0 {
-			contentObj, _ = sjson.SetRawBytes(contentObj, "parts.-1", partJSON)
-		}
-		return true
-	})
-	if gjson.GetBytes(contentObj, "parts.#").Int() == 0 {
-		return out
+	carrier := antigravityTextPartJSON("", false)
+	carrier, _ = sjson.SetBytes(carrier, "thoughtSignature", ctx.pendingSignature)
+	ctx.pendingSignature = ""
+	if len(ctx.items) > 0 && gjson.GetBytes(ctx.items[len(ctx.items)-1], "role").String() == "model" {
+		ctx.items[len(ctx.items)-1] = appendGeminiContentPart(ctx.items[len(ctx.items)-1], carrier)
+	} else {
+		ctx.items = append(ctx.items, antigravityContent("model", [][]byte{carrier}))
 	}
-	out, _ = sjson.SetRawBytes(out, "request.contents.-1", contentObj)
-	return out
 }
 
-func appendInteractionsStepContentToAntigravity(out []byte, role string, step gjson.Result, thought bool) []byte {
+func extractInteractionsThoughtPartsToAntigravity(step gjson.Result) [][]byte {
 	content := step.Get("content")
 	if !content.Exists() {
-		return out
+		content = step.Get("summary")
 	}
-	contentObj := []byte(`{"role":"","parts":[]}`)
-	contentObj, _ = sjson.SetBytes(contentObj, "role", role)
+	if !content.Exists() {
+		content = step.Get("text")
+	}
+	if !content.Exists() {
+		return nil
+	}
+	var partItems [][]byte
+	if content.IsArray() {
+		content.ForEach(func(_, part gjson.Result) bool {
+			if partJSON := appendInteractionsContentToAntigravityPart(nil, part, true); len(partJSON) > 0 {
+				partItems = append(partItems, partJSON)
+			}
+			return true
+		})
+	} else if content.IsObject() {
+		if partJSON := appendInteractionsContentToAntigravityPart(nil, content, true); len(partJSON) > 0 {
+			partItems = append(partItems, partJSON)
+		}
+	} else if content.Type == gjson.String {
+		partItems = append(partItems, antigravityTextPartJSON(content.String(), true))
+	}
+	return partItems
+}
+
+func extractInteractionsStepContentPartsToAntigravity(step gjson.Result, thought bool) [][]byte {
+	content := step.Get("content")
+	if !content.Exists() {
+		content = step.Get("text")
+	}
+	if !content.Exists() {
+		return nil
+	}
+	var partItems [][]byte
 	if content.IsArray() {
 		content.ForEach(func(_, part gjson.Result) bool {
 			if partJSON := appendInteractionsContentToAntigravityPart(nil, part, thought); len(partJSON) > 0 {
-				contentObj, _ = sjson.SetRawBytes(contentObj, "parts.-1", partJSON)
+				partItems = append(partItems, partJSON)
 			}
 			return true
 		})
 	} else if content.IsObject() {
 		if partJSON := appendInteractionsContentToAntigravityPart(nil, content, thought); len(partJSON) > 0 {
-			contentObj, _ = sjson.SetRawBytes(contentObj, "parts.-1", partJSON)
+			partItems = append(partItems, partJSON)
 		}
 	} else if content.Type == gjson.String {
-		contentObj, _ = sjson.SetRawBytes(contentObj, "parts.-1", antigravityTextPartJSON(content.String(), thought))
+		partItems = append(partItems, antigravityTextPartJSON(content.String(), thought))
 	}
-	if gjson.GetBytes(contentObj, "parts.#").Int() == 0 {
-		return out
-	}
-	out, _ = sjson.SetRawBytes(out, "request.contents.-1", contentObj)
-	return out
+	return partItems
 }
 
-func appendInteractionsContentListToAntigravity(out []byte, role string, content gjson.Result) []byte {
+func appendGeminiContentPart(content []byte, part []byte) []byte {
+	parts := gjson.GetBytes(content, "parts").Array()
+	rawParts := make([][]byte, 0, len(parts)+1)
+	for _, p := range parts {
+		rawParts = append(rawParts, []byte(p.Raw))
+	}
+	rawParts = append(rawParts, part)
+	updated, err := sjson.SetRawBytes(content, "parts", translatorcommon.JoinRawArray(rawParts))
+	if err != nil {
+		return content
+	}
+	return updated
+}
+
+func appendGeminiContentParts(content []byte, newParts [][]byte) []byte {
+	if len(newParts) == 0 {
+		return content
+	}
+	parts := gjson.GetBytes(content, "parts").Array()
+	rawParts := make([][]byte, 0, len(parts)+len(newParts))
+	for _, p := range parts {
+		rawParts = append(rawParts, []byte(p.Raw))
+	}
+	rawParts = append(rawParts, newParts...)
+	updated, err := sjson.SetRawBytes(content, "parts", translatorcommon.JoinRawArray(rawParts))
+	if err != nil {
+		return content
+	}
+	return updated
+}
+
+func appendGeminiUserContentPart(content []byte, part []byte) []byte {
+	parts := gjson.GetBytes(content, "parts").Array()
+	rawParts := make([][]byte, 0, len(parts)+1)
+	for _, p := range parts {
+		rawParts = append(rawParts, []byte(p.Raw))
+	}
+	rawParts = append(rawParts, part)
+	rawParts = translatorcommon.ReorderGeminiUserParts(rawParts)
+	updated, err := sjson.SetRawBytes(content, "parts", translatorcommon.JoinRawArray(rawParts))
+	if err != nil {
+		return content
+	}
+	return updated
+}
+
+func firstNonEmptyString(values ...string) string {
+	for _, v := range values {
+		if s := strings.TrimSpace(v); s != "" {
+			return s
+		}
+	}
+	return ""
+}
+
+func buildAntigravityFunctionCallPart(step gjson.Result) []byte {
+	part := []byte(`{"functionCall":{"name":"","args":{}}}`)
+	part, _ = sjson.SetBytes(part, "functionCall.name", step.Get("name").String())
+	if callID := step.Get("call_id"); callID.Exists() {
+		part, _ = sjson.SetBytes(part, "functionCall.id", callID.String())
+	} else if id := step.Get("id"); id.Exists() {
+		part, _ = sjson.SetBytes(part, "functionCall.id", id.String())
+	}
+	if args := step.Get("arguments"); args.Exists() {
+		part, _ = sjson.SetRawBytes(part, "functionCall.args", []byte(args.Raw))
+	}
+	return part
+}
+
+func buildAntigravityFunctionResultPart(step gjson.Result) []byte {
+	part := []byte(`{"functionResponse":{"name":"","response":{}}}`)
+	part, _ = sjson.SetBytes(part, "functionResponse.name", step.Get("name").String())
+	if callID := step.Get("call_id"); callID.Exists() {
+		part, _ = sjson.SetBytes(part, "functionResponse.id", callID.String())
+	} else if id := step.Get("id"); id.Exists() {
+		part, _ = sjson.SetBytes(part, "functionResponse.id", id.String())
+	}
+	if result := step.Get("result"); result.Exists() {
+		part = translatorcommon.SetGeminiFunctionResponseResult(part, "functionResponse.response", result)
+	}
+	return part
+}
+
+func appendInteractionsNativeContentToAntigravity(items *[][]byte, step gjson.Result, defaultRole string) {
+	parts := step.Get("parts")
+	if !parts.Exists() || !parts.IsArray() {
+		return
+	}
+	partItems := make([][]byte, 0, 4)
+	parts.ForEach(func(_, part gjson.Result) bool {
+		if partJSON := interactionsNativeAntigravityPart(part); len(partJSON) > 0 {
+			partItems = append(partItems, partJSON)
+		}
+		return true
+	})
+	if len(partItems) > 0 {
+		role := antigravityContentRole(step.Get("role").String(), defaultRole)
+		*items = append(*items, antigravityContent(role, partItems))
+	}
+}
+
+func appendInteractionsStepContentToAntigravity(items *[][]byte, role string, step gjson.Result, thought bool) {
+	content := step.Get("content")
 	if !content.Exists() {
-		return out
+		return
+	}
+	partItems := make([][]byte, 0, 4)
+	if content.IsArray() {
+		content.ForEach(func(_, part gjson.Result) bool {
+			if partJSON := appendInteractionsContentToAntigravityPart(nil, part, thought); len(partJSON) > 0 {
+				partItems = append(partItems, partJSON)
+			}
+			return true
+		})
+	} else if content.IsObject() {
+		if partJSON := appendInteractionsContentToAntigravityPart(nil, content, thought); len(partJSON) > 0 {
+			partItems = append(partItems, partJSON)
+		}
+	} else if content.Type == gjson.String {
+		partItems = append(partItems, antigravityTextPartJSON(content.String(), thought))
+	}
+	if len(partItems) > 0 {
+		*items = append(*items, antigravityContent(role, partItems))
+	}
+}
+
+func appendInteractionsContentListToAntigravity(items *[][]byte, role string, content gjson.Result) {
+	if !content.Exists() {
+		return
 	}
 	if content.IsArray() {
 		content.ForEach(func(_, part gjson.Result) bool {
-			out = appendInteractionsContentPartToAntigravity(out, role, part)
+			appendInteractionsContentPartToAntigravity(items, role, part)
 			return true
 		})
-		return out
+		return
 	}
 	if content.IsObject() {
-		return appendInteractionsContentPartToAntigravity(out, role, content)
+		appendInteractionsContentPartToAntigravity(items, role, content)
+	} else if content.Type == gjson.String {
+		appendAntigravityTextContent(items, role, content.String())
 	}
-	if content.Type == gjson.String {
-		return appendAntigravityTextContent(out, role, content.String())
-	}
-	return out
 }
 
-func appendInteractionsContentPartToAntigravity(out []byte, role string, part gjson.Result) []byte {
+func appendInteractionsContentPartToAntigravity(items *[][]byte, role string, part gjson.Result) {
 	partJSON := appendInteractionsContentToAntigravityPart(nil, part, false)
-	if len(partJSON) == 0 {
-		return out
+	if len(partJSON) > 0 {
+		*items = append(*items, antigravityContent(role, [][]byte{partJSON}))
 	}
-	contentObj := []byte(`{"role":"","parts":[]}`)
-	contentObj, _ = sjson.SetBytes(contentObj, "role", role)
-	contentObj, _ = sjson.SetRawBytes(contentObj, "parts.-1", partJSON)
-	out, _ = sjson.SetRawBytes(out, "request.contents.-1", contentObj)
-	return out
 }
 
 func appendInteractionsContentToAntigravityPart(_ []byte, content gjson.Result, thought bool) []byte {
@@ -389,52 +738,28 @@ func appendInteractionsContentToAntigravityPart(_ []byte, content gjson.Result, 
 	case "file":
 		filename := content.Get("file.filename").String()
 		fileData := content.Get("file.file_data").String()
-		ext := ""
-		if sp := strings.Split(filename, "."); len(sp) > 1 {
-			ext = sp[len(sp)-1]
-		}
-		if mimeType, ok := misc.MimeTypes[ext]; ok && fileData != "" {
-			return antigravityInlineDataPartJSON(gjson.Parse(fmt.Sprintf(`{"mime_type":%q,"data":%q}`, mimeType, fileData)))
+		if mimeType, data, ok := translatorcommon.NormalizeOpenAIFileData(filename, "", fileData); ok {
+			return antigravityInlineDataPartJSON(gjson.Parse(fmt.Sprintf(`{"mime_type":%q,"data":%q}`, mimeType, data)))
 		}
 	}
 	return nil
 }
 
-func appendInteractionsFunctionCallToAntigravity(out []byte, step gjson.Result) []byte {
-	part := []byte(`{"functionCall":{"name":"","args":{}}}`)
-	part, _ = sjson.SetBytes(part, "functionCall.name", step.Get("name").String())
-	if callID := step.Get("call_id"); callID.Exists() {
-		part, _ = sjson.SetBytes(part, "functionCall.id", callID.String())
-	} else if id := step.Get("id"); id.Exists() {
-		part, _ = sjson.SetBytes(part, "functionCall.id", id.String())
-	}
-	if args := step.Get("arguments"); args.Exists() {
-		part, _ = sjson.SetRawBytes(part, "functionCall.args", []byte(args.Raw))
-	}
-	contentObj := []byte(`{"role":"model","parts":[]}`)
-	contentObj, _ = sjson.SetRawBytes(contentObj, "parts.-1", part)
-	out, _ = sjson.SetRawBytes(out, "request.contents.-1", contentObj)
-	return out
+func appendInteractionsFunctionCallToAntigravity(items *[][]byte, step gjson.Result) {
+	part := buildAntigravityFunctionCallPart(step)
+	*items = append(*items, antigravityContent("model", [][]byte{part}))
 }
 
-func appendInteractionsFunctionResultToAntigravity(out []byte, step gjson.Result) []byte {
-	part := []byte(`{"functionResponse":{"name":"","response":{}}}`)
-	part, _ = sjson.SetBytes(part, "functionResponse.name", step.Get("name").String())
-	if callID := step.Get("call_id"); callID.Exists() {
-		part, _ = sjson.SetBytes(part, "functionResponse.id", callID.String())
-	} else if id := step.Get("id"); id.Exists() {
-		part, _ = sjson.SetBytes(part, "functionResponse.id", id.String())
-	}
-	if result := step.Get("result"); result.Exists() {
-		part, _ = sjson.SetRawBytes(part, "functionResponse.response", []byte(result.Raw))
-	}
-	contentObj := []byte(`{"role":"user","parts":[]}`)
-	contentObj, _ = sjson.SetRawBytes(contentObj, "parts.-1", part)
-	out, _ = sjson.SetRawBytes(out, "request.contents.-1", contentObj)
-	return out
+func appendInteractionsFunctionResultToAntigravity(items *[][]byte, step gjson.Result) {
+	part := buildAntigravityFunctionResultPart(step)
+	*items = append(*items, antigravityContent("user", [][]byte{part}))
 }
 
-func copyInteractionsToolsToAntigravity(out []byte, root gjson.Result) []byte {
+func copyInteractionsToolsToAntigravity(out []byte, root gjson.Result, functionNameMap map[string]string) []byte {
+	if gjson.GetBytes(out, "request.toolConfig.functionCallingConfig.mode").String() == "NONE" {
+		out, _ = sjson.DeleteBytes(out, "request.tools")
+		return out
+	}
 	tools := root.Get("tools")
 	if !tools.Exists() {
 		return out
@@ -443,67 +768,111 @@ func copyInteractionsToolsToAntigravity(out []byte, root gjson.Result) []byte {
 		out, _ = sjson.SetRawBytes(out, "request.tools", []byte(tools.Raw))
 		return out
 	}
-	functionToolNode := []byte(`{}`)
-	hasFunction := false
-	otherTools := make([][]byte, 0)
+	var functionDeclarations [][]byte
+	var otherTools [][]byte
 	tools.ForEach(func(_, tool gjson.Result) bool {
 		if decls := tool.Get("functionDeclarations"); decls.Exists() && decls.IsArray() {
 			decls.ForEach(func(_, decl gjson.Result) bool {
-				functionToolNode, hasFunction = appendAntigravityFunctionDeclaration(functionToolNode, decl, hasFunction)
+				if converted := antigravityFunctionDeclarationJSON(decl, functionNameMap); len(converted) > 0 {
+					functionDeclarations = append(functionDeclarations, converted)
+				}
 				return true
 			})
 			return true
 		}
 		if decls := tool.Get("function_declarations"); decls.Exists() && decls.IsArray() {
 			decls.ForEach(func(_, decl gjson.Result) bool {
-				functionToolNode, hasFunction = appendAntigravityFunctionDeclaration(functionToolNode, decl, hasFunction)
+				if converted := antigravityFunctionDeclarationJSON(decl, functionNameMap); len(converted) > 0 {
+					functionDeclarations = append(functionDeclarations, converted)
+				}
 				return true
 			})
 			return true
 		}
 		if tool.Get("type").String() == "function" || tool.Get("name").Exists() {
-			functionToolNode, hasFunction = appendAntigravityFunctionDeclaration(functionToolNode, tool, hasFunction)
+			if converted := antigravityFunctionDeclarationJSON(tool, functionNameMap); len(converted) > 0 {
+				functionDeclarations = append(functionDeclarations, converted)
+			}
 			return true
 		}
-		otherTools = append(otherTools, []byte(tool.Raw))
+		toolType := tool.Get("type").String()
+		switch toolType {
+		case "url_context":
+			node := []byte(`{"urlContext":{}}`)
+			if uc := tool.Get("url_context"); uc.Exists() && uc.IsObject() {
+				node, _ = sjson.SetRawBytes(node, "urlContext", []byte(uc.Raw))
+			} else if uc := tool.Get("urlContext"); uc.Exists() && uc.IsObject() {
+				node, _ = sjson.SetRawBytes(node, "urlContext", []byte(uc.Raw))
+			}
+			otherTools = append(otherTools, node)
+			return true
+		case "code_execution":
+			node := []byte(`{"codeExecution":{}}`)
+			if ce := tool.Get("code_execution"); ce.Exists() && ce.IsObject() {
+				node, _ = sjson.SetRawBytes(node, "codeExecution", []byte(ce.Raw))
+			} else if ce := tool.Get("codeExecution"); ce.Exists() && ce.IsObject() {
+				node, _ = sjson.SetRawBytes(node, "codeExecution", []byte(ce.Raw))
+			}
+			otherTools = append(otherTools, node)
+			return true
+		case "google_search", "web_search":
+			node := []byte(`{"googleSearch":{}}`)
+			if gs := tool.Get("google_search"); gs.Exists() && gs.IsObject() {
+				node, _ = sjson.SetRawBytes(node, "googleSearch", []byte(gs.Raw))
+			} else if gs := tool.Get("googleSearch"); gs.Exists() && gs.IsObject() {
+				node, _ = sjson.SetRawBytes(node, "googleSearch", []byte(gs.Raw))
+			}
+			otherTools = append(otherTools, node)
+			return true
+		}
+		rawBytes := []byte(tool.Raw)
+		if toolType == "" {
+			if uc := tool.Get("url_context"); uc.Exists() {
+				rawBytes, _ = sjson.SetRawBytes(rawBytes, "urlContext", []byte(uc.Raw))
+				rawBytes, _ = sjson.DeleteBytes(rawBytes, "url_context")
+			}
+			if ce := tool.Get("code_execution"); ce.Exists() {
+				rawBytes, _ = sjson.SetRawBytes(rawBytes, "codeExecution", []byte(ce.Raw))
+				rawBytes, _ = sjson.DeleteBytes(rawBytes, "code_execution")
+			}
+			if gs := tool.Get("google_search"); gs.Exists() {
+				rawBytes, _ = sjson.SetRawBytes(rawBytes, "googleSearch", []byte(gs.Raw))
+				rawBytes, _ = sjson.DeleteBytes(rawBytes, "google_search")
+			}
+			if ws := tool.Get("web_search"); ws.Exists() {
+				rawBytes, _ = sjson.SetRawBytes(rawBytes, "googleSearch", []byte(ws.Raw))
+				rawBytes, _ = sjson.DeleteBytes(rawBytes, "web_search")
+			}
+		}
+		otherTools = append(otherTools, rawBytes)
 		return true
 	})
-	toolsNode := []byte(`[]`)
-	if hasFunction {
-		toolsNode, _ = sjson.SetRawBytes(toolsNode, "-1", functionToolNode)
-	}
-	for _, tool := range otherTools {
-		toolsNode, _ = sjson.SetRawBytes(toolsNode, "-1", tool)
-	}
+	deduplicated := util.DeduplicateFunctionDeclarations(translatorcommon.JoinRawArray(functionDeclarations))
+	hasFunction := len(deduplicated) > 2
 	if hasFunction || len(otherTools) > 0 {
-		out, _ = sjson.SetRawBytes(out, "request.tools", toolsNode)
+		toolItems := make([][]byte, 0, 1+len(otherTools))
+		if hasFunction {
+			functionToolNode := []byte(`{"functionDeclarations":[]}`)
+			functionToolNode, _ = sjson.SetRawBytes(functionToolNode, "functionDeclarations", deduplicated)
+			toolItems = append(toolItems, functionToolNode)
+		}
+		toolItems = append(toolItems, otherTools...)
+		out, _ = sjson.SetRawBytes(out, "request.tools", translatorcommon.JoinRawArray(toolItems))
 	}
 	return out
 }
 
-func appendAntigravityFunctionDeclaration(functionToolNode []byte, decl gjson.Result, hasFunction bool) ([]byte, bool) {
-	fnRaw := antigravityFunctionDeclarationJSON(decl)
-	if len(fnRaw) == 0 {
-		return functionToolNode, hasFunction
-	}
-	if !hasFunction {
-		functionToolNode, _ = sjson.SetRawBytes(functionToolNode, "functionDeclarations", []byte(`[]`))
-	}
-	functionToolNode, _ = sjson.SetRawBytes(functionToolNode, "functionDeclarations.-1", fnRaw)
-	return functionToolNode, true
-}
-
-func antigravityFunctionDeclarationJSON(decl gjson.Result) []byte {
+func antigravityFunctionDeclarationJSON(decl gjson.Result, functionNameMap map[string]string) []byte {
 	fn := decl
 	if nested := decl.Get("function"); nested.Exists() && nested.IsObject() {
 		fn = nested
 	}
-	name := strings.TrimSpace(fn.Get("name").String())
-	if name == "" {
+	name := fn.Get("name").String()
+	if strings.TrimSpace(name) == "" {
 		return nil
 	}
 	out := []byte(`{"name":"","parametersJsonSchema":{"type":"object","properties":{}}}`)
-	out, _ = sjson.SetBytes(out, "name", util.SanitizeFunctionName(name))
+	out, _ = sjson.SetBytes(out, "name", util.MapSanitizedFunctionName(functionNameMap, name))
 	if desc := fn.Get("description"); desc.Exists() {
 		out, _ = sjson.SetBytes(out, "description", desc.String())
 	}
@@ -518,7 +887,6 @@ func antigravityFunctionDeclarationJSON(decl gjson.Result) []byte {
 	if responseSchema := fn.Get("responseJsonSchema"); responseSchema.Exists() {
 		out, _ = sjson.SetRawBytes(out, "responseJsonSchema", []byte(responseSchema.Raw))
 	}
-	out, _ = sjson.DeleteBytes(out, "strict")
 	return out
 }
 
@@ -592,12 +960,16 @@ func antigravityInlineDataPartFromDataURL(dataURL string) []byte {
 	return antigravityInlineDataPartJSON(gjson.Parse(fmt.Sprintf(`{"mime_type":%q,"data":%q}`, pieces[0], pieces[1][7:])))
 }
 
-func appendAntigravityTextContent(out []byte, role, text string) []byte {
-	contentObj := []byte(`{"role":"","parts":[{"text":""}]}`)
-	contentObj, _ = sjson.SetBytes(contentObj, "role", antigravityContentRole(role, "user"))
-	contentObj, _ = sjson.SetBytes(contentObj, "parts.0.text", text)
-	out, _ = sjson.SetRawBytes(out, "request.contents.-1", contentObj)
-	return out
+func appendAntigravityTextContent(items *[][]byte, role, text string) {
+	part := antigravityTextPartJSON(text, false)
+	*items = append(*items, antigravityContent(antigravityContentRole(role, "user"), [][]byte{part}))
+}
+
+func antigravityContent(role string, parts [][]byte) []byte {
+	content := []byte(`{"role":"","parts":[]}`)
+	content, _ = sjson.SetBytes(content, "role", role)
+	content, _ = sjson.SetRawBytes(content, "parts", translatorcommon.JoinRawArray(parts))
+	return content
 }
 
 func antigravityContentRole(role, defaultRole string) string {
@@ -631,20 +1003,17 @@ func antigravityInputAudioMimeType(format string) string {
 }
 
 func antigravityThinkingSummariesIncludeThoughts(summary gjson.Result) (bool, bool) {
-	switch summary.Type {
-	case gjson.True:
-		return true, true
-	case gjson.False:
-		return false, true
-	case gjson.String:
-		switch strings.ToLower(strings.TrimSpace(summary.String())) {
-		case "", "none", "off", "false", "disabled":
-			return false, true
-		default:
-			return true, true
-		}
+	if summary.Type != gjson.String {
+		return false, false
 	}
-	return false, false
+	switch strings.ToLower(strings.TrimSpace(summary.String())) {
+	case "auto":
+		return true, true
+	case "none":
+		return false, true
+	default:
+		return false, false
+	}
 }
 
 func convertSnakeCaseKeysToCamelCaseForAntigravity(raw []byte) []byte {

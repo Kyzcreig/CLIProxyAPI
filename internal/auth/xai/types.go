@@ -5,10 +5,11 @@ import "time"
 
 const (
 	// DefaultAPIBaseURL is the default official xAI API base URL.
-	// Used for OAuth credential defaults, websocket, and media (image/video).
-	// Non-media HTTP chat is rewritten to CLIChatProxyBaseURL by the executor.
+	// Used for OAuth credential defaults, websocket,
+	// and HTTP chat/media when auth using_api is true or non-OAuth.
 	DefaultAPIBaseURL = "https://api.x.ai/v1"
-	// CLIChatProxyBaseURL is the Grok CLI chat-proxy base URL for non-image/video HTTP chat.
+	// CLIChatProxyBaseURL is the Grok CLI chat-proxy base URL for HTTP chat
+	// and media (image/video) when auth using_api is false, including the OAuth default.
 	CLIChatProxyBaseURL = "https://cli-chat-proxy.grok.com/v1"
 	// Issuer is xAI's OAuth issuer.
 	Issuer = "https://auth.x.ai"

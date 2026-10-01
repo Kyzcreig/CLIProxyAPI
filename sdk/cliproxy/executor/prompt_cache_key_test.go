@@ -134,7 +134,7 @@ func TestApplyPromptCacheKeyMetadata_ShadowModeLabelsWithoutAWireKey(t *testing.
 			t.Fatalf("%q must normalise to shadow", raw)
 		}
 	}
-	for raw, unknown := range map[string]bool{"": false, "shadow": false, "bogus": true, "enforced": true} {
+	for raw, unknown := range map[string]bool{"": false, "shadow": false, "off": false, " OFF ": false, "bogus": true, "enforced": true, "of": true} {
 		if PromptCacheKeyModeUnknown(raw) != unknown {
 			t.Fatalf("PromptCacheKeyModeUnknown(%q) = %v", raw, !unknown)
 		}

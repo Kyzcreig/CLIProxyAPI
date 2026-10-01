@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v7/sdk/cliproxy/auth"
-	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v7/sdk/cliproxy/executor"
+	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
+	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
 )
 
 var fails int
@@ -50,7 +50,9 @@ func main() {
 	rp := cliproxyexecutor.ResolvePromptCacheKey("codex", []byte(`{"model":"m","prompt_cache_key":"fr-1","messages":[{"role":"user","content":"u"}]}`), h, nil)
 	check("passthrough beats caller+session", rp.Source == "passthrough" && rp.Key == "", rp)
 	// mode
-	check("mode default shadow", cliproxyexecutor.NormalizePromptCacheKeyMode("") == "shadow" && cliproxyexecutor.NormalizePromptCacheKeyMode("enforced") == "shadow" && cliproxyexecutor.NormalizePromptCacheKeyMode(" ENFORCE ") == "enforce")
+	absentMode, _ := cliproxyexecutor.PromptCachePolicyModeFromConfig("")
+	typoMode, typoUnknown := cliproxyexecutor.PromptCachePolicyModeFromConfig("enforced")
+	check("mode default off, typo shadow", absentMode == "off" && typoMode == "shadow" && typoUnknown && cliproxyexecutor.NormalizePromptCacheKeyMode(" ENFORCE ") == "enforce")
 	check("mode unknown reported", cliproxyexecutor.PromptCacheKeyModeUnknown("bogus") && !cliproxyexecutor.PromptCacheKeyModeUnknown("") && !cliproxyexecutor.PromptCacheKeyModeUnknown("shadow"))
 	mShadow := cliproxyexecutor.ApplyPromptCacheKeyMetadata(nil, r1, "shadow")
 	check("shadow records no wire key", cliproxyexecutor.WirePromptCacheKeyFromMetadata(mShadow) == "" && cliproxyexecutor.PromptCacheKeySourceFromMetadata(mShadow) == "derived" && cliproxyexecutor.PromptCacheKeyIDFromMetadata(mShadow) == r1.ID)
@@ -81,10 +83,9 @@ func main() {
 	eS := cliproxyauth.ExtractSessionID(nil, body("S1", "u"), mShadow)
 	check("shadow falls back to native extraction", strings.HasPrefix(eS, "msg:"), eS)
 
-	// bounded cache
-	c := cliproxyauth.NewSessionCache(time.Hour)
+	// bounded cache (v8: upstream LRU capacity, 5679bbf3)
+	c := cliproxyauth.NewSessionCacheWithCapacity(time.Hour, 3)
 	defer c.Stop()
-	c.SetMaxEntries(3)
 	c.Set("s1", "a")
 	c.Set("s2", "b")
 	c.Set("s3", "c")

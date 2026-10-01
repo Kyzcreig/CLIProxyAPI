@@ -32,11 +32,13 @@ import (
 //     upstream routes them to one machine and the auth selector pins them to one account.
 //
 // Mode (routing.prompt-cache-policy): "enforce" attaches caller/session/derived keys to the
-// wire and feeds the selector; "shadow" (the DEFAULT, and what any unset, empty or
-// misspelled value resolves to) only labels the request (usage sinks get cache_key_source /
-// cache_key_id) while the wire and the selector behave as before the policy existed. Shadow
-// is the A/B control arm and the runtime kill switch: a typo in the kill switch can never
-// fail into enforce. Enforce is an explicit opt-in per host.
+// wire and feeds the selector; "shadow" only labels the request (usage sinks get
+// cache_key_source / cache_key_id) while the wire and the selector behave as before the
+// policy existed; "off" (the DEFAULT: an absent or empty key, and a nil config) skips the
+// policy entirely - no resolver, no prompt fingerprints, no metadata - which is upstream
+// behaviour. A misspelled non-empty value warns and runs as shadow, so a typo in the kill
+// switch can never fail into enforce. Enforce is an explicit opt-in per host. A
+// content-alias daemon accepts nothing but the literal "off" (PromptCachePolicyAliasSafe).
 const (
 	// PromptCacheKeyMetadataKey carries the wire routing key in Options.Metadata (enforce
 	// mode only): the caller's own key for source caller (so affinity pins on the same key
@@ -61,6 +63,8 @@ const (
 
 	PromptCacheKeyModeEnforce = "enforce"
 	PromptCacheKeyModeShadow  = "shadow"
+	// PromptCacheKeyModeOff skips the policy entirely (the zero value of the config key).
+	PromptCacheKeyModeOff = "off"
 
 	promptCacheKeyPrefix         = "pck-"
 	promptCacheFirstUserHeadSize = 4096
@@ -151,10 +155,37 @@ func NormalizePromptCacheKeyMode(mode string) string {
 	return PromptCacheKeyModeShadow
 }
 
-// PromptCacheKeyModeUnknown reports a non-empty mode value that is neither enforce nor shadow.
+// PromptCacheKeyModeUnknown reports a non-empty mode value that is not enforce, shadow or off.
 func PromptCacheKeyModeUnknown(mode string) bool {
 	m := strings.ToLower(strings.TrimSpace(mode))
-	return m != "" && m != PromptCacheKeyModeEnforce && m != PromptCacheKeyModeShadow
+	return m != "" && m != PromptCacheKeyModeEnforce && m != PromptCacheKeyModeShadow && m != PromptCacheKeyModeOff
+}
+
+// PromptCachePolicyModeFromConfig maps the raw routing.prompt-cache-policy value to the mode
+// the manager runs: "" (key absent) and "off" -> off, "enforce" -> enforce, "shadow" ->
+// shadow (all case-insensitive, trimmed). Any other value runs as shadow and is reported as
+// unknown so the caller can warn; a typo never fails into enforce and never silently into off.
+func PromptCachePolicyModeFromConfig(raw string) (mode string, unknown bool) {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "", PromptCacheKeyModeOff:
+		return PromptCacheKeyModeOff, false
+	case PromptCacheKeyModeEnforce:
+		return PromptCacheKeyModeEnforce, false
+	case PromptCacheKeyModeShadow:
+		return PromptCacheKeyModeShadow, false
+	default:
+		return PromptCacheKeyModeShadow, true
+	}
+}
+
+// PromptCachePolicyAliasSafe reports whether a content-alias daemon may serve with this raw
+// routing.prompt-cache-policy value. Only the literal "off" is safe: any other value (absent,
+// empty, a typo such as "of", "Off", "shadow ", or an explicit shadow/enforce) would run the
+// resolver and write prompt fingerprints of the PRE-alias payload, i.e. hashes of exactly what
+// the alias hides. The alias executor refuses such a daemon with unsafe_daemon_config (spec
+// one-cliproxyapi-lineage D7; wired at the alias seam when content-alias lands on fleet).
+func PromptCachePolicyAliasSafe(raw string) bool {
+	return raw == PromptCacheKeyModeOff
 }
 
 // PromptCacheKeyModeFromMetadata returns the recorded mode, or "" when unresolved.
