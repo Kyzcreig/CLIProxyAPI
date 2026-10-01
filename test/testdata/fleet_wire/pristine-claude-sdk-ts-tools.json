@@ -1,0 +1,34 @@
+{
+  "method": "POST",
+  "path": "/v1/messages",
+  "headers": {
+    "Accept": [
+      "application/json"
+    ],
+    "Accept-Encoding": [
+      "gzip, deflate, br, zstd"
+    ],
+    "Anthropic-Beta": [
+      "claude-code-20250219"
+    ],
+    "Anthropic-Version": [
+      "2023-06-01"
+    ],
+    "Authorization": [
+      "Bearer fleet-claude-wire-upstream-key"
+    ],
+    "Content-Length": [
+      "759"
+    ],
+    "Content-Type": [
+      "application/json"
+    ],
+    "User-Agent": [
+      "claude-cli/2.1.283 (external, sdk-ts)"
+    ],
+    "X-App": [
+      "cli"
+    ]
+  },
+  "body": "{\"model\":\"claude-sonnet-4-6\",\"max_tokens\":128,\"system\":[{\"type\":\"text\",\"text\":\"Hermes\",\"cache_control\":{\"type\":\"ephemeral\"}}],\"metadata\":{\"user_id\":\"{\\\"device_id\\\":\\\"0000000000000000000000000000000000000000000000000000000000000000\\\",\\\"account_uuid\\\":\\\"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa\\\",\\\"session_id\\\":\\\"11111111-2222-4333-8444-555555555555\\\"}\"},\"messages\":[{\"role\":\"user\",\"content\":[{\"type\":\"text\",\"text\":\"Read sandbox\",\"cache_control\":{\"type\":\"ephemeral\"}}]}],\"tools\":[{\"name\":\"Read\",\"description\":\"Read a file\",\"input_schema\":{\"type\":\"object\",\"properties\":{\"file_path\":{\"type\":\"string\"}},\"required\":[\"file_path\"]}},{\"name\":\"Bash\",\"input_schema\":{\"type\":\"object\",\"properties\":{\"command\":{\"type\":\"string\"},\"timeout\":{\"type\":\"integer\"}}}}],\"stream\":false}"
+}
