@@ -39,7 +39,7 @@ func TestDPXAliasDeterminismGolden(t *testing.T) {
 		t.Fatal(err)
 	}
 	spool := filepath.Join(t.TempDir(), "wirelog.spool.jsonl")
-	cfg := &config.Config{MaxRetryCredentials: 1, DPXContentAlias: config.DPXContentAlias{
+	cfg := &config.Config{MaxRetryCredentials: 1, Routing: config.RoutingConfig{PromptCachePolicy: "off"}, DPXContentAlias: config.DPXContentAlias{
 		Enabled: true, StoreDirectory: dir, Principal: binding.Principal, SessionID: binding.Session, Version: "v1",
 		WirelogSpool: spool, WirelogLane: "dtlx", WirelogSub: "25",
 	}}

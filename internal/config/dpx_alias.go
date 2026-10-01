@@ -1,5 +1,11 @@
 package config
 
+import (
+	"os"
+	"path/filepath"
+	"strings"
+)
+
 // DPXContentAlias is default-off and belongs to a dedicated single-session daemon.
 // The binding is operator-owned configuration, never caller metadata.
 type DPXContentAlias struct {
@@ -23,7 +29,23 @@ type DPXContentAlias struct {
 	WirelogSpool string `yaml:"wirelog-spool" json:"-"`
 	WirelogLane  string `yaml:"wirelog-lane" json:"-"`
 	WirelogSub   string `yaml:"wirelog-sub" json:"-"`
+	// AuthFileCount is the number of `*.json` credential files under auth-dir
+	// when this config snapshot was (re)loaded (spec one-cliproxyapi-lineage
+	// D4 / Phase 2, AC9). One principal = one credential: an alias daemon that
+	// sees more than one is the shared-proxy shape and refuses every Claude
+	// request with unsafe_daemon_config. It is a LOAD-TIME snapshot taken by
+	// the loader (CPA hot-reloads config through the watcher), never a
+	// filesystem check on the request path; an auth-dir that grows after start
+	// trips the refusal on the next reload, and between reloads the unit's
+	// auth-dir tripwire is the detector. Not settable from YAML/JSON: it is
+	// exported only because CloneForRuntime cannot copy unexported fields.
+	AuthFileCount int `yaml:"-" json:"-"`
 }
+
+// DPXAuthDirUnreadable is the AuthFileCount recorded when auth-dir could not be
+// listed at load time for a reason other than "does not exist yet". An unknown
+// credential shape is treated as the unsafe one (fail closed).
+const DPXAuthDirUnreadable = -1
 
 // EffectiveLanes is the lane set the gate enforces: Lanes when set, else the
 // one-element set {Lane}, else nil (ungated legacy lab config).
@@ -35,4 +57,51 @@ func (c DPXContentAlias) EffectiveLanes() []string {
 		return []string{c.Lane}
 	}
 	return nil
+}
+
+// SnapshotAuthFiles records the number of `*.json` files directly under
+// authDir (a leading `~` expands to the user's home; empty = DefaultAuthDir)
+// into AuthFileCount. Called by the loader only for an alias-enabled config, so
+// a non-alias deployment never touches its auth-dir at load (off = upstream).
+func (c *DPXContentAlias) SnapshotAuthFiles(authDir string) {
+	c.AuthFileCount = CountDPXAuthFiles(authDir)
+}
+
+// CountDPXAuthFiles returns the number of `*.json` entries directly under
+// authDir, 0 when the directory does not exist yet, DPXAuthDirUnreadable on any
+// other error.
+func CountDPXAuthFiles(authDir string) int {
+	dir := strings.TrimSpace(authDir)
+	if dir == "" {
+		dir = DefaultAuthDir
+	}
+	if strings.HasPrefix(dir, "~") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return DPXAuthDirUnreadable
+		}
+		rest := strings.TrimLeft(strings.TrimPrefix(dir, "~"), `/\`)
+		if rest == "" {
+			dir = home
+		} else {
+			dir = filepath.Join(home, rest)
+		}
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return 0
+		}
+		return DPXAuthDirUnreadable
+	}
+	n := 0
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		if strings.EqualFold(filepath.Ext(entry.Name()), ".json") {
+			n++
+		}
+	}
+	return n
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"net/http"
 
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/contentalias"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor/helps"
 	execpkg "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
@@ -18,6 +19,52 @@ func (e *ClaudeExecutor) dpxAliasEnabled() bool { return e.cfg != nil && e.cfg.D
 // declared (lane set or wirelog spool), so a legacy config without the
 // section is untouched byte-for-byte.
 func (e *ClaudeExecutor) dpxLaneGateEnabled() bool { return helps.DPXSectionDeclared(e.cfg) }
+
+// dpxUnsafeDaemonConfig is the D4 guard (spec one-cliproxyapi-lineage §5 D4/D7,
+// §7 Phase 2 Negative (a), AC9): the shape a declared d-family unit must have
+// before the alias seam serves anything. Arms, each with its own test
+// (dpx_daemon_shape_test.go):
+//
+//   - retry/log shape (original): request-log, debug, request-retry != 0,
+//     max-retry-credentials != 1;
+//
+// and, when aliasing is ON (a re-sign-only unit with alias off carries no
+// binding and is not an alias daemon):
+//
+//   - binding incomplete: principal, session-id or store-directory empty;
+//   - more than one credential: AuthFileCount (the `*.json` count under
+//     auth-dir snapshotted by the config loader; see config.DPXContentAlias)
+//     above 1, or unreadable — one principal = one credential, the shared proxy
+//     (many creds, bearer key, 0.0.0.0) can never be this daemon;
+//   - routing.prompt-cache-policy is not the literal "off": anything else
+//     (absent, "of", "Shadow", "shadow ", or shadow/enforce explicitly) would
+//     run the resolver and write prompt fingerprints of the PRE-alias payload.
+//
+// The predicate reads the config snapshot only; no filesystem access on the
+// request path.
+func dpxUnsafeDaemonConfig(cfg *config.Config) bool {
+	if cfg == nil {
+		return true
+	}
+	if cfg.RequestLog || cfg.Debug || cfg.RequestRetry != 0 || cfg.MaxRetryCredentials != 1 {
+		return true
+	}
+	alias := cfg.DPXContentAlias
+	if !alias.Enabled {
+		return false
+	}
+	if alias.Principal == "" || alias.SessionID == "" || alias.StoreDirectory == "" {
+		return true
+	}
+	if alias.AuthFileCount > 1 || alias.AuthFileCount == config.DPXAuthDirUnreadable {
+		return true
+	}
+	if !execpkg.PromptCachePolicyAliasSafe(cfg.Routing.PromptCachePolicy) {
+		return true
+	}
+	return false
+}
+
 func (e *ClaudeExecutor) prepareDPXAlias(raw []byte, opts execpkg.Options, native, cloaked bool) ([]byte, *contentalias.RequestMap, error) {
 	if !e.dpxLaneGateEnabled() {
 		return raw, nil, nil
@@ -25,7 +72,7 @@ func (e *ClaudeExecutor) prepareDPXAlias(raw []byte, opts execpkg.Options, nativ
 	if opts.SourceFormat != translator.FromString("claude") || !native || cloaked {
 		return nil, nil, contentalias.Error("native_route_required")
 	}
-	if e.cfg.RequestLog || e.cfg.Debug || e.cfg.RequestRetry != 0 || e.cfg.MaxRetryCredentials != 1 {
+	if dpxUnsafeDaemonConfig(e.cfg) {
 		return nil, nil, contentalias.Error("unsafe_daemon_config")
 	}
 	cfg := e.cfg.DPXContentAlias

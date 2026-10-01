@@ -29,7 +29,7 @@ func TestDPXAliasExecutorHTTP(t *testing.T) {
 	if _, err := contentalias.Create(dir, binding, contentalias.DefaultManifest()); err != nil {
 		t.Fatal(err)
 	}
-	cfg := &config.Config{MaxRetryCredentials: 1, DPXContentAlias: config.DPXContentAlias{Enabled: true, StoreDirectory: dir, Principal: binding.Principal, SessionID: binding.Session, Version: "v1"}}
+	cfg := &config.Config{MaxRetryCredentials: 1, Routing: config.RoutingConfig{PromptCachePolicy: "off"}, DPXContentAlias: config.DPXContentAlias{Enabled: true, StoreDirectory: dir, Principal: binding.Principal, SessionID: binding.Session, Version: "v1"}}
 	calls := 0
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls++

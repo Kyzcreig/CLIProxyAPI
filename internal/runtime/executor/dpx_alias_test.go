@@ -28,7 +28,7 @@ func aliasFixture(t *testing.T) (*ClaudeExecutor, execpkg.Request, execpkg.Optio
 	if _, err := contentalias.Create(dir, binding, contentalias.DefaultManifest()); err != nil {
 		t.Fatal(err)
 	}
-	cfg := &config.Config{MaxRetryCredentials: 1, DPXContentAlias: config.DPXContentAlias{Enabled: true, StoreDirectory: dir, Principal: binding.Principal, SessionID: binding.Session, Version: binding.Version}}
+	cfg := &config.Config{MaxRetryCredentials: 1, Routing: config.RoutingConfig{PromptCachePolicy: "off"}, DPXContentAlias: config.DPXContentAlias{Enabled: true, StoreDirectory: dir, Principal: binding.Principal, SessionID: binding.Session, Version: binding.Version}}
 	identity, _ := json.Marshal(`{"device_id":"0000000000000000000000000000000000000000000000000000000000000000","account_uuid":"aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa","session_id":"11111111-2222-4333-8444-555555555555"}`)
 	raw := []byte(`{"model":"claude-sonnet-4-6","max_tokens":128,"system":"Hermes","metadata":{"user_id":` + string(identity) + `},"messages":[{"role":"user","content":"Read sandbox"}],"tools":[{"name":"Read","input_schema":{"type":"object","properties":{"file_path":{"type":"string"}},"required":["file_path"]}}]}`)
 	headers := http.Header{"User-Agent": {"claude-cli/2.1.284 (external, cli)"}, "X-App": {"cli"}, "Anthropic-Beta": {"claude-code-20250219"}}

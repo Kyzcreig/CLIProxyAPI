@@ -58,7 +58,9 @@ func main() {
 			panic(err)
 		}
 	}
-	cfg := &config.Config{MaxRetryCredentials: 1, DPXContentAlias: config.DPXContentAlias{Enabled: true, StoreDirectory: c.StoreDirectory, Principal: binding.Principal, SessionID: binding.Session, Version: binding.Version}}
+	// routing.prompt-cache-policy must be the literal "off" on an alias daemon (D7); the
+	// harness mirrors the unit config so the wire_capture gate exercises the real predicate.
+	cfg := &config.Config{MaxRetryCredentials: 1, Routing: config.RoutingConfig{PromptCachePolicy: "off"}, DPXContentAlias: config.DPXContentAlias{Enabled: true, StoreDirectory: c.StoreDirectory, Principal: binding.Principal, SessionID: binding.Session, Version: binding.Version}}
 	e := executor.NewClaudeExecutor(cfg)
 	upstreamKey := "offline-synthetic"
 	if c.UpstreamKey != "" {
