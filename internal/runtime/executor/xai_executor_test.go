@@ -7093,3 +7093,18 @@ func TestXAIExecutorUsesResolvedPromptCacheKeyForConvID(t *testing.T) {
 		})
 	}
 }
+
+// TestXAIChatHeadersClientVersionMeetsChatProxyFloor pins the literal client version sent to the
+// CLI chat-proxy. Since 2026-09-30 chat-proxy answers HTTP 426 for Grok CLI versions below 1.0.13.
+func TestXAIChatHeadersClientVersionMeetsChatProxyFloor(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, xaiauth.CLIChatProxyBaseURL+"/responses", nil)
+	// v8.0.4: chat-proxy headers ride the OAuth path (auth_kind oauth), not a bare base_url.
+	auth := &cliproxyauth.Auth{
+		Attributes: map[string]string{"auth_kind": "oauth", "base_url": xaiauth.DefaultAPIBaseURL},
+	}
+	applyXAIChatHeaders(req, auth, "xai-token", true, "conv-1")
+
+	if got := req.Header.Get("x-grok-client-version"); got != "1.0.46" {
+		t.Fatalf("x-grok-client-version = %q, want 1.0.46", got)
+	}
+}
