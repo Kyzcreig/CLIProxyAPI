@@ -12,10 +12,14 @@ import (
 	"bufio"
 	"bytes"
 	"compress/gzip"
+	"context"
 	"crypto/sha256"
+	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"regexp"
@@ -23,6 +27,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	"github.com/andybalholm/brotli"
@@ -98,25 +103,97 @@ func (t dpxWirelogTransport) RoundTrip(req *http.Request) (*http.Response, error
 	}
 	resp, err := t.base.RoundTrip(req)
 	if err != nil {
+		// No response headers: the transport failed. `errorClass` is the NAMED
+		// class (connect_refused, timeout, deadline_exceeded, tls, dns, ...);
+		// `error` keeps the bounded prose for a reader that needs the detail.
 		row["durationMs"] = time.Since(start).Milliseconds()
-		row["res"] = map[string]any{"status": 0, "error": dpxErrorClass(err)}
+		row["res"] = map[string]any{"status": 0, "phase": "headers", "errorClass": DPXTransportErrorClass(err), "error": dpxErrorClass(err)}
 		t.write(row)
 		return resp, err
 	}
 	res := map[string]any{"status": resp.StatusCode, "headers": dpxHeaders(resp.Header)}
 	stream := strings.Contains(resp.Header.Get("Content-Type"), "text/event-stream")
 	encoding := strings.ToLower(strings.TrimSpace(resp.Header.Get("Content-Encoding")))
-	resp.Body = &dpxWirelogBody{ReadCloser: resp.Body, stream: stream, done: func(raw []byte, n int) {
+	resp.Body = &dpxWirelogBody{ReadCloser: resp.Body, stream: stream, done: func(raw []byte, n int, end dpxBodyEnd) {
 		decoded, errDecode := dpxDecode(raw, encoding)
 		res["body"] = dpxResponseDigest(decoded, n, stream)
 		if errDecode != nil {
 			res["body"].(map[string]any)["usageErr"] = "decode:" + encoding
+		}
+		// Headers arrived but the body did not run to EOF: a mid-body stall the
+		// executor's context cut (closed_before_eof) or a transport error while
+		// streaming. Named here so a 200 row never passes for a complete response.
+		if !end.complete {
+			res["phase"] = "body"
+			res["bodyComplete"] = false
+			if end.err != nil {
+				res["errorClass"] = DPXTransportErrorClass(end.err)
+				res["error"] = dpxErrorClass(end.err)
+			} else {
+				res["errorClass"] = "closed_before_eof"
+			}
 		}
 		row["res"] = res
 		row["durationMs"] = time.Since(start).Milliseconds()
 		t.write(row)
 	}}
 	return resp, nil
+}
+
+// dpxBodyEnd says how a response body ended: complete at EOF, cut by a read
+// error, or closed by the caller before EOF (a stall or an abort).
+type dpxBodyEnd struct {
+	complete bool
+	err      error
+}
+
+// DPXTransportErrorClass names the class of a transport-level failure (no bytes
+// or an incomplete body from upstream). The vocabulary is fixed so a reader can
+// group on it; the prose stays in the `error` field. Order matters: a context
+// deadline wraps a net timeout on the Go client, and the deadline is the cause.
+func DPXTransportErrorClass(err error) string {
+	if err == nil {
+		return ""
+	}
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		return "deadline_exceeded"
+	case errors.Is(err, context.Canceled):
+		return "canceled"
+	}
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) {
+		return "dns"
+	}
+	var errno syscall.Errno
+	if errors.As(err, &errno) {
+		switch errno {
+		case syscall.ECONNREFUSED:
+			return "connect_refused"
+		case syscall.ECONNRESET:
+			return "connection_reset"
+		case syscall.EPIPE:
+			return "broken_pipe"
+		case syscall.EHOSTUNREACH, syscall.ENETUNREACH:
+			return "unreachable"
+		case syscall.ETIMEDOUT:
+			return "timeout"
+		}
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) && netErr.Timeout() {
+		return "timeout"
+	}
+	var certErr *tls.CertificateVerificationError
+	var alertErr tls.AlertError
+	var recordErr tls.RecordHeaderError
+	if errors.As(err, &certErr) || errors.As(err, &alertErr) || errors.As(err, &recordErr) || strings.Contains(err.Error(), "tls:") {
+		return "tls"
+	}
+	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
+		return "eof"
+	}
+	return "other"
 }
 
 func (t dpxWirelogTransport) write(row map[string]any) {
@@ -135,14 +212,15 @@ func (t dpxWirelogTransport) write(row map[string]any) {
 }
 
 // dpxWirelogBody keeps at most 1 MiB of the response for the usage digest and
-// fires done exactly once, at EOF or Close.
+// fires done exactly once: complete at EOF, or incomplete on a read error or a
+// Close before EOF (the executor's context cut a stalled body).
 type dpxWirelogBody struct {
 	io.ReadCloser
 	stream bool
 	buf    bytes.Buffer
 	n      int
 	once   sync.Once
-	done   func([]byte, int)
+	done   func([]byte, int, dpxBodyEnd)
 }
 
 func (b *dpxWirelogBody) Read(p []byte) (int, error) {
@@ -154,17 +232,21 @@ func (b *dpxWirelogBody) Read(p []byte) (int, error) {
 		}
 	}
 	if err == io.EOF {
-		b.finish()
+		b.finish(dpxBodyEnd{complete: true})
+	} else if err != nil {
+		b.finish(dpxBodyEnd{err: err})
 	}
 	return n, err
 }
 
 func (b *dpxWirelogBody) Close() error {
-	b.finish()
+	b.finish(dpxBodyEnd{})
 	return b.ReadCloser.Close()
 }
 
-func (b *dpxWirelogBody) finish() { b.once.Do(func() { b.done(b.buf.Bytes(), b.n) }) }
+func (b *dpxWirelogBody) finish(end dpxBodyEnd) {
+	b.once.Do(func() { b.done(b.buf.Bytes(), b.n, end) })
+}
 
 func dpxHeaders(h http.Header) [][2]string {
 	out := make([][2]string, 0, len(h))
