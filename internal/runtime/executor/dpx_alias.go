@@ -17,13 +17,7 @@ func (e *ClaudeExecutor) dpxAliasEnabled() bool { return e.cfg != nil && e.cfg.D
 // one aliasing layer per Ace 2026-09-29). Gated on the alias SECTION being
 // declared (lane set or wirelog spool), so a legacy config without the
 // section is untouched byte-for-byte.
-func (e *ClaudeExecutor) dpxLaneGateEnabled() bool {
-	if e.cfg == nil {
-		return false
-	}
-	c := e.cfg.DPXContentAlias
-	return c.Enabled || len(c.Lanes) > 0 || c.Lane != "" || c.WirelogSpool != ""
-}
+func (e *ClaudeExecutor) dpxLaneGateEnabled() bool { return helps.DPXSectionDeclared(e.cfg) }
 func (e *ClaudeExecutor) prepareDPXAlias(raw []byte, opts execpkg.Options, native, cloaked bool) ([]byte, *contentalias.RequestMap, error) {
 	if !e.dpxLaneGateEnabled() {
 		return raw, nil, nil

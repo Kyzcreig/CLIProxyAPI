@@ -69,6 +69,30 @@ var nativeClaudeEntrypoints = map[string]bool{
 	"claude-vscode": true,
 }
 
+// dpxNativeClaudeEntrypoints are the entrypoints a declared d-family unit (the
+// dpx-content-alias section present: alias on, a lane set, or a wirelog spool)
+// admits as native on top of upstream's set: the Agent SDK (sdk-ts, lane dslx;
+// claude-dpx #8, patch 0002-sdk-ts-native). Gated on the section so that with
+// it absent (the shared proxy) the detector is upstream's byte-for-byte on the
+// wire (spec one-cliproxyapi-lineage I2; TestFleetAliasOffClaudeWire).
+var dpxNativeClaudeEntrypoints = map[string]bool{
+	"sdk-ts": true,
+}
+
+// DPXSectionDeclared reports whether cfg declares a d-family unit: the alias is
+// enabled, or a lane / lane set / wirelog spool is set (a re-sign-only unit).
+func DPXSectionDeclared(cfg *config.Config) bool {
+	if cfg == nil {
+		return false
+	}
+	c := cfg.DPXContentAlias
+	return c.Enabled || len(c.Lanes) > 0 || c.Lane != "" || c.WirelogSpool != ""
+}
+
+func nativeClaudeEntrypoint(entrypoint string, cfg *config.Config) bool {
+	return nativeClaudeEntrypoints[entrypoint] || (DPXSectionDeclared(cfg) && dpxNativeClaudeEntrypoints[entrypoint])
+}
+
 type claudeCodeHelperShape uint8
 
 const (
@@ -153,7 +177,7 @@ func DetectClaudeCodeRequest(headers http.Header, payload []byte, countTokens bo
 
 	metadataUserID := gjson.GetBytes(payload, "metadata.user_id")
 	detection.MetadataUserID = metadataUserID.Exists() && metadataUserID.Type == gjson.String && isValidUserID(metadataUserID.String())
-	detection.NativeClient = nativeClaudeEntrypoints[entrypoint]
+	detection.NativeClient = nativeClaudeEntrypoint(entrypoint, cfg)
 	standardSignals := detection.XAppCLI && detection.UserAgent && detection.BetasPresent && (countTokens || detection.MetadataUserID)
 	detection.HelperProfile = detection.NativeClient && matchesMeasuredClaudeCodeHelperProfile(headers, payload, countTokens, detection, cfg)
 	detection.StrongSignals = standardSignals || detection.HelperProfile

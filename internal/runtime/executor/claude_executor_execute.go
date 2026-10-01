@@ -275,6 +275,9 @@ func (e *ClaudeExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, r
 		matcher := helps.BuildSensitiveWordMatcher(wireSettings.sensitiveWords)
 		bodyForUpstream = helps.ObfuscateSensitiveWords(bodyForUpstream, matcher)
 	}
+	bodyForUpstream, aliasMap, err := e.prepareDPXAlias(bodyForUpstream, opts, confirmedClaudeCode, cloaked)
+	if err != nil { return resp, err }
+	aliasPreparedBody := bodyForUpstream
 	cchBilling := ""
 	if cchSigning {
 		if !claudeCodeDetection.HelperProfile || claudeBodyNeedsBillingFallback(bodyForUpstream) {
@@ -293,6 +296,7 @@ func (e *ClaudeExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, r
 		return resp, errMidSystem
 	}
 	reporter.SetTranslatedReasoningEffort(bodyForUpstream, to.String())
+	if err := validateDPXFinalBody(aliasPreparedBody, bodyForUpstream, aliasMap); err != nil { return resp, err }
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyForUpstream))
 	if err != nil {
 		return resp, err
@@ -328,12 +332,17 @@ func (e *ClaudeExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, r
 
 	httpClient := helps.NewUtlsHTTPClient(ctx, e.cfg, auth, 0)
 	httpClient = reporter.TrackHTTPClient(httpClient)
+	httpClient = e.dpxWirelogClient(httpClient)
 	httpResp, err := doClaudeUpstreamRequest(httpClient, httpReq)
 	if err != nil {
 		helps.RecordAPIResponseError(ctx, e.cfg, err)
 		return resp, wrapClaudeFastRequestError(fastRequest, 0, err)
 	}
 	helps.RecordAPIResponseMetadata(ctx, e.cfg, httpResp.StatusCode, httpResp.Header.Clone())
+	if aliasMap != nil && (httpResp.StatusCode < 200 || httpResp.StatusCode >= 300) {
+		httpResp.Body.Close()
+		return resp, dpxAliasHTTPError{httpResp.StatusCode}
+	}
 	if httpResp.StatusCode < 200 || httpResp.StatusCode >= 300 {
 		// Decompress error responses — pass the Content-Encoding value (may be empty)
 		// and let decodeResponseBody handle both header-declared and magic-byte-detected
@@ -385,6 +394,15 @@ func (e *ClaudeExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, r
 		return resp, wrapClaudeFastRequestError(fastRequest, httpResp.StatusCode, err)
 	}
 	helps.AppendAPIResponseChunk(ctx, e.cfg, data)
+	if aliasMap != nil {
+		if upstreamStream {
+			var originalUsage helps.StreamUsageBuffer
+			for _, line := range bytes.Split(data, []byte("\n")) { originalUsage.ObserveClaudeStream(line) }
+			originalUsage.Publish(ctx, reporter)
+		} else { reporter.Publish(ctx, helps.ParseClaudeUsage(data)) }
+		if upstreamStream { data, err = aliasMap.RestoreSSE(data) } else { data, err = aliasMap.RestoreJSON(data) }
+		if err != nil { return resp, err }
+	}
 	if upstreamStream {
 		if errValidate := validateClaudeStreamingResponse(data); errValidate != nil {
 			helps.RecordAPIResponseError(ctx, e.cfg, errValidate)
@@ -407,12 +425,12 @@ func (e *ClaudeExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, r
 			}
 			lines[i] = restoredLine
 		}
-		streamUsage.Publish(ctx, reporter)
+		if aliasMap == nil { streamUsage.Publish(ctx, reporter) }
 		data = bytes.Join(lines, []byte("\n"))
 	} else {
 		commitClaudeContinuity(diagnosticsState, claudeMessageIDFromResponse(data), helps.HeaderValueCaseInsensitive(httpResp.Header, "request-id"))
 		reporter.ObserveResponseModel(data)
-		reporter.Publish(ctx, helps.ParseClaudeUsage(data))
+		if aliasMap == nil { reporter.Publish(ctx, helps.ParseClaudeUsage(data)) }
 		var errRestore error
 		data, errRestore = restoreClaudeOAuthToolNamesFromResponse(data, oauthToolNamesReverseMap)
 		if errRestore != nil {
