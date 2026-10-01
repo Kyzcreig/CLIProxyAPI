@@ -25,6 +25,7 @@ import (
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/registry"
 	runtimeexecutor "github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor"
+	"github.com/router-for-me/CLIProxyAPI/v8/internal/runtime/executor/helps"
 	_ "github.com/router-for-me/CLIProxyAPI/v8/internal/translator"
 	cliproxyauth "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/auth"
 	cliproxyexecutor "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/executor"
@@ -244,6 +245,21 @@ var fleetClaudeWireVolatileHeaders = map[string]bool{
 	"X-Claude-Code-Session-Id": true,
 }
 
+// fleetClaudeWireHostHeaders are the headers the executor fills from runtime.GOOS /
+// runtime.GOARCH (helps.ApplyClaudeLegacyDeviceHeaders, confirmed Claude Code only). Their
+// value is a property of the recording host, not of the tree: a golden recorded on a
+// linux/amd64 runner says Linux/x64, the same tree on darwin/arm64 says MacOS/arm64. The
+// value is replaced by a marker ONLY when it equals what this host derives, so a tree that
+// stops deriving it from the runtime (hard-codes a value) still differs from the golden on
+// every host whose runtime maps elsewhere.
+var fleetClaudeWireHostHeaders = map[string]struct {
+	marker string
+	host   func() string
+}{
+	"X-Stainless-Os":   {marker: "<runtime-os>", host: helps.MapStainlessOS},
+	"X-Stainless-Arch": {marker: "<runtime-arch>", host: helps.MapStainlessArch},
+}
+
 func fleetClaudeWireNormalize(rec fleetClaudeWireRecord) fleetClaudeWireRecord {
 	out := fleetClaudeWireRecord{Method: rec.Method, Path: rec.Path, Headers: map[string][]string{}, Body: rec.Body}
 	for k, v := range rec.Headers {
@@ -252,6 +268,14 @@ func fleetClaudeWireNormalize(rec fleetClaudeWireRecord) fleetClaudeWireRecord {
 			continue
 		}
 		vv := append([]string(nil), v...)
+		if hh, ok := fleetClaudeWireHostHeaders[http.CanonicalHeaderKey(k)]; ok {
+			hostValue := hh.host()
+			for i := range vv {
+				if vv[i] == hostValue {
+					vv[i] = hh.marker
+				}
+			}
+		}
 		sort.Strings(vv)
 		out.Headers[k] = vv
 	}

@@ -39,13 +39,13 @@
       "\u003cvolatile\u003e"
     ],
     "X-Stainless-Arch": [
-      "x64"
+      "\u003cruntime-arch\u003e"
     ],
     "X-Stainless-Lang": [
       "js"
     ],
     "X-Stainless-Os": [
-      "Linux"
+      "\u003cruntime-os\u003e"
     ],
     "X-Stainless-Package-Version": [
       "0.112.1"
