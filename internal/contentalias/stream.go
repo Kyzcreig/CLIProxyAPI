@@ -302,6 +302,11 @@ func (s *Stream) handle(raw []byte) error {
 			return Error("stream_order")
 		}
 		if b.kind == "tool_use" {
+			// A zero-argument call streams no JSON (one empty partial_json, or no delta at all):
+			// its input is the {} the start event already carried.
+			if len(bytes.TrimSpace(b.input)) == 0 {
+				b.input = []byte("{}")
+			}
 			args, err := parse(b.input)
 			if err != nil || args.kind != '{' {
 				return Error("stream_json")
@@ -326,9 +331,10 @@ func (s *Stream) handle(raw []byte) error {
 			b.start.ready = true
 			delta, _ := json.Marshal(map[string]any{"type": "content_block_delta", "index": index, "delta": map[string]string{"type": "input_json_delta", "partial_json": string(restored)}})
 			if len(b.deltas) == 0 {
-				return Error("stream_json")
+				s.enqueue(&queued{raw: emitEvent(delta), ready: true})
+			} else {
+				s.update(b.deltas[0], emitEvent(delta))
 			}
-			s.update(b.deltas[0], emitEvent(delta))
 		}
 		if b.kind == "text" {
 			decoded, err := b.text.finish()
