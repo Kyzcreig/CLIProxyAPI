@@ -176,6 +176,9 @@ func (m *RequestMap) forwardContent(n *node, st *state, edits *[]edit) error {
 			if err := m.referenceEdits(block, st, false, edits); err != nil {
 				return err
 			}
+			if err := resultTextEdits(block, st, edits); err != nil {
+				return err
+			}
 		case "tool_use":
 			name := block.get("name")
 			tool, ok := st.Tools[name.str()]
@@ -194,8 +197,11 @@ func (m *RequestMap) forwardContent(n *node, st *state, edits *[]edit) error {
 				if err := m.schemas[name.str()].arguments(input, false, edits); err != nil {
 					return err
 				}
+				if err := valueEdits(input, st.encodeText, edits); err != nil {
+					return err
+				}
 			}
-			// Tool result values and signed/unknown content are intentionally opaque.
+			// Signed/unknown content is intentionally opaque.
 		}
 	}
 	return nil
@@ -249,7 +255,65 @@ func (m *RequestMap) restoreBlock(block *node, edits *[]edit) error {
 			if input == nil || input.kind != '{' {
 				return Error("tool_input")
 			}
-			return m.schemas[original].arguments(input, true, edits)
+			if err := m.schemas[original].arguments(input, true, edits); err != nil {
+				return err
+			}
+			return valueEdits(input, m.decodeValue, edits)
+		}
+	}
+	return nil
+}
+
+// resultTextEdits aliases the text a tool_result hands the model (t_cb095320):
+// a string content, or the text of each immediate unsigned text item. A
+// signed result and every non-text item (image, document, unknown) stay
+// opaque. The model reads the aliases; whatever it copies into a tool_use
+// value is restored by valueEdits before the caller executes it.
+func resultTextEdits(block *node, st *state, edits *[]edit) error {
+	if block.get("type").str() != "tool_result" || block.has("signature") {
+		return nil
+	}
+	content := block.get("content")
+	if content == nil {
+		return nil
+	}
+	if content.kind == '"' {
+		return textEdit(content, st.encodeText, edits)
+	}
+	if content.kind != '[' {
+		return nil
+	}
+	for _, item := range content.items {
+		if item.get("type").str() == "text" && !item.has("signature") {
+			if err := textEdit(item.get("text"), st.encodeText, edits); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// valueEdits maps every string VALUE of a tool_use input (keys are the
+// schema's job): encode on the way out, decode on the way back, so a path or
+// identifier the model saw aliased executes as the caller's original bytes.
+func valueEdits(n *node, f func(string) (string, error), edits *[]edit) error {
+	if n == nil {
+		return nil
+	}
+	switch n.kind {
+	case '"':
+		return textEdit(n, f, edits)
+	case '{':
+		for _, field := range n.fields {
+			if err := valueEdits(field.value, f, edits); err != nil {
+				return err
+			}
+		}
+	case '[':
+		for _, item := range n.items {
+			if err := valueEdits(item, f, edits); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

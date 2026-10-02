@@ -8,14 +8,12 @@ import (
 )
 
 // Ordinary text retains only a namespace-prefix suffix. A token containing a
-// codec symbol needs lookahead until its resource classification is known;
-// that pending data shares the response's explicit 8 MiB budget.
+// codec symbol is held until the next whitespace or backtick; that pending
+// data shares the response's explicit 8 MiB budget.
 type textDecoder struct {
-	m              *RequestMap
-	pending        []byte
-	symbol         bool
-	mode           byte
-	ticks, closing int
+	m       *RequestMap
+	pending []byte
+	symbol  bool
 }
 
 func (d *textDecoder) flush() (string, error) {
@@ -25,37 +23,10 @@ func (d *textDecoder) flush() (string, error) {
 	return out, err
 }
 func (d *textDecoder) feed(text string) (string, error) {
+	// Encode aliases inside backtick spans and resource tokens too (t_cb095320),
+	// so decode restores symbols everywhere; whitespace and backticks bound a token.
 	var out strings.Builder
 	for _, r := range text {
-		if d.mode == 'o' { // opening backtick run
-			if r == '`' {
-				d.ticks++
-				out.WriteRune(r)
-				continue
-			}
-			d.mode = 'c'
-		}
-		if d.mode == 'c' {
-			out.WriteRune(r)
-			if r == '`' {
-				d.closing++
-				if d.closing == d.ticks {
-					d.mode = 0
-					d.closing = 0
-					d.ticks = 0
-				}
-			} else {
-				d.closing = 0
-			}
-			continue
-		}
-		if d.mode == 'r' {
-			if !unicode.IsSpace(r) && r != '`' {
-				out.WriteRune(r)
-				continue
-			}
-			d.mode = 0
-		}
 		if unicode.IsSpace(r) || r == '`' {
 			v, err := d.flush()
 			if err != nil {
@@ -63,20 +34,9 @@ func (d *textDecoder) feed(text string) (string, error) {
 			}
 			out.WriteString(v)
 			out.WriteRune(r)
-			if r == '`' {
-				d.mode = 'o'
-				d.ticks = 1
-			}
 			continue
 		}
 		d.pending = utf8.AppendRune(d.pending, r)
-		if strings.ContainsRune("/\\:@", r) {
-			out.Write(d.pending)
-			d.pending = nil
-			d.symbol = false
-			d.mode = 'r'
-			continue
-		}
 		if !d.symbol {
 			d.symbol = bytes.Contains(d.pending, []byte("dpx_v1_"))
 			if !d.symbol && len(d.pending) > 7 {

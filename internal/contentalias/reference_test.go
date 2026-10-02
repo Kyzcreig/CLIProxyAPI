@@ -114,7 +114,16 @@ func TestToolReferenceOpaqueValues(t *testing.T) {
 	} {
 		raw := []byte(`{"messages":[{"role":"user","content":[` + block + `]}]}`)
 		wire, _, e := Prepare(raw, testSession(t))
-		if e != nil || !bytes.Equal(raw, wire) {
+		if e != nil {
+			t.Fatalf("forward: %v", e)
+		}
+		// tool_result TEXT is aliased (t_cb095320); everything else, including
+		// tool_name fields outside the typed reference slots, stays byte-identical.
+		if strings.HasPrefix(block, `{"type":"tool_result"`) && strings.Contains(block, "Hermes") {
+			if bytes.Contains(wire, []byte("Hermes")) || bytes.Count(wire, []byte(`"tool_name":"Bash"`)) != bytes.Count(raw, []byte(`"tool_name":"Bash"`)) {
+				t.Fatalf("tool_result text not aliased or reference slot touched: %s", wire)
+			}
+		} else if !bytes.Equal(raw, wire) {
 			t.Fatalf("forward opaque changed: %v", e)
 		}
 		response := []byte(`{"content":[` + block + `]}`)

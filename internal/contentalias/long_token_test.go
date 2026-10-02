@@ -31,10 +31,8 @@ func TestStreamLongTokensWithinResponseBudget(t *testing.T) {
 			t.Fatal(err)
 		}
 		out.WriteString(end)
-		expected := input
-		if !strings.Contains(input, "/") {
-			expected = strings.ReplaceAll(input, alias, "Hermes")
-		}
+		// Resource-shaped tokens decode too (t_cb095320).
+		expected := strings.ReplaceAll(input, alias, "Hermes")
 		if out.String() != expected {
 			t.Fatal("long-token decoded bytes differ")
 		}

@@ -94,11 +94,20 @@ func TestExactSpellingVocabulary(t *testing.T) {
 	if v.get("content").items[0].get("text").str() != original.get("system").str() {
 		t.Fatal("exact spelling")
 	}
-	exempt := n.get("messages").items[0].get("content").str()
-	for _, v := range []string{"`Hermes`", "https://x/Hermes", "owner/Hermes", "/tmp/Hermes", "git@x:owner/Hermes"} {
-		if !strings.Contains(exempt, v) {
-			t.Fatal("identifier mutated")
-		}
+	// Backtick spans and resource tokens are aliased too (t_cb095320); the
+	// bijection restores them byte-exact.
+	resource := n.get("messages").items[0].get("content").str()
+	if strings.Contains(strings.ToLower(resource), "hermes") {
+		t.Fatal("resource identifier left on the wire: " + resource)
+	}
+	raw, _ = json.Marshal(map[string]any{"content": []any{map[string]any{"type": "text", "text": resource}}})
+	out, err = m.RestoreJSON(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	v, _ = parse(out)
+	if v.get("content").items[0].get("text").str() != original.get("messages").items[0].get("content").str() {
+		t.Fatal("resource identifier not restored")
 	}
 	bad := DefaultManifest()
 	bad.Words = append(bad.Words, "herm")
