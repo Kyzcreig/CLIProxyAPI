@@ -89,10 +89,8 @@ func (c *compiler) compile(n *node, path string) (*schema, error) {
 	for _, key := range []string{"anyOf", "oneOf"} {
 		if alternatives := n.get(key); alternatives != nil {
 			for _, a := range alternatives.items {
-				for _, f := range a.fields {
-					if f.key.text != "type" && f.key.text != "enum" && f.key.text != "const" {
-						return nil, Error("ambiguous_schema")
-					}
+				if !valueOnlyAlternative(a) {
+					return nil, Error("ambiguous_schema")
 				}
 			}
 		}
@@ -341,6 +339,27 @@ func vacuousPropertyNames(n *node) bool {
 }
 
 var valueAssertionKeywords = map[string]bool{"type": true, "pattern": true, "minLength": true, "maxLength": true, "format": true, "minimum": true, "maximum": true, "exclusiveMinimum": true, "exclusiveMaximum": true, "multipleOf": true}
+
+// valueOnlyAlternative reports whether an anyOf/oneOf member names no property
+// key on any path: only type/enum/const, plus `items` whose schema is itself
+// value-only (t_9cc235a9: Hermes terminal.notify = anyOf[boolean, array of
+// string]). The key map then does not depend on which branch matched. A member
+// with properties, refs, combinators, tuple items or anything else stays
+// ambiguous. Non-object members carry no fields, as before.
+func valueOnlyAlternative(a *node) bool {
+	for _, f := range a.fields {
+		switch f.key.text {
+		case "type", "enum", "const":
+		case "items":
+			if f.value.kind != '{' || !valueOnlyAlternative(f.value) {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return true
+}
 
 func valueOnlyAllOf(n *node) bool {
 	if n.kind != '[' || len(n.items) == 0 {
