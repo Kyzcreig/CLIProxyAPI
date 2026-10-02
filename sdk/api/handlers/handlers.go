@@ -525,6 +525,7 @@ func (h *BaseAPIHandler) GetContextWithCancel(handler interfaces.APIHandler, c *
 			UserAgent:        strings.TrimSpace(c.Request.UserAgent()),
 			SessionID:        sessionID,
 			ParentSessionID:  parentSessionID,
+			CallerClaim:      logging.ParseCallerClaim(c.Request.Header),
 		})
 	}
 	newCtx = logging.WithResponseStatusHolder(newCtx)

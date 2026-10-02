@@ -162,6 +162,7 @@ func (p *usageQueuePlugin) HandleUsage(ctx context.Context, record coreusage.Rec
 		PrefixFP:            promptFP.Prefix,
 		PromptFP:            promptFP.Prompt,
 		ParentFP:            promptFP.Parent,
+		CallerClaim:         clientRequestMetadata.CallerClaim,
 	})
 	if err != nil {
 		return
@@ -203,6 +204,10 @@ type queuedUsageDetail struct {
 	PrefixFP string `json:"prefix_fp,omitempty"`
 	PromptFP string `json:"prompt_fp,omitempty"`
 	ParentFP string `json:"parent_fp,omitempty"`
+	// CallerClaim is the validated X-Fleet-Caller identity (harness, agent, platform, card, kind, ...)
+	// the client declared. Several callers share one api_key, so the key names the CALLER CLASS while
+	// this names the spender. A claim, for attribution only; absent when the client sent none.
+	CallerClaim map[string]string `json:"caller_claim,omitempty"`
 }
 
 type requestDetail struct {
