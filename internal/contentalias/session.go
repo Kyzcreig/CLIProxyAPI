@@ -180,6 +180,14 @@ func (s *Session) save(st state) error {
 	if err != nil || len(raw) > 16<<20 {
 		return Error("store_limit")
 	}
+	// Every caller holds the exclusive store lock, so no other save is in flight: any
+	// ".map-*" left here is residue of a writer killed between CreateTemp and rename
+	// (defer below covers every error return, not SIGKILL). Sweep it before writing.
+	if stale, globErr := filepath.Glob(filepath.Join(s.dir, ".map-*")); globErr == nil {
+		for _, p := range stale {
+			_ = os.Remove(p)
+		}
+	}
 	f, err := os.CreateTemp(s.dir, ".map-")
 	if err != nil {
 		return Error("store_write")
