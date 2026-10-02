@@ -23,6 +23,9 @@ type ClientRequestMetadata struct {
 	NodeKind         string
 	IsFork           bool
 	IsCompaction     bool
+	// CallerClaim holds the validated X-Fleet-Caller fields (harness, agent, platform, card,
+	// kind, ...): the caller's self-declared identity, recorded for attribution, never routed on.
+	CallerClaim map[string]string
 }
 
 type responseStatusHolder struct {

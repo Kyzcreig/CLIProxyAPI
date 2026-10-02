@@ -23,6 +23,7 @@ func TestUsageQueuePluginPayloadIncludesStableFieldsAndSuccess(t *testing.T) {
 			ResolvedClientIP: "203.0.113.5",
 			XForwardedFor:    "203.0.113.5, 198.51.100.8",
 			UserAgent:        "test-client/1.0",
+			CallerClaim:      map[string]string{"harness": "hermes", "agent": "daedalus-fable", "card": "t_bc26568a", "kind": "main"},
 		})
 		ctx = internallogging.WithResponseStatusHolder(ctx)
 		ctx = coreusage.WithPromptCacheKey(ctx, coreusage.PromptCacheKeyInfo{Source: "derived", ID: "0123456789abcdef"})
@@ -82,6 +83,7 @@ func TestUsageQueuePluginPayloadIncludesStableFieldsAndSuccess(t *testing.T) {
 		requireStringField(t, payload, "prefix_fp", "1111111111111111")
 		requireStringField(t, payload, "prompt_fp", "2222222222222222")
 		requireStringField(t, payload, "parent_fp", "3333333333333333")
+		requireCallerClaim(t, payload, map[string]string{"harness": "hermes", "agent": "daedalus-fable", "card": "t_bc26568a", "kind": "main"})
 		requireStringField(t, payload, "response_model", "gpt-5.6-luna")
 		requireIntField(t, payload, "accounting_version", coreusage.TokenAccountingSchemaVersion)
 		requireTokenBreakdown(t, payload, coreusage.TokenAccountingQualityComplete, 30)
@@ -385,6 +387,26 @@ func TestUsageQueuePluginAsyncIgnoresRecycledGinContext(t *testing.T) {
 		requireBoolField(t, payload, "failed", true)
 		requireFailField(t, payload, http.StatusBadGateway, "bad gateway")
 	})
+}
+
+func requireCallerClaim(t *testing.T, payload map[string]json.RawMessage, want map[string]string) {
+	t.Helper()
+	raw, ok := payload["caller_claim"]
+	if !ok {
+		t.Fatal("caller_claim missing from payload")
+	}
+	var got map[string]string
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatalf("caller_claim not a string map: %v", err)
+	}
+	if len(got) != len(want) {
+		t.Fatalf("caller_claim = %v, want %v", got, want)
+	}
+	for k, v := range want {
+		if got[k] != v {
+			t.Fatalf("caller_claim[%q] = %q, want %q", k, got[k], v)
+		}
+	}
 }
 
 func withEnabledQueue(t *testing.T, fn func()) {

@@ -39,6 +39,33 @@ func TestGetContextWithCancelCapturesClientRequestMetadata(t *testing.T) {
 	}
 }
 
+func TestGetContextWithCancelCapturesCallerClaim(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ginCtx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ginCtx.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+	ginCtx.Request.Header.Set(logging.FleetCallerHeader, "harness=hermes;agent=daedalus-fable;platform=kanban;card=t_bc26568a;kind=main;bogus=1")
+
+	handler := &BaseAPIHandler{Cfg: &config.SDKConfig{}}
+	ctx, cancel := handler.GetContextWithCancel(nil, ginCtx, context.Background())
+	defer cancel()
+
+	claim := logging.GetClientRequestMetadata(ctx).CallerClaim
+	if claim["harness"] != "hermes" || claim["agent"] != "daedalus-fable" || claim["platform"] != "kanban" || claim["card"] != "t_bc26568a" || claim["kind"] != "main" {
+		t.Fatalf("CallerClaim = %v", claim)
+	}
+	if _, ok := claim["bogus"]; ok {
+		t.Fatalf("unknown claim key must be dropped: %v", claim)
+	}
+
+	plain, _ := gin.CreateTestContext(httptest.NewRecorder())
+	plain.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+	ctxPlain, cancelPlain := handler.GetContextWithCancel(nil, plain, context.Background())
+	defer cancelPlain()
+	if logging.GetClientRequestMetadata(ctxPlain).CallerClaim != nil {
+		t.Fatal("a request without the header must carry no claim")
+	}
+}
+
 func TestGetContextWithCancelCapturesResolvedClientIP(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	ginCtx, engine := gin.CreateTestContext(httptest.NewRecorder())
