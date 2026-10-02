@@ -43,6 +43,33 @@ func TestValueOnlyAnyOfItemsAccepted(t *testing.T) {
 	}
 }
 
+// Momus lens note (t_9cc235a9): `items:{type:object}` (free-form object items, no
+// declared keys) is admitted like a bare {type:object} alternative already was.
+// Its keys are not schema properties, so they pass through unaliased and
+// round-trip unchanged.
+func TestValueOnlyAnyOfFreeFormObjectItems(t *testing.T) {
+	tool := `{"name":"T","input_schema":{"type":"object","properties":{"v":{"anyOf":[{"type":"boolean"},{"type":"array","items":{"type":"object"}}]}}}}`
+	request := []byte(`{"tools":[` + tool + `],"messages":[{"role":"assistant","content":[{"type":"tool_use","id":"c","name":"T","input":{"v":[{"free_key":"x"}]}}]}]}`)
+	wire, m, err := Prepare(request, testSession(t))
+	if err != nil {
+		t.Fatalf("free-form object items refused: %v", err)
+	}
+	if !bytes.Contains(wire, []byte(`{"free_key":"x"}`)) {
+		t.Fatalf("free-form keys were rewritten: %s", wire)
+	}
+	n, _ := parse(wire)
+	block := n.get("messages").items[0].get("content").items[0]
+	response := append([]byte(`{"content":[`), wire[block.start:block.end]...)
+	response = append(response, []byte(`]}`)...)
+	out, err := m.RestoreJSON(response)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(out, []byte(`"v":[{"free_key":"x"}]`)) {
+		t.Fatalf("arguments did not round-trip: %s", out)
+	}
+}
+
 // Fail-closed controls: an alternative that declares or reaches a property name
 // is still ambiguous (the key map depends on which branch matched).
 func TestStructuralAnyOfStillRefused(t *testing.T) {
