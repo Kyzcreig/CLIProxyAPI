@@ -63,8 +63,9 @@ func TestDPXAliasToolReferencesHTTP(t *testing.T) {
 						t.Errorf("reference mismatch at %s", path)
 					}
 				}
-				if gjson.GetBytes(raw, "messages.0.content.1.content.1.text").String() != "Read Hermes /tmp/Hermes" {
-					t.Error("ordinary result changed")
+				// Result text is aliased (t_cb095320); the reference slots above are the typed protocol.
+				if text := gjson.GetBytes(raw, "messages.0.content.1.content.1.text").String(); strings.Contains(text, "Hermes") || !strings.HasPrefix(text, "Read dpx_v1_w_") || !strings.Contains(text, " /tmp/dpx_v1_w_") {
+					t.Error("result text not aliased: " + text)
 				}
 				blocks := nativeReferenceBlocks(name)
 				if mode == "json" {

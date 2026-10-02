@@ -319,6 +319,9 @@ func (s *Stream) handle(raw []byte) error {
 			if err := s.m.schemas[original].arguments(args, true, &edits); err != nil {
 				return err
 			}
+			if err := valueEdits(args, s.m.decodeValue, &edits); err != nil {
+				return err
+			}
 			restored, err := apply(b.input, edits)
 			if err != nil {
 				return err

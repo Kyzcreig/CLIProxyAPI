@@ -155,8 +155,9 @@ func TestNativeCompatibilityDelta(t *testing.T) {
 	if !strings.HasPrefix(gjson.GetBytes(bodies[2], "system.0.text").String(), "dpx_v1_w_") || !strings.HasPrefix(gjson.GetBytes(bodies[2], "tools.0.name").String(), "dpx_v1_t_") {
 		t.Fatal("forward missing")
 	}
-	if gjson.GetBytes(bodies[2], "messages.1.content.0.content").String() != "Hermes opaque result" {
-		t.Fatal("exempt tool-result value changed")
+	// tool_result text is aliased like any other text the model reads (t_cb095320).
+	if result := gjson.GetBytes(bodies[2], "messages.1.content.0.content").String(); strings.Contains(result, "Hermes") || !strings.HasSuffix(result, " opaque result") || !strings.HasPrefix(result, "dpx_v1_w_") {
+		t.Fatal("tool-result text not aliased: " + result)
 	}
 }
 func TestNoAuthIdentityOrUsageMutation(t *testing.T)         { TestNativeCompatibilityDelta(t) }
