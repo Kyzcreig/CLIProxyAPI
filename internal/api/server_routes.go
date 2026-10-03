@@ -47,7 +47,7 @@ func (s *Server) setupRoutes() {
 			return
 		}
 
-		c.JSON(http.StatusOK, gin.H{"status": "ok"})
+		c.JSON(http.StatusOK, gin.H{"status": "ok", "in_flight": s.inFlightPOST.Load()})
 	}
 	s.engine.GET("/healthz", healthzHandler)
 	s.engine.HEAD("/healthz", healthzHandler)

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/api"
@@ -57,7 +59,7 @@ func (s *Service) Run(ctx context.Context) error {
 	}
 
 	defer func() {
-		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second+shutdownDrainTimeout())
 		defer shutdownCancel()
 		if errShutdown := s.Shutdown(shutdownCtx); errShutdown != nil {
 			log.Errorf("service shutdown returned error: %v", errShutdown)
@@ -216,7 +218,8 @@ func (s *Service) Run(ctx context.Context) error {
 	}
 }
 
-// Shutdown stops background workers and immediately closes the HTTP server.
+// Shutdown stops background workers, then lets in-flight HTTP requests finish for up to
+// CPA_SHUTDOWN_DRAIN_SECONDS (default 0: close immediately) before closing the server.
 // It ensures all resources are properly cleaned up and connections are closed.
 // The shutdown is idempotent and can be called multiple times safely.
 //
@@ -325,7 +328,10 @@ func (s *Service) Shutdown(ctx context.Context) error {
 		// no legacy clients to persist
 
 		if s.server != nil {
-			if errStop := s.server.Stop(ctx); errStop != nil {
+			drainCtx, drainCancel := context.WithTimeout(ctx, shutdownDrainTimeout())
+			errStop := s.server.Stop(drainCtx)
+			drainCancel()
+			if errStop != nil {
 				log.Errorf("error stopping API server: %v", errStop)
 				if shutdownErr == nil {
 					shutdownErr = errStop
@@ -372,4 +378,26 @@ func (s *Service) ensureAuthDir() error {
 		return fmt.Errorf("cliproxy: auth path exists but is not a directory: %s", s.cfg.AuthDir)
 	}
 	return nil
+}
+
+// shutdownDrainEnv bounds how long Shutdown lets in-flight HTTP requests finish
+// before force-closing them (t_240c35f4). The listener closes first, so new
+// connections are refused for the whole drain: under a stop-then-start
+// supervisor (launchd kickstart -k, systemctl restart) a longer drain trades
+// cut long calls for a longer refusal window. Default 0 keeps the previous
+// immediate close. The supervisor's stop timeout (launchd ExitTimeOut, systemd
+// TimeoutStopSec) must exceed this value or it kills the drain early.
+const shutdownDrainEnv = "CPA_SHUTDOWN_DRAIN_SECONDS"
+
+func shutdownDrainTimeout() time.Duration {
+	raw := strings.TrimSpace(os.Getenv(shutdownDrainEnv))
+	if raw == "" {
+		return 0
+	}
+	secs, errParse := strconv.Atoi(raw)
+	if errParse != nil || secs < 0 {
+		log.Warnf("%s=%q is not a non-negative integer; draining 0s", shutdownDrainEnv, raw)
+		return 0
+	}
+	return time.Duration(secs) * time.Second
 }

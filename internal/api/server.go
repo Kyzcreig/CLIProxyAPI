@@ -105,6 +105,10 @@ type Server struct {
 
 	exampleAPIKeySafeModeEnabled bool
 	exampleAPIKeySafeModeActive  atomic.Bool
+
+	// inFlightPOST counts POST requests being served; /healthz reports it so a
+	// restart can wait for zero before swapping the process (t_240c35f4).
+	inFlightPOST atomic.Int64
 }
 
 // NewServer creates and initializes a new API server instance.
@@ -227,6 +231,7 @@ func NewServer(cfg *config.Config, authManager *auth.Manager, accessManager *sdk
 
 	// Home heartbeat gate: when home is enabled, block all endpoints with 503 until the
 	// subscribe-config heartbeat connection is healthy.
+	engine.Use(s.inFlightMiddleware())
 	engine.Use(s.homeHeartbeatMiddleware())
 	engine.Use(s.exampleAPIKeySafeModeMiddleware())
 
@@ -398,10 +403,12 @@ func (s *Server) Start() error {
 	}
 }
 
-// Stop closes listeners and immediately shuts down the API server without waiting for active connections.
+// Stop closes listeners so no new requests are accepted, then drains in-flight
+// requests until they finish or ctx expires. Connections still open when ctx
+// expires are force-closed.
 //
 // Parameters:
-//   - ctx: Context passed for compatibility.
+//   - ctx: Bounds the drain. An expired ctx closes active connections immediately.
 //
 // Returns:
 //   - error: An error if the server fails to stop
@@ -431,12 +438,21 @@ func (s *Server) Stop(ctx context.Context) error {
 		}
 	}
 
-	// Close the HTTP server immediately without graceful draining.
+	// Drain in-flight requests (t_240c35f4): a restart used to cut long upstream
+	// calls mid-flight (499). Shutdown waits for active requests; once ctx
+	// expires the remaining connections are force-closed.
 	var errCloseServer error
 	if s.server != nil {
-		errCloseServer = s.server.Close()
-		if errors.Is(errCloseServer, http.ErrServerClosed) || errors.Is(errCloseServer, net.ErrClosed) {
-			errCloseServer = nil
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		errShutdown := s.server.Shutdown(ctx)
+		if errShutdown != nil && !errors.Is(errShutdown, http.ErrServerClosed) {
+			log.Warnf("API server drain ended before all requests finished (%v); force-closing remaining connections", errShutdown)
+			errCloseServer = s.server.Close()
+			if errors.Is(errCloseServer, http.ErrServerClosed) || errors.Is(errCloseServer, net.ErrClosed) {
+				errCloseServer = nil
+			}
 		}
 	}
 	if s.codexLiveHandler != nil {
@@ -448,4 +464,18 @@ func (s *Server) Stop(ctx context.Context) error {
 
 	log.Debug("API server stopped")
 	return nil
+}
+
+// inFlightMiddleware counts POST requests while they are served. Model calls are
+// POSTs; GET/HEAD (health, model lists, websocket upgrades) are not counted.
+func (s *Server) inFlightMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if c.Request.Method != http.MethodPost {
+			c.Next()
+			return
+		}
+		s.inFlightPOST.Add(1)
+		defer s.inFlightPOST.Add(-1)
+		c.Next()
+	}
 }
