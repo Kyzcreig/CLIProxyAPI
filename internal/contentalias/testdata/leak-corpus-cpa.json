@@ -1,0 +1,60 @@
+{
+  "_comment": "GENERATED from the private leak corpus by claude-bpx bridge/scripts/cpa-corpus-subset.js. Do not hand-edit: the cases are verbatim copies and cases_sha256 is checked by leak_corpus_test.go.",
+  "consumer": "cpa",
+  "corpus_version": 3,
+  "cases_sha256": "d8fff01541c83228e4a82469a3ae99edb4a88809fa1a525986622de8924317fa",
+  "cases": [
+    {
+      "id": "LC-14",
+      "class": 3,
+      "rule": "L7",
+      "layer": "guard",
+      "kind": "literal_serialized",
+      "surface": "request_body",
+      "input": "{\"model\":\"claude-opus-4-8\",\"max_tokens\":64,\"output_config\":{\"effort\":\"high\"},\"fallbacks\":\"default\",\"fallback_credit_token\":\"fct_opaque.Hermes-looking-but-opaque/AAAA+bbbb==\",\"messages\":[{\"role\":\"user\",\"content\":\"Hermes list src\"}],\"stream\":true}",
+      "needle": "\"fallback_credit_token\":\"fct_opaque.Hermes-looking-but-opaque/AAAA+bbbb==\"",
+      "incident": "FALLBACK SHAPE SURVIVES BYTE-FOR-BYTE (t_e121b418 root cause; CPA side Kyzcreig/CLIProxyAPI#18, t_d27c2365; card t_4c8005fc). The CLI 2.1.283 retry after a refusal carries a top-level opaque `fallback_credit_token` (server-minted, expires in ~5 min) and, on the opt-in request, a `fallbacks` body key. Upstream rejects ANY edit: the CPA#18 replay table shows 400 'fallback_credit_token: output_config.effort must be omitted', then 400 'has expired' once the value changed. apx cch normalization (src/cch.js CCH_EXCLUDED_KEYS) already treats both keys as outside the signed body. MEASURED 2026-10-02 on claude-apx master: processBody('hermes' profile) rewrote the brand-like substring INSIDE the token value. The probe token deliberately carries a brand-like substring so any content scrubber that walks top-level values goes red; the message content carries the same word so the case also proves the scrubber was live on that body. This case pins: the token key and its opaque value reach the wire byte-identical (a scrubber or aliaser that touches the value fails here).",
+      "provenance": {
+        "source": "card t_4c8005fc (from t_8a29a48b item 2b)",
+        "upstream_replay": "Kyzcreig/CLIProxyAPI#18",
+        "witness": "claude-apx src/cch.js CCH_EXCLUDED_KEYS"
+      },
+      "applies_to": [
+        "apx"
+      ],
+      "excluded": {
+        "bpx": "bpx never holds the upstream request body: it hands text to the genuine CLI, which mints fallbacks/fallback_credit_token itself. The body-rewriting hop on that path is DPX (CLIProxyAPI contentalias.Prepare), covered by external_consumers cpa.",
+        "pool": "the relay forwards body bytes untouched and runs no content scrubber; its one body edit (capacity_rung) rewrites only `model` via a json round-trip, which preserves string values."
+      },
+      "external_consumers": [
+        "cpa"
+      ]
+    },
+    {
+      "id": "LC-15",
+      "class": 3,
+      "rule": "L7",
+      "layer": "guard",
+      "kind": "literal_serialized",
+      "surface": "request_body",
+      "input": "{\"model\":\"claude-opus-4-8\",\"max_tokens\":64,\"output_config\":{\"effort\":\"high\"},\"fallbacks\":\"default\",\"fallback_credit_token\":\"fct_opaque.Hermes-looking-but-opaque/AAAA+bbbb==\",\"messages\":[{\"role\":\"user\",\"content\":\"Hermes list src\"}],\"stream\":true}",
+      "needle": "\"fallbacks\":\"default\"",
+      "incident": "FALLBACK SHAPE SURVIVES BYTE-FOR-BYTE (t_e121b418 root cause; CPA side Kyzcreig/CLIProxyAPI#18, t_d27c2365; card t_4c8005fc). The CLI 2.1.283 retry after a refusal carries a top-level opaque `fallback_credit_token` (server-minted, expires in ~5 min) and, on the opt-in request, a `fallbacks` body key. Upstream rejects ANY edit: the CPA#18 replay table shows 400 'fallback_credit_token: output_config.effort must be omitted', then 400 'has expired' once the value changed. apx cch normalization (src/cch.js CCH_EXCLUDED_KEYS) already treats both keys as outside the signed body. MEASURED 2026-10-02 on claude-apx master: processBody('hermes' profile) rewrote the brand-like substring INSIDE the token value. The probe token deliberately carries a brand-like substring so any content scrubber that walks top-level values goes red; the message content carries the same word so the case also proves the scrubber was live on that body. This case pins: the opt-in `fallbacks` key and value survive (a transform that drops or rewrites it fails here).",
+      "provenance": {
+        "source": "card t_4c8005fc (from t_8a29a48b item 2b)",
+        "upstream_replay": "Kyzcreig/CLIProxyAPI#18",
+        "witness": "claude-apx src/cch.js CCH_EXCLUDED_KEYS"
+      },
+      "applies_to": [
+        "apx"
+      ],
+      "excluded": {
+        "bpx": "bpx never holds the upstream request body: it hands text to the genuine CLI, which mints fallbacks/fallback_credit_token itself. The body-rewriting hop on that path is DPX (CLIProxyAPI contentalias.Prepare), covered by external_consumers cpa.",
+        "pool": "the relay forwards body bytes untouched and runs no content scrubber; its one body edit (capacity_rung) rewrites only `model` via a json round-trip, which preserves string values."
+      },
+      "external_consumers": [
+        "cpa"
+      ]
+    }
+  ]
+}
