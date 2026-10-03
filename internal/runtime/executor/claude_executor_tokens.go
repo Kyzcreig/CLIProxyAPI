@@ -220,7 +220,7 @@ func (e *ClaudeExecutor) countTokensUpstream(ctx context.Context, auth *cliproxy
 	if errMidSystem := validateClaudeMidSystemMessageModel(body, confirmedClaudeCode, directAnthropic); errMidSystem != nil {
 		return cliproxyexecutor.Response{}, errMidSystem
 	}
-	body, _, aliasErr := e.prepareDPXAlias(body, opts, confirmedClaudeCode, cloaked)
+	body, aliasMap, aliasErr := e.prepareDPXAlias(body, opts, confirmedClaudeCode, cloaked)
 	if aliasErr != nil { return cliproxyexecutor.Response{}, aliasErr }
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
@@ -255,9 +255,8 @@ func (e *ClaudeExecutor) countTokensUpstream(ctx context.Context, auth *cliproxy
 		return cliproxyexecutor.Response{}, err
 	}
 	helps.RecordAPIResponseMetadata(ctx, e.cfg, resp.StatusCode, resp.Header.Clone())
-	if e.dpxAliasEnabled() && (resp.StatusCode < 200 || resp.StatusCode >= 300) {
-		resp.Body.Close()
-		return cliproxyexecutor.Response{}, dpxAliasHTTPError{resp.StatusCode}
+	if aliasMap != nil && (resp.StatusCode < 200 || resp.StatusCode >= 300) {
+		return cliproxyexecutor.Response{}, dpxAliasUpstreamError(resp, aliasMap)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		// Decompress error responses — pass the Content-Encoding value (may be empty)

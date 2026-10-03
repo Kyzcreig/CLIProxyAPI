@@ -340,8 +340,7 @@ func (e *ClaudeExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, r
 	}
 	helps.RecordAPIResponseMetadata(ctx, e.cfg, httpResp.StatusCode, httpResp.Header.Clone())
 	if aliasMap != nil && (httpResp.StatusCode < 200 || httpResp.StatusCode >= 300) {
-		httpResp.Body.Close()
-		return resp, dpxAliasHTTPError{httpResp.StatusCode}
+		return resp, dpxAliasUpstreamError(httpResp, aliasMap)
 	}
 	if httpResp.StatusCode < 200 || httpResp.StatusCode >= 300 {
 		// Decompress error responses — pass the Content-Encoding value (may be empty)
