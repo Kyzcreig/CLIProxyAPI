@@ -163,6 +163,9 @@ func TestNativeCompatibilityDelta(t *testing.T) {
 func TestNoAuthIdentityOrUsageMutation(t *testing.T)         { TestNativeCompatibilityDelta(t) }
 func TestCapturedSelectedFieldPseudonymization(t *testing.T) { TestNativeCompatibilityDelta(t) }
 
+// Upstream error bodies come back with every alias restored, never unmapped
+// (t_d27c2365 replaced the old drop-the-body rule, which hid upstream reasons
+// such as the server-side-fallback 400s behind contentalias:upstream_failure).
 func TestDPXAliasCompressedErrorsDoNotEcho(t *testing.T) {
 	for _, route := range []string{"execute", "stream", "count"} {
 		t.Run(route, func(t *testing.T) {
@@ -170,10 +173,11 @@ func TestDPXAliasCompressedErrorsDoNotEcho(t *testing.T) {
 			calls := 0
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				calls++
+				raw, _ := io.ReadAll(r.Body)
 				w.Header().Set("Content-Encoding", "gzip")
 				w.WriteHeader(429)
 				z := gzip.NewWriter(w)
-				io.WriteString(z, `{"error":{"message":"private-sentinel-command"}}`)
+				io.WriteString(z, `{"error":{"message":"echo `+gjson.GetBytes(raw, "system").String()+` `+gjson.GetBytes(raw, "tools.0.name").String()+`"}}`)
 				z.Close()
 			}))
 			defer server.Close()
@@ -186,7 +190,7 @@ func TestDPXAliasCompressedErrorsDoNotEcho(t *testing.T) {
 			case "count":
 				_, err = e.countTokensUpstream(context.Background(), offlineAuth(server.URL), req, opts)
 			}
-			if err == nil || calls != 1 || strings.Contains(err.Error(), "private-sentinel") {
+			if err == nil || calls != 1 || strings.Contains(err.Error(), "dpx_v1_") || gjson.Get(err.Error(), "error.message").String() != "echo Hermes Read" {
 				t.Fatalf("unsafe error: %v calls=%d", err, calls)
 			}
 			scoped, ok := err.(interface{ IsRequestScoped() bool })

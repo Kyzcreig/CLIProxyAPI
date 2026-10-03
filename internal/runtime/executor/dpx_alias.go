@@ -2,6 +2,7 @@ package executor
 
 import (
 	"bytes"
+	"io"
 	"net/http"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
@@ -140,8 +141,38 @@ func withoutDPXCCHField(body []byte) []byte {
 	return append(out, body[end:]...)
 }
 
-type dpxAliasHTTPError struct{ code int }
+// dpxAliasHTTPError is a non-2xx upstream answer on an aliased request. msg is
+// the upstream error body with every known alias restored (RestoreErrorBody);
+// it is empty only when the body could not be read, and the generic marker is
+// returned instead. Before t_d27c2365 the body was always dropped, which hid
+// the real upstream reason behind contentalias:upstream_failure.
+type dpxAliasHTTPError struct {
+	code int
+	msg  string
+}
 
-func (e dpxAliasHTTPError) Error() string         { return "contentalias:upstream_failure" }
+func (e dpxAliasHTTPError) Error() string {
+	if e.msg != "" {
+		return e.msg
+	}
+	return "contentalias:upstream_failure"
+}
 func (e dpxAliasHTTPError) StatusCode() int       { return e.code }
 func (e dpxAliasHTTPError) IsRequestScoped() bool { return true }
+
+// dpxAliasUpstreamError reads (bounded) and decodes a non-2xx upstream body and
+// returns it with the request's aliases restored. The response body is closed.
+func dpxAliasUpstreamError(resp *http.Response, m *contentalias.RequestMap) dpxAliasHTTPError {
+	defer resp.Body.Close()
+	out := dpxAliasHTTPError{code: resp.StatusCode}
+	body, err := decodeResponseBody(resp.Body, claudeResponseContentEncoding(resp.Header))
+	if err != nil {
+		return out
+	}
+	raw, err := io.ReadAll(io.LimitReader(body, 1<<20))
+	if err != nil {
+		return out
+	}
+	out.msg = string(m.RestoreErrorBody(raw))
+	return out
+}
