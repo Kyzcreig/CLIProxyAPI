@@ -124,6 +124,9 @@ func Prepare(raw []byte, s *Session) ([]byte, *RequestMap, error) {
 		edits = append(edits, replace(name, tool.Alias))
 	}
 	encodeContent := func(content *node) error { return m.forwardContent(content, &st, &edits) }
+	if err := textEdit(n.get("fallback_credit_token"), st.encodeText, &edits); err != nil {
+		return nil, nil, err
+	}
 	if err := encodeContent(n.get("system")); err != nil {
 		return nil, nil, err
 	}
