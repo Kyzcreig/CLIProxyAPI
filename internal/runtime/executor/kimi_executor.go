@@ -165,7 +165,7 @@ func (e *KimiExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, req
 	if err != nil {
 		return resp, err
 	}
-	applyKimiHeadersWithAuth(httpReq, token, false, auth)
+	applyKimiHeadersWithAuth(httpReq, token, false, auth, kimiIdentityFromConfig(e.cfg))
 	var attrs map[string]string
 	if auth != nil {
 		attrs = auth.Attributes
@@ -301,7 +301,7 @@ func (e *KimiExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.Aut
 	if err != nil {
 		return nil, err
 	}
-	applyKimiHeadersWithAuth(httpReq, token, true, auth)
+	applyKimiHeadersWithAuth(httpReq, token, true, auth, kimiIdentityFromConfig(e.cfg))
 	var attrs map[string]string
 	if auth != nil {
 		attrs = auth.Attributes
@@ -437,7 +437,7 @@ func (e *KimiExecutor) executeResponses(ctx context.Context, auth *cliproxyauth.
 	if errNewRequest != nil {
 		return resp, errNewRequest
 	}
-	applyKimiHeadersWithAuth(httpReq, token, false, auth)
+	applyKimiHeadersWithAuth(httpReq, token, false, auth, kimiIdentityFromConfig(e.cfg))
 	var attrs map[string]string
 	if auth != nil {
 		attrs = auth.Attributes
@@ -553,7 +553,7 @@ func (e *KimiExecutor) executeResponsesStream(ctx context.Context, auth *cliprox
 	if errNewRequest != nil {
 		return nil, errNewRequest
 	}
-	applyKimiHeadersWithAuth(httpReq, token, true, auth)
+	applyKimiHeadersWithAuth(httpReq, token, true, auth, kimiIdentityFromConfig(e.cfg))
 	var attrs map[string]string
 	if auth != nil {
 		attrs = auth.Attributes
@@ -1025,16 +1025,42 @@ func (e *KimiExecutor) Refresh(ctx context.Context, auth *cliproxyauth.Auth) (*c
 	return auth, nil
 }
 
+// kimiIdentity is the configurable part of the Kimi identity headers.
+type kimiIdentity struct {
+	platform   string
+	deviceName string
+}
+
+const (
+	defaultKimiPlatform   = "kimi-cli"
+	defaultKimiDeviceName = "host"
+)
+
+// kimiIdentityFromConfig reads kimi.platform / kimi.device-name. The defaults
+// are generic on purpose: the former literals ("CLIProxyAPI" and the machine
+// hostname) named this proxy and the host it runs on to the vendor.
+func kimiIdentityFromConfig(cfg *config.Config) kimiIdentity {
+	identity := kimiIdentity{platform: defaultKimiPlatform, deviceName: defaultKimiDeviceName}
+	if cfg == nil {
+		return identity
+	}
+	if v := strings.TrimSpace(cfg.Kimi.Platform); v != "" {
+		identity.platform = v
+	}
+	if v := strings.TrimSpace(cfg.Kimi.DeviceName); v != "" {
+		identity.deviceName = v
+	}
+	return identity
+}
+
 // applyKimiHeaders sets required headers for Kimi API requests.
-// Headers identify CLIProxyAPI with the current build version.
-func applyKimiHeaders(r *http.Request, token string, stream bool) {
+func applyKimiHeaders(r *http.Request, token string, stream bool, identity kimiIdentity) {
 	r.Header.Set("Content-Type", "application/json")
 	r.Header.Set("Authorization", "Bearer "+token)
-	// Identify requests with the current CLIProxyAPI version.
 	r.Header.Set("User-Agent", "CLIProxyAPI/"+buildinfo.Version)
-	r.Header.Set("X-Msh-Platform", "CLIProxyAPI")
+	r.Header.Set("X-Msh-Platform", identity.platform)
 	r.Header.Set("X-Msh-Version", buildinfo.Version)
-	r.Header.Set("X-Msh-Device-Name", getKimiHostname())
+	r.Header.Set("X-Msh-Device-Name", identity.deviceName)
 	r.Header.Set("X-Msh-Device-Model", getKimiDeviceModel())
 	r.Header.Set("X-Msh-Device-Id", getKimiDeviceID())
 	if stream {
@@ -1083,21 +1109,12 @@ func resolveKimiDeviceID(auth *cliproxyauth.Auth) string {
 	return resolveKimiDeviceIDFromStorage(auth)
 }
 
-func applyKimiHeadersWithAuth(r *http.Request, token string, stream bool, auth *cliproxyauth.Auth) {
-	applyKimiHeaders(r, token, stream)
+func applyKimiHeadersWithAuth(r *http.Request, token string, stream bool, auth *cliproxyauth.Auth, identity kimiIdentity) {
+	applyKimiHeaders(r, token, stream, identity)
 
 	if deviceID := resolveKimiDeviceID(auth); deviceID != "" {
 		r.Header.Set("X-Msh-Device-Id", deviceID)
 	}
-}
-
-// getKimiHostname returns the machine hostname.
-func getKimiHostname() string {
-	hostname, err := os.Hostname()
-	if err != nil {
-		return "unknown"
-	}
-	return hostname
 }
 
 // getKimiDeviceModel returns a device model string matching kimi-cli format.

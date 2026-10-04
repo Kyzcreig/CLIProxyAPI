@@ -119,6 +119,9 @@ type Config struct {
 	// Devin configures provider-wide Devin request behavior.
 	Devin DevinConfig `yaml:"devin" json:"devin"`
 
+	// Kimi configures the identity headers of Kimi upstream requests.
+	Kimi KimiConfig `yaml:"kimi" json:"kimi"`
+
 	// GeminiKey defines Gemini API key configurations with optional routing overrides.
 	GeminiKey []GeminiKey `yaml:"gemini-api-key" json:"gemini-api-key"`
 

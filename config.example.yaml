@@ -1113,6 +1113,12 @@ observability:
 # Existing native flags/routes and higher-priority plugin flags/routes cannot be replaced.
 # Plugin list Management API reads Logo and ConfigFields from plugin metadata for management UI display.
 # Per-plugin enabled only controls plugins.configs.<pluginID>.enabled and does not implicitly change global plugins.enabled.
+# Kimi identity headers. Defaults name a generic client; the values are never
+# this proxy's name or the machine hostname.
+# kimi:
+#   platform: "kimi-cli"   # X-Msh-Platform
+#   device-name: "host"    # X-Msh-Device-Name
+
 plugins:
   enabled: false
   dir: "plugins"
