@@ -2,6 +2,8 @@ package contentalias
 
 import (
 	"encoding/json"
+	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -9,6 +11,9 @@ type schema struct {
 	props             map[string]*schema
 	forward, reverse  map[string]string
 	items, additional *schema
+	// words: normalized manifest words; a stray-key marker never names a
+	// property that contains one (the caller replays the marker in history).
+	words []string
 }
 type compiler struct {
 	root     *node
@@ -106,6 +111,9 @@ func (c *compiler) compile(n *node, path string) (*schema, error) {
 		}
 	}
 	s := &schema{props: map[string]*schema{}, forward: map[string]string{}, reverse: map[string]string{}}
+	for _, word := range c.st.Manifest.Words {
+		s.words = append(s.words, normalize(word))
+	}
 	if p := n.get("properties"); p != nil {
 		if p.kind != '{' {
 			return nil, Error("schema_properties")
@@ -320,6 +328,7 @@ func (s *schema) arguments(n *node, inverse bool, edits *[]edit) error {
 		return nil
 	}
 	seen := map[string]bool{}
+	strays := 0
 	for _, f := range n.fields {
 		key := f.key.text
 		original := key
@@ -328,6 +337,15 @@ func (s *schema) arguments(n *node, inverse bool, edits *[]edit) error {
 			if v, ok := s.reverse[key]; ok {
 				original = v
 				mapped = v
+			} else if (strings.HasPrefix(key, "dpx_v1_p_") || strings.HasPrefix(key, "dpx_v1_t_")) && len(s.forward) > 0 {
+				// t_186d86c5: the model wrote an alias that is not this object's
+				// (a sibling tool's property, or a 1-2 hex near-copy). Never let the
+				// raw token leave DPX: the caller would echo it, the next request
+				// would literal-escape it, and the model loops on a name it cannot
+				// read. A marker naming this object's real parameters makes the
+				// caller's unknown-key refusal self-correcting. No silent repair.
+				strays++
+				mapped = s.strayMarker(strays)
 			}
 		} else if v, ok := s.forward[key]; ok {
 			mapped = v
@@ -350,6 +368,22 @@ func (s *schema) arguments(n *node, inverse bool, edits *[]edit) error {
 		}
 	}
 	return nil
+}
+
+// strayMarker names the plain parameter names of this object, sorted. The
+// caller accepts plain names (the inverse map passes them through unchanged).
+func (s *schema) strayMarker(i int) string {
+	names := make([]string, 0, len(s.forward))
+	for key := range s.forward {
+		if !containsAny(normalize(key), s.words) {
+			names = append(names, key)
+		}
+	}
+	sort.Strings(names)
+	if len(names) > 40 {
+		names = append(names[:40], "...")
+	}
+	return "unknown_key_" + strconv.Itoa(i) + " (not a parameter of this tool; its parameters are: " + strings.Join(names, ", ") + ")"
 }
 
 // merge folds a structural anyOf/oneOf member's map into its parent's. A key
