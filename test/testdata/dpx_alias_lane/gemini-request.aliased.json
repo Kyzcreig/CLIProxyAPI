@@ -1,0 +1,12 @@
+{
+  "model": "gemini-3-flash",
+  "systemInstruction": {"parts": [{"text": "You are dpx_v1_w_aa6359cd47d49ff542f226e1, an agent built by dpx_v1_w_bef07bab9dbb286e4b43eec1 on dpx_v1_w_b46578b71db7f74ff15d5b4f. Your reference is https://dpx_v1_w_b46578b71db7f74ff15d5b4f.dpx_v1_w_23a36a0e96b4de32338127f2.com/docs and your skills live under ~/.dpx_v1_w_b0801dbfefe2a5813cb481f8/skills. Peers: dpx_v1_w_3505cd5dd66a862ba09da716 (also spelled dpx_v1_w_89d168e0c46314b11acc8c93), the dpx_v1_w_0c5158f86ff186e9515eef6a relay and the dpx_v1_w_526d102f3a04013ef2627726 bridge. Session 20261003_174845_7309c312."}]},
+  "contents": [
+    {"role": "user", "parts": [{"text": "hi dpx_v1_w_b0801dbfefe2a5813cb481f8, remember that dpx_v1_w_3505cd5dd66a862ba09da716 owns the marketplace"}]},
+    {"role": "model", "parts": [{"functionCall": {"name": "dpx_v1_w_931dbec9373fb180a07d1659", "args": {"q": "dpx_v1_w_6c4dfa6652c39773fe03fb38 marketplace"}}}]},
+    {"role": "user", "parts": [{"functionResponse": {"name": "dpx_v1_w_931dbec9373fb180a07d1659", "response": {"result": "dpx_v1_w_b0801dbfefe2a5813cb481f8 memory: dpx_v1_w_3505cd5dd66a862ba09da716 marketplace noted"}}}]},
+    {"role": "user", "parts": [{"text": "thanks"}]}
+  ],
+  "tools": [{"functionDeclarations": [{"name": "dpx_v1_w_931dbec9373fb180a07d1659", "description": "dpx_v1_w_aa6359cd47d49ff542f226e1 memory tool: store or recall a fact.", "parameters": {"type": "object", "properties": {"q": {"type": "string", "description": "query for dpx_v1_w_b0801dbfefe2a5813cb481f8 memory"}}, "required": ["q"]}}]}],
+  "generationConfig": {"temperature": 0, "candidateCount": 1}
+}

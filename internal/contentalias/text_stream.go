@@ -14,10 +14,19 @@ type textDecoder struct {
 	m       *RequestMap
 	pending []byte
 	symbol  bool
+	// tolerant leaves an unknown symbol verbatim instead of failing the
+	// stream (WordCodec consumers; the Claude response path stays strict).
+	tolerant bool
 }
 
 func (d *textDecoder) flush() (string, error) {
-	out, err := d.m.decodeToken(string(d.pending))
+	var out string
+	var err error
+	if d.tolerant {
+		out, err = d.m.decodeValue(string(d.pending))
+	} else {
+		out, err = d.m.decodeToken(string(d.pending))
+	}
 	d.pending = nil
 	d.symbol = false
 	return out, err

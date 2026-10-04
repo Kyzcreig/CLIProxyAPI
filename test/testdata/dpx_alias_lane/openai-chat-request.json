@@ -1,0 +1,15 @@
+{
+  "model": "gemini-3-flash",
+  "messages": [
+    {"role": "system", "content": "You are Hermes, an agent built by NousResearch on hermes-agent. Your reference is https://hermes-agent.nousresearch.com/docs and your skills live under ~/.hermes/skills. Peers: OpenClaw (also spelled open_claw), the claude-apx relay and the claude-bpx bridge. Session 20261003_174845_7309c312."},
+    {"role": "user", "content": [{"type": "text", "text": "hi hermes, remember that OpenClaw owns the marketplace"}]},
+    {"role": "assistant", "content": null, "tool_calls": [{"id": "call_1", "type": "function", "function": {"name": "hermes_memory", "arguments": "{\"q\":\"openclaw marketplace\"}"}}]},
+    {"role": "tool", "tool_call_id": "call_1", "content": "hermes memory: OpenClaw marketplace noted"},
+    {"role": "user", "content": "thanks"}
+  ],
+  "tools": [
+    {"type": "function", "function": {"name": "hermes_memory", "description": "Hermes memory tool: store or recall a fact.", "parameters": {"type": "object", "properties": {"q": {"type": "string", "description": "query for hermes memory"}}, "required": ["q"]}}}
+  ],
+  "temperature": 0,
+  "stream": false
+}

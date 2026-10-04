@@ -1,0 +1,1 @@
+{"response":{"candidates":[{"content":{"role":"model","parts":[{"text":"Noted. I will use {{TOOL}} for that."},{"functionCall":{"name":"{{TOOL}}","args":{"q":"marketplace owner"}}}]},"finishReason":"STOP","index":0}],"usageMetadata":{"promptTokenCount":42,"candidatesTokenCount":9,"totalTokenCount":51},"modelVersion":"gemini-3-flash"}}

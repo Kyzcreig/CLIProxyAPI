@@ -154,6 +154,16 @@ type DevinConfig struct {
 	SensitiveWords []string `yaml:"sensitive-words,omitempty" json:"sensitive-words,omitempty"`
 }
 
+// KimiConfig configures the identity headers the Kimi executor sends. The
+// defaults name a generic client, never this proxy or the machine it runs on
+// (the previous literals leaked the proxy name and the hostname upstream).
+type KimiConfig struct {
+	// Platform is the X-Msh-Platform header value. Default "kimi-cli".
+	Platform string `yaml:"platform,omitempty" json:"platform,omitempty"`
+	// DeviceName is the X-Msh-Device-Name header value. Default "host".
+	DeviceName string `yaml:"device-name,omitempty" json:"device-name,omitempty"`
+}
+
 // AntigravityConfig configures provider-wide Antigravity request behavior.
 type AntigravityConfig struct {
 	// SensitiveWords is a list of words to obfuscate with zero-width characters in system instructions.

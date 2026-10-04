@@ -1,0 +1,1832 @@
+{
+  "$schema": "brand-corpus/v1",
+  "description": "Language-neutral brand-scrub corpus shared by claude-apx, claude-bpx and claude-pool. Phase 1 of the brand-scrub consolidation (card t_54142397). Cases are the UNION of the three repos' pre-existing brand corpora plus the three classes the union exposed that no corpus covered (R26 serialized multi-line, R10 mixed-case validator probe, R9 byte-exact canonical round-trip). A case that does not apply to a component carries an explicit applies_to exclusion with a rationale — never a silent drop.",
+  "generated_by": "build-corpus.js (do not hand-edit brand-corpus.json; edit the generator)",
+  "fields": {
+    "id": "stable unique identifier",
+    "input": "the probe text; when templated=true, {SENT_A}/{SENT_A_LOWER}/{SENT_B}/{SENT_B_LOWER} are substituted with the component-local sentinel spellings",
+    "must_scrub": "true = no brand token may survive the forward pass; false = the input must survive literally",
+    "bounded": "true = a DOCUMENTED threat-model gap where the brand survives ON PURPOSE (never silently promoted to must_scrub)",
+    "applies_to": "components that evaluate this case",
+    "rationale": "why the case exists and, where applicable, why a component is excluded",
+    "origin": "the repo/file the case was extracted from (\"NEW\" = exposed by the union)",
+    "serialized": "true = the loader MUST build a real JSON body and scrub the SERIALIZED bytes (R26); a hand-built text string cannot reproduce this class",
+    "direction": "reverse = the case exercises the response-direction pass",
+    "roundtrip": "exact = forward then reverse must reproduce the input byte-for-byte (R9)",
+    "templated": "true = input contains sentinel placeholders",
+    "perf_ms": "the case must complete within this many milliseconds",
+    "bl_offender": "true = the BL upstream-identity detector MUST flag this string",
+    "bl_allowed": "true = the BL detector must NOT flag this string (false-positive guard)",
+    "sentinel_survives_forward": "true = the forward pass must leave the sentinel byte-identical",
+    "idempotent_forward": "true = forward(forward(x)) must equal forward(x)",
+    "reversible_ok": "true = the component MAY rewrite this input (deliberate alignment) provided the round-trip restores it byte-exact; the assertion is losslessness, not identity"
+  },
+  "counts": {
+    "total": 134,
+    "must_scrub": 95,
+    "bounded": 14,
+    "apx": 134,
+    "bpx": 128,
+    "pool": 115
+  },
+  "cases": [
+    {
+      "id": "brand-b-variant-pascal",
+      "input": "discuss OpenClaw now",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "every case/hyphen/underscore variant of brand B is a standalone mention and must scrub (apx BUG-P1, bpx C2/B4)",
+      "origin": "apx:v2.20.0-variant-union + apx:lint-brand-leak + bpx:unit-brand-modules"
+    },
+    {
+      "id": "brand-b-variant-lower",
+      "input": "discuss openclaw now",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "every case/hyphen/underscore variant of brand B is a standalone mention and must scrub (apx BUG-P1, bpx C2/B4)",
+      "origin": "apx:v2.20.0-variant-union + apx:lint-brand-leak + bpx:unit-brand-modules"
+    },
+    {
+      "id": "brand-b-variant-upper",
+      "input": "discuss OPENCLAW now",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "every case/hyphen/underscore variant of brand B is a standalone mention and must scrub (apx BUG-P1, bpx C2/B4)",
+      "origin": "apx:v2.20.0-variant-union + apx:lint-brand-leak + bpx:unit-brand-modules"
+    },
+    {
+      "id": "brand-b-variant-hyphen-lower",
+      "input": "discuss open-claw now",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "every case/hyphen/underscore variant of brand B is a standalone mention and must scrub (apx BUG-P1, bpx C2/B4)",
+      "origin": "apx:v2.20.0-variant-union + apx:lint-brand-leak + bpx:unit-brand-modules"
+    },
+    {
+      "id": "brand-b-variant-hyphen-pascal",
+      "input": "discuss Open-Claw now",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "every case/hyphen/underscore variant of brand B is a standalone mention and must scrub (apx BUG-P1, bpx C2/B4)",
+      "origin": "apx:v2.20.0-variant-union + apx:lint-brand-leak + bpx:unit-brand-modules"
+    },
+    {
+      "id": "brand-b-variant-underscore-lower",
+      "input": "discuss open_claw now",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "every case/hyphen/underscore variant of brand B is a standalone mention and must scrub (apx BUG-P1, bpx C2/B4)",
+      "origin": "apx:v2.20.0-variant-union + apx:lint-brand-leak + bpx:unit-brand-modules"
+    },
+    {
+      "id": "brand-b-variant-underscore-pascal",
+      "input": "discuss Open_Claw now",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "every case/hyphen/underscore variant of brand B is a standalone mention and must scrub (apx BUG-P1, bpx C2/B4)",
+      "origin": "apx:v2.20.0-variant-union + apx:lint-brand-leak + bpx:unit-brand-modules"
+    },
+    {
+      "id": "brand-b-variant-camel",
+      "input": "discuss openClaw now",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "every case/hyphen/underscore variant of brand B is a standalone mention and must scrub (apx BUG-P1, bpx C2/B4)",
+      "origin": "apx:v2.20.0-variant-union + apx:lint-brand-leak + bpx:unit-brand-modules"
+    },
+    {
+      "id": "brand-b-variant-tail-upper",
+      "input": "discuss OpenCLAW now",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "every case/hyphen/underscore variant of brand B is a standalone mention and must scrub (apx BUG-P1, bpx C2/B4)",
+      "origin": "apx:v2.20.0-variant-union + apx:lint-brand-leak + bpx:unit-brand-modules"
+    },
+    {
+      "id": "brand-b-variant-spongebob",
+      "input": "discuss oPeNcLaW now",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "every case/hyphen/underscore variant of brand B is a standalone mention and must scrub (apx BUG-P1, bpx C2/B4)",
+      "origin": "apx:v2.20.0-variant-union + apx:lint-brand-leak + bpx:unit-brand-modules"
+    },
+    {
+      "id": "brand-a-variant-pascal",
+      "input": "word=Hermes here",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "brand A casing variants are standalone mentions and must scrub",
+      "origin": "apx:v2.20.0-variant-union + apx:attack-brand V1 + bpx:e2e-brand-modules-hardening"
+    },
+    {
+      "id": "brand-a-variant-lower",
+      "input": "word=hermes here",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "brand A casing variants are standalone mentions and must scrub",
+      "origin": "apx:v2.20.0-variant-union + apx:attack-brand V1 + bpx:e2e-brand-modules-hardening"
+    },
+    {
+      "id": "brand-a-variant-upper",
+      "input": "word=HERMES here",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "brand A casing variants are standalone mentions and must scrub",
+      "origin": "apx:v2.20.0-variant-union + apx:attack-brand V1 + bpx:e2e-brand-modules-hardening"
+    },
+    {
+      "id": "brand-a-variant-spongebob",
+      "input": "word=hErMeS here",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "brand A casing variants are standalone mentions and must scrub",
+      "origin": "apx:v2.20.0-variant-union + apx:attack-brand V1 + bpx:e2e-brand-modules-hardening"
+    },
+    {
+      "id": "cross-brand-b-on-either-profile",
+      "input": "Earlier I used OpenClaw and OPENCLAW.",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "R17 cross-brand union: brand B must scrub even on the brand-A profile/tenant (closed a real leak)",
+      "origin": "apx:v2.20.0-variant-union BUG-P2 + bpx:e2e-brand-modules-integration C7"
+    },
+    {
+      "id": "cross-brand-a-on-either-profile",
+      "input": "Earlier I used Hermes and HERMES.",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "R17 cross-brand union: brand A must scrub even on the brand-B profile/tenant",
+      "origin": "apx:v2.20.0-variant-union BUG-P2 + bpx:e2e-brand-modules-integration C7"
+    },
+    {
+      "id": "cross-brand-both-in-one-sentence",
+      "input": "Hermes coordinates with OpenClaw on the task.",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "both brands in one string: neither may reach upstream, each maps to its OWN sentinel",
+      "origin": "bpx:e2e-brand-modules-integration + apx:attack-brand V2"
+    },
+    {
+      "id": "cross-brand-asymmetric-positions",
+      "input": "FIRST=Hermes mid SECOND=OpenClaw end",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "B5 no-cross-brand-swap: asymmetric positions prove each brand restores to its own slot",
+      "origin": "bpx:unit-brand-modules B5"
+    },
+    {
+      "id": "brand-in-url",
+      "input": "see https://openclaw.ai/docs",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "a brand inside a URL still egresses as cleartext brand — must scrub (INV-1)",
+      "origin": "apx:attack-brand V3 + bpx:attack-brand V5"
+    },
+    {
+      "id": "brand-in-email",
+      "input": "ping dev@hermes.io please",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "brand inside an email host must scrub",
+      "origin": "apx:attack-brand V3 + bpx:attack-brand V5"
+    },
+    {
+      "id": "brand-in-markdown-link",
+      "input": "[OpenClaw](https://openclaw.ai)",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "brand in both the link text and the href must scrub",
+      "origin": "apx:attack-brand V3 + bpx:attack-brand V5"
+    },
+    {
+      "id": "brand-in-repo-slug",
+      "input": "zacdcook/openclaw-billing-proxy",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "INV-1: a brand-bearing repo slug must not reach upstream in cleartext",
+      "origin": "apx:identifier-roundtrip"
+    },
+    {
+      "id": "brand-in-scp-git-remote",
+      "input": "git@github.com:zacdcook/openclaw-billing-proxy.git",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "scp-style git remote is a resource identifier carrying the brand — must scrub",
+      "origin": "apx:identifier-roundtrip"
+    },
+    {
+      "id": "brand-in-filesystem-path",
+      "input": "/tmp/claude-auth-repos/openclaw-billing-proxy__zacdcook",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "filesystem clone path carrying the brand must scrub",
+      "origin": "apx:identifier-roundtrip"
+    },
+    {
+      "id": "brand-in-home-dir-path",
+      "input": "~/.hermes/skills/",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "the home-dir path shape is the single most common real brand carrier in agent traffic",
+      "origin": "apx:identifier-roundtrip + apx:v2.24.3-json-escape-boundary"
+    },
+    {
+      "id": "brand-in-https-host",
+      "input": "https://hermes-agent.nousresearch.com/docs",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "a documented identityMarker host must not go out raw",
+      "origin": "apx:url-roundtrip"
+    },
+    {
+      "id": "tool-token-a-search",
+      "input": "call hermes_search now",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "brand-prefixed tool tokens must not egress; apx owns them in the variant boundary, bpx via alignment patternRegexes (R3/R4 division of labour)",
+      "origin": "apx:lint-brand-leak MUST_SCRUB + apx:attack V4 + bpx:BUG-H1/H2 battery"
+    },
+    {
+      "id": "tool-token-a-memory",
+      "input": "call hermes_memory now",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "brand-prefixed tool tokens must not egress; apx owns them in the variant boundary, bpx via alignment patternRegexes (R3/R4 division of labour)",
+      "origin": "apx:lint-brand-leak MUST_SCRUB + apx:attack V4 + bpx:BUG-H1/H2 battery"
+    },
+    {
+      "id": "tool-token-a-router-title",
+      "input": "call Hermes_Router now",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "brand-prefixed tool tokens must not egress; apx owns them in the variant boundary, bpx via alignment patternRegexes (R3/R4 division of labour)",
+      "origin": "apx:lint-brand-leak MUST_SCRUB + apx:attack V4 + bpx:BUG-H1/H2 battery"
+    },
+    {
+      "id": "tool-token-a-home-upper",
+      "input": "call HERMES_HOME now",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "brand-prefixed tool tokens must not egress; apx owns them in the variant boundary, bpx via alignment patternRegexes (R3/R4 division of labour)",
+      "origin": "apx:lint-brand-leak MUST_SCRUB + apx:attack V4 + bpx:BUG-H1/H2 battery"
+    },
+    {
+      "id": "tool-token-b-search",
+      "input": "call openclaw_search now",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "brand-prefixed tool tokens must not egress; apx owns them in the variant boundary, bpx via alignment patternRegexes (R3/R4 division of labour)",
+      "origin": "apx:lint-brand-leak MUST_SCRUB + apx:attack V4 + bpx:BUG-H1/H2 battery"
+    },
+    {
+      "id": "tool-token-b-mode-title",
+      "input": "call Openclaw_Mode now",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "brand-prefixed tool tokens must not egress; apx owns them in the variant boundary, bpx via alignment patternRegexes (R3/R4 division of labour)",
+      "origin": "apx:lint-brand-leak MUST_SCRUB + apx:attack V4 + bpx:BUG-H1/H2 battery"
+    },
+    {
+      "id": "tool-token-b-config-camel",
+      "input": "call OpenClaw_Config now",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "brand-prefixed tool tokens must not egress; apx owns them in the variant boundary, bpx via alignment patternRegexes (R3/R4 division of labour)",
+      "origin": "apx:lint-brand-leak MUST_SCRUB + apx:attack V4 + bpx:BUG-H1/H2 battery"
+    },
+    {
+      "id": "tool-token-b-tool-upper",
+      "input": "call openclaw_TOOL now",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "brand-prefixed tool tokens must not egress; apx owns them in the variant boundary, bpx via alignment patternRegexes (R3/R4 division of labour)",
+      "origin": "apx:lint-brand-leak MUST_SCRUB + apx:attack V4 + bpx:BUG-H1/H2 battery"
+    },
+    {
+      "id": "tool-token-b-hyphen-tool",
+      "input": "call open-claw_tool now",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "brand-prefixed tool tokens must not egress; apx owns them in the variant boundary, bpx via alignment patternRegexes (R3/R4 division of labour)",
+      "origin": "apx:lint-brand-leak MUST_SCRUB + apx:attack V4 + bpx:BUG-H1/H2 battery"
+    },
+    {
+      "id": "tool-token-b-underscore-tool",
+      "input": "call open_claw_tool now",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "brand-prefixed tool tokens must not egress; apx owns them in the variant boundary, bpx via alignment patternRegexes (R3/R4 division of labour)",
+      "origin": "apx:lint-brand-leak MUST_SCRUB + apx:attack V4 + bpx:BUG-H1/H2 battery"
+    },
+    {
+      "id": "punct-adjacent-comma",
+      "input": "the OpenClaw, stop",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "punctuation is a token boundary — a punctuation-adjacent brand is a standalone mention and must scrub",
+      "origin": "bpx:e2e-brand-modules-hardening + bpx:attack V6 + bpx:lint BATTERY"
+    },
+    {
+      "id": "punct-adjacent-paren",
+      "input": "(OpenClaw) x",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "punctuation is a token boundary — a punctuation-adjacent brand is a standalone mention and must scrub",
+      "origin": "bpx:e2e-brand-modules-hardening + bpx:attack V6 + bpx:lint BATTERY"
+    },
+    {
+      "id": "punct-adjacent-dquote",
+      "input": "\"OpenClaw\" y",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "punctuation is a token boundary — a punctuation-adjacent brand is a standalone mention and must scrub",
+      "origin": "bpx:e2e-brand-modules-hardening + bpx:attack V6 + bpx:lint BATTERY"
+    },
+    {
+      "id": "punct-adjacent-apostrophe-s",
+      "input": "OpenClaw's z",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "punctuation is a token boundary — a punctuation-adjacent brand is a standalone mention and must scrub",
+      "origin": "bpx:e2e-brand-modules-hardening + bpx:attack V6 + bpx:lint BATTERY"
+    },
+    {
+      "id": "punct-adjacent-period-question",
+      "input": "OpenClaw. Hermes? done.",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "punctuation is a token boundary — a punctuation-adjacent brand is a standalone mention and must scrub",
+      "origin": "bpx:e2e-brand-modules-hardening + bpx:attack V6 + bpx:lint BATTERY"
+    },
+    {
+      "id": "punct-adjacent-unicode-apostrophe",
+      "input": "OpenClaw’s API and Hermes’ SDK",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "punctuation is a token boundary — a punctuation-adjacent brand is a standalone mention and must scrub",
+      "origin": "bpx:e2e-brand-modules-hardening + bpx:attack V6 + bpx:lint BATTERY"
+    },
+    {
+      "id": "punct-adjacent-bracket-alignment",
+      "input": "[[ openclaw ]] and [[hermes]]",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "punctuation is a token boundary — a punctuation-adjacent brand is a standalone mention and must scrub",
+      "origin": "bpx:e2e-brand-modules-hardening + bpx:attack V6 + bpx:lint BATTERY"
+    },
+    {
+      "id": "overscrub-bare-space-english",
+      "input": "the cat will open claw marks",
+      "must_scrub": false,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "TIGHT policy: bare-space \"open claw\" is ordinary English and must stay literal (over-scrub guard)",
+      "origin": "apx:attack V8 + bpx:unit-brand-modules C4"
+    },
+    {
+      "id": "overscrub-bare-space-english-twice",
+      "input": "the cat will open claw the box and then open claw again",
+      "must_scrub": false,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "both English occurrences must survive — a partial over-scrub is still a corruption",
+      "origin": "bpx:e2e-brand-modules-hardening"
+    },
+    {
+      "id": "overscrub-english-near-escape",
+      "input": "the cat will\nopen claw marks\nand nap",
+      "must_scrub": false,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "the escape-aware boundary must not start eating English adjacent to a newline (R26 over-scrub guard)",
+      "origin": "apx:v2.24.3-json-escape-roundtrip + apx:v2.24.3-json-escape-boundary"
+    },
+    {
+      "id": "bounded-plural",
+      "input": "two OpenClaws today",
+      "must_scrub": false,
+      "bounded": true,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "BOUNDED: alphanumeric-glued plural — the RIGHT boundary deliberately leaves it literal (closing it over-scrubs identifiers)",
+      "origin": "apx:attack V6 + bpx:hardening BOUNDED"
+    },
+    {
+      "id": "bounded-embedded",
+      "input": "theOpenClawthing var",
+      "must_scrub": false,
+      "bounded": true,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "BOUNDED: brand glued between word chars stays literal (same boundary rule as the plural)",
+      "origin": "apx:attack V6 + bpx:hardening BOUNDED"
+    },
+    {
+      "id": "bounded-concatenated-brands",
+      "input": "HermesOpenClaw concat",
+      "must_scrub": false,
+      "bounded": true,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "BOUNDED: two brands concatenated with no separator — no token boundary exists between them (P2-OQ3)",
+      "origin": "bpx:unit-brand-modules P2-OQ3 + bpx:hardening BOUNDED"
+    },
+    {
+      "id": "bounded-alnum-suffix",
+      "input": "openclawx",
+      "must_scrub": false,
+      "bounded": true,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "BOUNDED: an alphanumeric suffix glued to the brand stays literal",
+      "origin": "bpx:unit-brand-modules P2-B2"
+    },
+    {
+      "id": "tool-token-b-single-char-suffix",
+      "input": "call openclaw_x now",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "brand-prefixed tool token with a SINGLE-char suffix — the shortest form the alignment regex must still own (bpx `\\bopen[-_]?claw_\\w+\\b` needs >=1 word char; a one-char suffix is the boundary of that quantifier)",
+      "origin": "bpx:attack V7 openclaw_x (absorbed into the shared corpus 2026-08-08)"
+    },
+    {
+      "id": "bounded-embedded-prefix-and-suffix",
+      "input": "preopenclawpost",
+      "must_scrub": false,
+      "bounded": true,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "BOUNDED: brand glued on BOTH sides (prefix AND suffix). Distinct from bounded-embedded, which has a word-initial capital; this is the all-lowercase run where no casing boundary exists either.",
+      "origin": "bpx:e2e-brand-modules-hardening BOUNDED preopenclawpost (absorbed 2026-08-08)"
+    },
+    {
+      "id": "bounded-alnum-prefix",
+      "input": "theopenclaw",
+      "must_scrub": false,
+      "bounded": true,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "BOUNDED: an alphanumeric prefix glued to the brand stays literal",
+      "origin": "bpx:unit-brand-modules P2-B2"
+    },
+    {
+      "id": "bounded-escape-then-plural",
+      "input": "x\nOpenClaws today",
+      "must_scrub": false,
+      "bounded": true,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "BOUNDED: the escape-aware LEFT boundary must not widen the gaps the RIGHT boundary governs (R26 regression lock)",
+      "origin": "apx:v2.24.3-json-escape-boundary + apx:attack V11"
+    },
+    {
+      "id": "bounded-escape-then-embedded",
+      "input": "x\ntheOpenClawthing var",
+      "must_scrub": false,
+      "bounded": true,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "BOUNDED: same as above for the glued form after an escape",
+      "origin": "apx:v2.24.3-json-escape-boundary + apx:attack V11"
+    },
+    {
+      "id": "bounded-cyrillic-homoglyph",
+      "input": "use ОpenClaw now",
+      "must_scrub": false,
+      "bounded": true,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "BOUNDED: non-ASCII homoglyph is not the ASCII brand — out of the threat model (we scrub OUR OWN text)",
+      "origin": "apx:attack V5 + bpx:attack V1"
+    },
+    {
+      "id": "bounded-zero-width-split",
+      "input": "Open​Claw mode",
+      "must_scrub": false,
+      "bounded": true,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "BOUNDED: a zero-width codepoint breaks the literal brand run — adversarial evasion, not our own prose",
+      "origin": "apx:attack V5 + bpx:attack V2"
+    },
+    {
+      "id": "bounded-fullwidth",
+      "input": "call Ｈｅｒｍｅｓ api",
+      "must_scrub": false,
+      "bounded": true,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "BOUNDED: fullwidth codepoints are not the ASCII brand",
+      "origin": "bpx:attack V1"
+    },
+    {
+      "id": "bounded-brand-fused-with-sentinel",
+      "input": "OpenClawQuorVane AnesKeth",
+      "must_scrub": false,
+      "bounded": true,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "BOUNDED: brand fused to a sentinel with no separator is the same word-char-adjacency class",
+      "origin": "bpx:attack V4"
+    },
+    {
+      "id": "bounded-codespan-brand",
+      "input": "run `openclaw --help`",
+      "must_scrub": false,
+      "bounded": true,
+      "applies_to": [
+        "apx"
+      ],
+      "rationale": "BOUNDED in apx (protectCodeSpans leaves user code literal by design, R12). EXCLUDED for bpx/pool: bpx scrubs raw text and has NO code-span exemption, so it correctly scrubs here — the same input is a different CLASS, not a shared expectation. R12 is a deliberate substrate divergence, not drift.",
+      "origin": "apx:attack V7 + apx:v2.20.0-variant-union codespan"
+    },
+    {
+      "id": "reverse-sentinel-inline-codespan-a",
+      "input": "`{SENT_A_LOWER}-agent-skill-authoring`",
+      "templated": true,
+      "direction": "reverse",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx"
+      ],
+      "rationale": "R13: a coined sentinel reaching the user is a leak of the alignment and must be reversed EVERYWHERE, code spans included (fixed a real 2026-06-10 production leak). EXCLUDED for pool: it has no scrub engine and no sentinel — R-note in the audit §1, giving it one would be a regression.",
+      "origin": "apx:attack V10 + apx:v2.19.0 + apx:e2e-hermes-sentinel-user-chat-leak + bpx:e2e-brand-modules-integration code-span block"
+    },
+    {
+      "id": "reverse-sentinel-inline-codespan-b",
+      "input": "`{SENT_B_LOWER}_search`",
+      "templated": true,
+      "direction": "reverse",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx"
+      ],
+      "rationale": "R13: a coined sentinel reaching the user is a leak of the alignment and must be reversed EVERYWHERE, code spans included (fixed a real 2026-06-10 production leak). EXCLUDED for pool: it has no scrub engine and no sentinel — R-note in the audit §1, giving it one would be a regression.",
+      "origin": "apx:attack V10 + apx:v2.19.0 + apx:e2e-hermes-sentinel-user-chat-leak + bpx:e2e-brand-modules-integration code-span block"
+    },
+    {
+      "id": "reverse-sentinel-fenced-codespan-a",
+      "input": "```\n{SENT_A_LOWER}-plugin-authoring\n```",
+      "templated": true,
+      "direction": "reverse",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx"
+      ],
+      "rationale": "R13: a coined sentinel reaching the user is a leak of the alignment and must be reversed EVERYWHERE, code spans included (fixed a real 2026-06-10 production leak). EXCLUDED for pool: it has no scrub engine and no sentinel — R-note in the audit §1, giving it one would be a regression.",
+      "origin": "apx:attack V10 + apx:v2.19.0 + apx:e2e-hermes-sentinel-user-chat-leak + bpx:e2e-brand-modules-integration code-span block"
+    },
+    {
+      "id": "reverse-sentinel-fenced-codespan-b",
+      "input": "```\n{SENT_B}\n```",
+      "templated": true,
+      "direction": "reverse",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx"
+      ],
+      "rationale": "R13: a coined sentinel reaching the user is a leak of the alignment and must be reversed EVERYWHERE, code spans included (fixed a real 2026-06-10 production leak). EXCLUDED for pool: it has no scrub engine and no sentinel — R-note in the audit §1, giving it one would be a regression.",
+      "origin": "apx:attack V10 + apx:v2.19.0 + apx:e2e-hermes-sentinel-user-chat-leak + bpx:e2e-brand-modules-integration code-span block"
+    },
+    {
+      "id": "reverse-sentinel-mixed-prose-and-code-a",
+      "input": "I'd give her the `{SENT_A_LOWER}-agent-skill-authoring` skill and also {SENT_A} in prose",
+      "templated": true,
+      "direction": "reverse",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx"
+      ],
+      "rationale": "R13: a coined sentinel reaching the user is a leak of the alignment and must be reversed EVERYWHERE, code spans included (fixed a real 2026-06-10 production leak). EXCLUDED for pool: it has no scrub engine and no sentinel — R-note in the audit §1, giving it one would be a regression.",
+      "origin": "apx:attack V10 + apx:v2.19.0 + apx:e2e-hermes-sentinel-user-chat-leak + bpx:e2e-brand-modules-integration code-span block"
+    },
+    {
+      "id": "reverse-sentinel-prose-a",
+      "input": "The {SENT_A} runtime is helpful.",
+      "templated": true,
+      "direction": "reverse",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx"
+      ],
+      "rationale": "R13: a coined sentinel reaching the user is a leak of the alignment and must be reversed EVERYWHERE, code spans included (fixed a real 2026-06-10 production leak). EXCLUDED for pool: it has no scrub engine and no sentinel — R-note in the audit §1, giving it one would be a regression.",
+      "origin": "apx:attack V10 + apx:v2.19.0 + apx:e2e-hermes-sentinel-user-chat-leak + bpx:e2e-brand-modules-integration code-span block"
+    },
+    {
+      "id": "reverse-sentinel-prose-a-lower",
+      "input": "The {SENT_A_LOWER} runtime is helpful.",
+      "templated": true,
+      "direction": "reverse",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx"
+      ],
+      "rationale": "R13: a coined sentinel reaching the user is a leak of the alignment and must be reversed EVERYWHERE, code spans included (fixed a real 2026-06-10 production leak). EXCLUDED for pool: it has no scrub engine and no sentinel — R-note in the audit §1, giving it one would be a regression.",
+      "origin": "apx:attack V10 + apx:v2.19.0 + apx:e2e-hermes-sentinel-user-chat-leak + bpx:e2e-brand-modules-integration code-span block"
+    },
+    {
+      "id": "reverse-sentinel-prose-b",
+      "input": "The {SENT_B} platform is here.",
+      "templated": true,
+      "direction": "reverse",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx"
+      ],
+      "rationale": "R13: a coined sentinel reaching the user is a leak of the alignment and must be reversed EVERYWHERE, code spans included (fixed a real 2026-06-10 production leak). EXCLUDED for pool: it has no scrub engine and no sentinel — R-note in the audit §1, giving it one would be a regression.",
+      "origin": "apx:attack V10 + apx:v2.19.0 + apx:e2e-hermes-sentinel-user-chat-leak + bpx:e2e-brand-modules-integration code-span block"
+    },
+    {
+      "id": "reverse-sentinel-after-newline-b",
+      "input": "alpha\n{SENT_B} beta",
+      "templated": true,
+      "direction": "reverse",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx"
+      ],
+      "rationale": "R13: a coined sentinel reaching the user is a leak of the alignment and must be reversed EVERYWHERE, code spans included (fixed a real 2026-06-10 production leak). EXCLUDED for pool: it has no scrub engine and no sentinel — R-note in the audit §1, giving it one would be a regression.",
+      "origin": "apx:attack V10 + apx:v2.19.0 + apx:e2e-hermes-sentinel-user-chat-leak + bpx:e2e-brand-modules-integration code-span block"
+    },
+    {
+      "id": "reverse-sentinel-after-newline-b-lower",
+      "input": "alpha\n{SENT_B_LOWER} beta",
+      "templated": true,
+      "direction": "reverse",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx"
+      ],
+      "rationale": "R13: a coined sentinel reaching the user is a leak of the alignment and must be reversed EVERYWHERE, code spans included (fixed a real 2026-06-10 production leak). EXCLUDED for pool: it has no scrub engine and no sentinel — R-note in the audit §1, giving it one would be a regression.",
+      "origin": "apx:attack V10 + apx:v2.19.0 + apx:e2e-hermes-sentinel-user-chat-leak + bpx:e2e-brand-modules-integration code-span block"
+    },
+    {
+      "id": "json-escape-newline-brand-b",
+      "input": "x\nopenclaw y",
+      "serialized": true,
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "R26: escapes whose last char is alphanumeric escaped the alnum lookbehind — 8 classes leaked live in apx. Every Python client json.dumps(ensure_ascii=True) emits the \\uXXXX family.",
+      "origin": "apx:v2.24.3-json-escape-boundary + apx:attack V11 (NEW class relative to the pre-2026-08-08 corpora)"
+    },
+    {
+      "id": "json-escape-newline-brand-a",
+      "input": "x\nHermes y",
+      "serialized": true,
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "R26 cross-brand half: the same escape class must not leak brand A either",
+      "origin": "apx:v2.24.3-json-escape-boundary + apx:attack V11"
+    },
+    {
+      "id": "json-escape-tab-brand-b",
+      "input": "x\topenclaw y",
+      "serialized": true,
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "R26: escapes whose last char is alphanumeric escaped the alnum lookbehind — 8 classes leaked live in apx. Every Python client json.dumps(ensure_ascii=True) emits the \\uXXXX family.",
+      "origin": "apx:v2.24.3-json-escape-boundary + apx:attack V11 (NEW class relative to the pre-2026-08-08 corpora)"
+    },
+    {
+      "id": "json-escape-tab-brand-a",
+      "input": "x\tHermes y",
+      "serialized": true,
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "R26 cross-brand half: the same escape class must not leak brand A either",
+      "origin": "apx:v2.24.3-json-escape-boundary + apx:attack V11"
+    },
+    {
+      "id": "json-escape-return-brand-b",
+      "input": "x\ropenclaw y",
+      "serialized": true,
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "R26: escapes whose last char is alphanumeric escaped the alnum lookbehind — 8 classes leaked live in apx. Every Python client json.dumps(ensure_ascii=True) emits the \\uXXXX family.",
+      "origin": "apx:v2.24.3-json-escape-boundary + apx:attack V11 (NEW class relative to the pre-2026-08-08 corpora)"
+    },
+    {
+      "id": "json-escape-return-brand-a",
+      "input": "x\rHermes y",
+      "serialized": true,
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "R26 cross-brand half: the same escape class must not leak brand A either",
+      "origin": "apx:v2.24.3-json-escape-boundary + apx:attack V11"
+    },
+    {
+      "id": "json-escape-backspace-brand-b",
+      "input": "x\bopenclaw y",
+      "serialized": true,
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "R26: escapes whose last char is alphanumeric escaped the alnum lookbehind — 8 classes leaked live in apx. Every Python client json.dumps(ensure_ascii=True) emits the \\uXXXX family.",
+      "origin": "apx:v2.24.3-json-escape-boundary + apx:attack V11 (NEW class relative to the pre-2026-08-08 corpora)"
+    },
+    {
+      "id": "json-escape-backspace-brand-a",
+      "input": "x\bHermes y",
+      "serialized": true,
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "R26 cross-brand half: the same escape class must not leak brand A either",
+      "origin": "apx:v2.24.3-json-escape-boundary + apx:attack V11"
+    },
+    {
+      "id": "json-escape-formfeed-brand-b",
+      "input": "x\fopenclaw y",
+      "serialized": true,
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "R26: escapes whose last char is alphanumeric escaped the alnum lookbehind — 8 classes leaked live in apx. Every Python client json.dumps(ensure_ascii=True) emits the \\uXXXX family.",
+      "origin": "apx:v2.24.3-json-escape-boundary + apx:attack V11 (NEW class relative to the pre-2026-08-08 corpora)"
+    },
+    {
+      "id": "json-escape-formfeed-brand-a",
+      "input": "x\fHermes y",
+      "serialized": true,
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "R26 cross-brand half: the same escape class must not leak brand A either",
+      "origin": "apx:v2.24.3-json-escape-boundary + apx:attack V11"
+    },
+    {
+      "id": "json-escape-vert-tab-brand-b",
+      "input": "x\u000bopenclaw y",
+      "serialized": true,
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "R26: escapes whose last char is alphanumeric escaped the alnum lookbehind — 8 classes leaked live in apx. Every Python client json.dumps(ensure_ascii=True) emits the \\uXXXX family.",
+      "origin": "apx:v2.24.3-json-escape-boundary + apx:attack V11 (NEW class relative to the pre-2026-08-08 corpora)"
+    },
+    {
+      "id": "json-escape-vert-tab-brand-a",
+      "input": "x\u000bHermes y",
+      "serialized": true,
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "R26 cross-brand half: the same escape class must not leak brand A either",
+      "origin": "apx:v2.24.3-json-escape-boundary + apx:attack V11"
+    },
+    {
+      "id": "json-escape-ctrl-a-brand-b",
+      "input": "x\u0001openclaw y",
+      "serialized": true,
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "R26: escapes whose last char is alphanumeric escaped the alnum lookbehind — 8 classes leaked live in apx. Every Python client json.dumps(ensure_ascii=True) emits the \\uXXXX family.",
+      "origin": "apx:v2.24.3-json-escape-boundary + apx:attack V11 (NEW class relative to the pre-2026-08-08 corpora)"
+    },
+    {
+      "id": "json-escape-ctrl-a-brand-a",
+      "input": "x\u0001Hermes y",
+      "serialized": true,
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "R26 cross-brand half: the same escape class must not leak brand A either",
+      "origin": "apx:v2.24.3-json-escape-boundary + apx:attack V11"
+    },
+    {
+      "id": "json-escape-unit-sep-brand-b",
+      "input": "x\u001fopenclaw y",
+      "serialized": true,
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "R26: escapes whose last char is alphanumeric escaped the alnum lookbehind — 8 classes leaked live in apx. Every Python client json.dumps(ensure_ascii=True) emits the \\uXXXX family.",
+      "origin": "apx:v2.24.3-json-escape-boundary + apx:attack V11 (NEW class relative to the pre-2026-08-08 corpora)"
+    },
+    {
+      "id": "json-escape-unit-sep-brand-a",
+      "input": "x\u001fHermes y",
+      "serialized": true,
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "R26 cross-brand half: the same escape class must not leak brand A either",
+      "origin": "apx:v2.24.3-json-escape-boundary + apx:attack V11"
+    },
+    {
+      "id": "json-escape-control-nbsp",
+      "input": "x openclaw y",
+      "serialized": true,
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "NEGATIVE CONTROL: these escape classes passed BEFORE the R26 fix and must keep passing, so a future boundary change cannot trade one class for another",
+      "origin": "apx:v2.24.3-json-escape-boundary NEGATIVE_CONTROLS + apx:attack V11"
+    },
+    {
+      "id": "json-escape-control-em-dash",
+      "input": "x—openclaw y",
+      "serialized": true,
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "NEGATIVE CONTROL: these escape classes passed BEFORE the R26 fix and must keep passing, so a future boundary change cannot trade one class for another",
+      "origin": "apx:v2.24.3-json-escape-boundary NEGATIVE_CONTROLS + apx:attack V11"
+    },
+    {
+      "id": "json-escape-control-quote",
+      "input": "x\"openclaw y",
+      "serialized": true,
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "NEGATIVE CONTROL: these escape classes passed BEFORE the R26 fix and must keep passing, so a future boundary change cannot trade one class for another",
+      "origin": "apx:v2.24.3-json-escape-boundary NEGATIVE_CONTROLS + apx:attack V11"
+    },
+    {
+      "id": "json-escape-control-backslash",
+      "input": "x\\openclaw y",
+      "serialized": true,
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "NEGATIVE CONTROL: these escape classes passed BEFORE the R26 fix and must keep passing, so a future boundary change cannot trade one class for another",
+      "origin": "apx:v2.24.3-json-escape-boundary NEGATIVE_CONTROLS + apx:attack V11"
+    },
+    {
+      "id": "json-escape-control-space",
+      "input": "x openclaw y",
+      "serialized": true,
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "NEGATIVE CONTROL: these escape classes passed BEFORE the R26 fix and must keep passing, so a future boundary change cannot trade one class for another",
+      "origin": "apx:v2.24.3-json-escape-boundary NEGATIVE_CONTROLS + apx:attack V11"
+    },
+    {
+      "id": "json-escape-multiline-system-prompt",
+      "input": "You are an assistant.\nopenclaw is the harness you run on.\nYour skills live in ~/.hermes/skills/.\nTools:\nhermes\nEnd.",
+      "serialized": true,
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "THE R26 case the card names: an actual serialized multi-line body with a brand at the start of a line. Single-line probes cannot catch it — this is the shape that egressed live while all three gates were green.",
+      "origin": "NEW (union-exposed; now also apx:v2.24.3-json-escape-boundary)"
+    },
+    {
+      "id": "mixed-case-forces-else-sentinel-branch",
+      "input": "Openclaw here",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "R10: a mixed-case form that is NOT any of the 3 canonical casing classes must still scrub, exercising the else->sentinel branch. bpx asserts this at boot; apx did not.",
+      "origin": "NEW (R10; bpx:brand-modules.js:237-250 has the char-flip, apx:validateVariants does not)"
+    },
+    {
+      "id": "mixed-case-tail-upper-forces-else-branch",
+      "input": "openCLAW here",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "R10 second form: tail-uppercase is neither all-lower nor all-upper and must map to the canonical sentinel",
+      "origin": "NEW (R10)"
+    },
+    {
+      "id": "roundtrip-exact-brand-b-pascal",
+      "input": "a OpenClaw b",
+      "roundtrip": "exact",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "R9: the 3 canonical casing classes must round-trip BYTE-EXACT. The pool evaluates this as its PASSTHROUGH contract — it has no scrub engine by design, so byte-identity IS its round-trip (and that is exactly the property commit 6cb2185 broke).",
+      "origin": "NEW for apx (R9; bpx:unit-brand-modules asserts it, apx:validateVariants is forward-only)"
+    },
+    {
+      "id": "roundtrip-exact-brand-b-lower",
+      "input": "a openclaw b",
+      "roundtrip": "exact",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "R9: the 3 canonical casing classes must round-trip BYTE-EXACT. The pool evaluates this as its PASSTHROUGH contract — it has no scrub engine by design, so byte-identity IS its round-trip (and that is exactly the property commit 6cb2185 broke).",
+      "origin": "NEW for apx (R9; bpx:unit-brand-modules asserts it, apx:validateVariants is forward-only)"
+    },
+    {
+      "id": "roundtrip-exact-brand-b-upper",
+      "input": "a OPENCLAW b",
+      "roundtrip": "exact",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "R9: the 3 canonical casing classes must round-trip BYTE-EXACT. The pool evaluates this as its PASSTHROUGH contract — it has no scrub engine by design, so byte-identity IS its round-trip (and that is exactly the property commit 6cb2185 broke).",
+      "origin": "NEW for apx (R9; bpx:unit-brand-modules asserts it, apx:validateVariants is forward-only)"
+    },
+    {
+      "id": "roundtrip-exact-brand-a-pascal",
+      "input": "a Hermes b",
+      "roundtrip": "exact",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "R9 for brand A: byte-exact canonical round-trip. Pool: PASSTHROUGH contract.",
+      "origin": "NEW for apx (R9)"
+    },
+    {
+      "id": "roundtrip-exact-brand-a-lower",
+      "input": "a hermes b",
+      "roundtrip": "exact",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "R9 for brand A: byte-exact canonical round-trip. Pool: PASSTHROUGH contract.",
+      "origin": "NEW for apx (R9)"
+    },
+    {
+      "id": "roundtrip-exact-brand-a-upper",
+      "input": "a HERMES b",
+      "roundtrip": "exact",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "R9 for brand A: byte-exact canonical round-trip. Pool: PASSTHROUGH contract.",
+      "origin": "NEW for apx (R9)"
+    },
+    {
+      "id": "roundtrip-exact-mixed-brands-prose",
+      "input": "Hermes lives at zacdcook/openclaw-billing-proxy today.",
+      "roundtrip": "exact",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "R9: prose containing both brands plus an irreversible-vocab identifier must return byte-for-byte (a mutated name is a 404 — this closed a real incident). Pool: PASSTHROUGH contract.",
+      "origin": "apx:identifier-roundtrip + apx:url-roundtrip"
+    },
+    {
+      "id": "roundtrip-exact-url-with-irreversible-token",
+      "input": "https://github.com/zacdcook/openclaw-billing-proxy/",
+      "roundtrip": "exact",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx"
+      ],
+      "rationale": "R15 URL protect/restore is apx-only (a consequence of the serialized-JSON substrate); bpx has no URL layer to regress. EXCLUDED for bpx (R15 absent by design) and pool (no engine).",
+      "origin": "apx:url-roundtrip"
+    },
+    {
+      "id": "roundtrip-exact-multiline-both-brands",
+      "input": "Line1: Hermes plan.\nLine2: hand to OpenClaw.\nLine3: Hermes review.",
+      "roundtrip": "exact",
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "R9 across lines: a multi-line payload must scrub every line and restore byte-exact. Pool: PASSTHROUGH contract.",
+      "origin": "bpx:e2e-brand-modules-integration multi-line"
+    },
+    {
+      "id": "bl-offender-confab-marker",
+      "input": "⚠️ [claude-bpx bridge notice: something happened]",
+      "bl_offender": true,
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "BL negative control: the upstream-identity detector MUST flag this string. A gate that stops detecting is decorative — this is the shared BL-5 shape.",
+      "origin": "bpx:unit-upstream-brand-leak BL-5/BL-6a + pool:test_upstream_brand_leak BL-5"
+    },
+    {
+      "id": "bl-offender-pool-prefix",
+      "input": "{\"error\":\"pool: upstream unreachable on every box\"}",
+      "bl_offender": true,
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "BL negative control: the upstream-identity detector MUST flag this string. A gate that stops detecting is decorative — this is the shared BL-5 shape.",
+      "origin": "bpx:unit-upstream-brand-leak BL-5/BL-6a + pool:test_upstream_brand_leak BL-5"
+    },
+    {
+      "id": "bl-offender-product-name",
+      "input": "{\"error\":\"claude-pool could not route\"}",
+      "bl_offender": true,
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "BL negative control: the upstream-identity detector MUST flag this string. A gate that stops detecting is decorative — this is the shared BL-5 shape.",
+      "origin": "bpx:unit-upstream-brand-leak BL-5/BL-6a + pool:test_upstream_brand_leak BL-5"
+    },
+    {
+      "id": "bl-offender-mcp-namespace",
+      "input": "const TOOLS = [{ name: \"mcp__hermes__Bash\" }];",
+      "bl_offender": true,
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "BL negative control: the upstream-identity detector MUST flag this string. A gate that stops detecting is decorative — this is the shared BL-5 shape.",
+      "origin": "bpx:unit-upstream-brand-leak BL-5/BL-6a + pool:test_upstream_brand_leak BL-5"
+    },
+    {
+      "id": "bl-offender-relay-selfname",
+      "input": "http(s) image URLs are not fetched by the relay",
+      "bl_offender": true,
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "BL negative control: the upstream-identity detector MUST flag this string. A gate that stops detecting is decorative — this is the shared BL-5 shape.",
+      "origin": "bpx:unit-upstream-brand-leak BL-5/BL-6a + pool:test_upstream_brand_leak BL-5"
+    },
+    {
+      "id": "bl-allowed-pool-at-capacity",
+      "input": "pool at capacity",
+      "bl_allowed": true,
+      "must_scrub": false,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "BL false-positive guard: a condition-describing body using the bare English noun must NOT trip the gate, or the 12 correct sibling bodies get rewritten for nothing",
+      "origin": "pool:test_upstream_brand_leak ALLOWED_CONDITION_PHRASES (only the pool carries this guard today — R22 drift)"
+    },
+    {
+      "id": "bl-allowed-pool-deadline-exceeded",
+      "input": "pool deadline exceeded",
+      "bl_allowed": true,
+      "must_scrub": false,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "BL false-positive guard: a condition-describing body using the bare English noun must NOT trip the gate, or the 12 correct sibling bodies get rewritten for nothing",
+      "origin": "pool:test_upstream_brand_leak ALLOWED_CONDITION_PHRASES (only the pool carries this guard today — R22 drift)"
+    },
+    {
+      "id": "bl-allowed-pool-health-unavailable",
+      "input": "pool health unavailable",
+      "bl_allowed": true,
+      "must_scrub": false,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "BL false-positive guard: a condition-describing body using the bare English noun must NOT trip the gate, or the 12 correct sibling bodies get rewritten for nothing",
+      "origin": "pool:test_upstream_brand_leak ALLOWED_CONDITION_PHRASES (only the pool carries this guard today — R22 drift)"
+    },
+    {
+      "id": "bl-allowed-pool-models-unavailable",
+      "input": "pool models unavailable",
+      "bl_allowed": true,
+      "must_scrub": false,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "BL false-positive guard: a condition-describing body using the bare English noun must NOT trip the gate, or the 12 correct sibling bodies get rewritten for nothing",
+      "origin": "pool:test_upstream_brand_leak ALLOWED_CONDITION_PHRASES (only the pool carries this guard today — R22 drift)"
+    },
+    {
+      "id": "bl-allowed-pool-dispatch-error",
+      "input": "pool dispatch error",
+      "bl_allowed": true,
+      "must_scrub": false,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "BL false-positive guard: a condition-describing body using the bare English noun must NOT trip the gate, or the 12 correct sibling bodies get rewritten for nothing",
+      "origin": "pool:test_upstream_brand_leak ALLOWED_CONDITION_PHRASES (only the pool carries this guard today — R22 drift)"
+    },
+    {
+      "id": "bl-allowed-streaming-not-supported-on-this-pool-instance",
+      "input": "streaming not supported on this pool instance",
+      "bl_allowed": true,
+      "must_scrub": false,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "BL false-positive guard: a condition-describing body using the bare English noun must NOT trip the gate, or the 12 correct sibling bodies get rewritten for nothing",
+      "origin": "pool:test_upstream_brand_leak ALLOWED_CONDITION_PHRASES (only the pool carries this guard today — R22 drift)"
+    },
+    {
+      "id": "bl-allowed-upstream-unreachable",
+      "input": "upstream unreachable",
+      "bl_allowed": true,
+      "must_scrub": false,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "BL false-positive guard: a condition-describing body using the bare English noun must NOT trip the gate, or the 12 correct sibling bodies get rewritten for nothing",
+      "origin": "pool:test_upstream_brand_leak ALLOWED_CONDITION_PHRASES (only the pool carries this guard today — R22 drift)"
+    },
+    {
+      "id": "bl-allowed-upstream-attempt-timed-out",
+      "input": "upstream attempt timed out",
+      "bl_allowed": true,
+      "must_scrub": false,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "BL false-positive guard: a condition-describing body using the bare English noun must NOT trip the gate, or the 12 correct sibling bodies get rewritten for nothing",
+      "origin": "pool:test_upstream_brand_leak ALLOWED_CONDITION_PHRASES (only the pool carries this guard today — R22 drift)"
+    },
+    {
+      "id": "perf-many-standalone-brands",
+      "input": "OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw OpenClaw ",
+      "perf_ms": 1000,
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "many real matches must complete fast — a regression here is a DoS on the hot path. Pool: PASSTHROUGH contract (must also stay fast and byte-identical).",
+      "origin": "apx:attack V9 + bpx:attack V11"
+    },
+    {
+      "id": "perf-long-near-miss",
+      "input": "open--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------x",
+      "perf_ms": 1000,
+      "must_scrub": false,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "a long run that never completes a brand token must not backtrack catastrophically; it also must not scrub (no brand present). Pool: PASSTHROUGH contract.",
+      "origin": "apx:attack V9 + bpx:attack V11"
+    },
+    {
+      "id": "perf-long-alnum-suffix",
+      "input": "openclawaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "perf_ms": 1000,
+      "must_scrub": false,
+      "bounded": true,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "BOUNDED + timing: a long alphanumeric suffix is the documented glued gap AND a ReDoS probe. Pool: PASSTHROUGH contract.",
+      "origin": "apx:attack V9 + bpx:attack V11"
+    },
+    {
+      "id": "perf-large-mixed-payload",
+      "input": "Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. Hermes plans, OpenClaw executes; hermes_memory then openclaw_search. ",
+      "perf_ms": 2000,
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "a large realistic payload must leak nothing and stay fast. Pool: PASSTHROUGH contract.",
+      "origin": "bpx:e2e-brand-modules-hardening large payload + apx:v2.20.0-hardening"
+    },
+    {
+      "id": "robust-empty",
+      "input": "",
+      "must_scrub": false,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "degenerate inputs must not throw. Pool: PASSTHROUGH contract.",
+      "origin": "apx:v2.20.0-hardening edge inputs + bpx:e2e-brand-modules-hardening"
+    },
+    {
+      "id": "robust-spaces",
+      "input": "   ",
+      "must_scrub": false,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "degenerate inputs must not throw. Pool: PASSTHROUGH contract.",
+      "origin": "apx:v2.20.0-hardening edge inputs + bpx:e2e-brand-modules-hardening"
+    },
+    {
+      "id": "robust-newlines",
+      "input": "\n\n",
+      "must_scrub": false,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "degenerate inputs must not throw. Pool: PASSTHROUGH contract.",
+      "origin": "apx:v2.20.0-hardening edge inputs + bpx:e2e-brand-modules-hardening"
+    },
+    {
+      "id": "sentinel-b-survives-forward",
+      "input": "{SENT_B} stands alone",
+      "templated": true,
+      "sentinel_survives_forward": true,
+      "must_scrub": false,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx"
+      ],
+      "rationale": "R7: no variant regex may match another variant sentinel — the forward pass must leave an emitted sentinel byte-identical. EXCLUDED for pool: it emits no sentinel, so there is no token whose survival could be asserted.",
+      "origin": "apx:v2.20.0-hardening idempotence + bpx:unit-brand-modules sentinel-vs-alignment"
+    },
+    {
+      "id": "sentinel-a-survives-forward",
+      "input": "{SENT_A} stands alone",
+      "templated": true,
+      "sentinel_survives_forward": true,
+      "must_scrub": false,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx"
+      ],
+      "rationale": "R7 for brand A sentinel. EXCLUDED for pool: it emits no sentinel.",
+      "origin": "apx:v2.20.0-hardening + bpx:unit-brand-modules"
+    },
+    {
+      "id": "forward-idempotent",
+      "input": "OpenClaw and Hermes",
+      "idempotent_forward": true,
+      "must_scrub": true,
+      "bounded": false,
+      "applies_to": [
+        "apx",
+        "bpx"
+      ],
+      "rationale": "forward(forward(x)) == forward(x): a second pass must not re-tokenize the sentinels it just emitted. EXCLUDED for pool: it has NO forward pass — idempotence of a non-existent transform is not a testable property, and audit §5.1 reason 1 says the pool must never acquire one.",
+      "origin": "bpx:unit-brand-modules idempotence"
+    },
+    {
+      "id": "no-alignment-bleed-screaming-snake-const",
+      "input": "Set MAX_THINKING_TOKENS in the config.",
+      "must_scrub": false,
+      "bounded": false,
+      "reversible_ok": true,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "a legit SCREAMING_SNAKE constant must not LEAK and must not be destroyed (R5/R18). reversible_ok: a scope that runs the aggressive SCREAMING_SNAKE alignment (bpx openclaw tenant, apx openclaw profile) may TOKENIZE it — measured 2026-08-08: MAX_THINKING_TOKENS -> CORE_LINK_249d -> restored byte-exact. That is deliberate request-shape alignment, so the assertion is LOSSLESS ROUND-TRIP rather than byte-identity. Dropping the case would hide a real corruption; asserting identity would fail a correct design.",
+      "origin": "bpx:e2e-brand-modules-hardening BUG-H2 + apx:v2.20.0-variant-union alignment-scope"
+    },
+    {
+      "id": "no-alignment-bleed-api-key-const",
+      "input": "API_KEY here",
+      "must_scrub": false,
+      "bounded": false,
+      "reversible_ok": true,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "a legit SCREAMING_SNAKE constant must not LEAK and must not be destroyed (R5/R18). reversible_ok: a scope that runs the aggressive SCREAMING_SNAKE alignment (bpx openclaw tenant, apx openclaw profile) may TOKENIZE it — measured 2026-08-08: MAX_THINKING_TOKENS -> CORE_LINK_249d -> restored byte-exact. That is deliberate request-shape alignment, so the assertion is LOSSLESS ROUND-TRIP rather than byte-identity. Dropping the case would hide a real corruption; asserting identity would fail a correct design.",
+      "origin": "bpx:e2e-brand-modules-hardening BUG-H2 + apx:v2.20.0-variant-union alignment-scope"
+    },
+    {
+      "id": "no-alignment-bleed-http-get-const",
+      "input": "HTTP_GET call",
+      "must_scrub": false,
+      "bounded": false,
+      "reversible_ok": true,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "a legit SCREAMING_SNAKE constant must not LEAK and must not be destroyed (R5/R18). reversible_ok: a scope that runs the aggressive SCREAMING_SNAKE alignment (bpx openclaw tenant, apx openclaw profile) may TOKENIZE it — measured 2026-08-08: MAX_THINKING_TOKENS -> CORE_LINK_249d -> restored byte-exact. That is deliberate request-shape alignment, so the assertion is LOSSLESS ROUND-TRIP rather than byte-identity. Dropping the case would hide a real corruption; asserting identity would fail a correct design.",
+      "origin": "bpx:e2e-brand-modules-hardening BUG-H2 + apx:v2.20.0-variant-union alignment-scope"
+    },
+    {
+      "id": "no-alignment-bleed-node-env-const",
+      "input": "set NODE_ENV now",
+      "must_scrub": false,
+      "bounded": false,
+      "reversible_ok": true,
+      "applies_to": [
+        "apx",
+        "bpx",
+        "pool"
+      ],
+      "rationale": "a legit SCREAMING_SNAKE constant must not LEAK and must not be destroyed (R5/R18). reversible_ok: a scope that runs the aggressive SCREAMING_SNAKE alignment (bpx openclaw tenant, apx openclaw profile) may TOKENIZE it — measured 2026-08-08: MAX_THINKING_TOKENS -> CORE_LINK_249d -> restored byte-exact. That is deliberate request-shape alignment, so the assertion is LOSSLESS ROUND-TRIP rather than byte-identity. Dropping the case would hide a real corruption; asserting identity would fail a correct design.",
+      "origin": "bpx:e2e-brand-modules-hardening BUG-H2 + apx:v2.20.0-variant-union alignment-scope"
+    },
+    {
+      "id": "reverse-collision-music-assistant",
+      "input": "it's a Music Assistant queue player",
+      "direction": "reverse",
+      "must_scrub": false,
+      "bounded": false,
+      "applies_to": [
+        "apx"
+      ],
+      "rationale": "v2.18.1 class: generic-word prose must not be reverse-branded. apx-ONLY: it is the only component with a generic-vocab reverse map (bpx reverses coined sentinels only, pool has no reverse) — R2/R11 substrate divergence, not drift.",
+      "origin": "apx:v2.18.1-plain-text-reverse-collisions + apx:v2.19.0"
+    },
+    {
+      "id": "reverse-collision-home-assistant",
+      "input": "Home Assistant owns the entity registry.",
+      "direction": "reverse",
+      "must_scrub": false,
+      "bounded": false,
+      "applies_to": [
+        "apx"
+      ],
+      "rationale": "v2.18.1 class: generic-word prose must not be reverse-branded. apx-ONLY: it is the only component with a generic-vocab reverse map (bpx reverses coined sentinels only, pool has no reverse) — R2/R11 substrate divergence, not drift.",
+      "origin": "apx:v2.18.1-plain-text-reverse-collisions + apx:v2.19.0"
+    },
+    {
+      "id": "reverse-collision-assistant-professor",
+      "input": "The assistant professor uses a virtual assistant.",
+      "direction": "reverse",
+      "must_scrub": false,
+      "bounded": false,
+      "applies_to": [
+        "apx"
+      ],
+      "rationale": "v2.18.1 class: generic-word prose must not be reverse-branded. apx-ONLY: it is the only component with a generic-vocab reverse map (bpx reverses coined sentinels only, pool has no reverse) — R2/R11 substrate divergence, not drift.",
+      "origin": "apx:v2.18.1-plain-text-reverse-collisions + apx:v2.19.0"
+    },
+    {
+      "id": "reverse-collision-voice-assistant",
+      "input": "A voice assistant is not the same as our harness.",
+      "direction": "reverse",
+      "must_scrub": false,
+      "bounded": false,
+      "applies_to": [
+        "apx"
+      ],
+      "rationale": "v2.18.1 class: generic-word prose must not be reverse-branded. apx-ONLY: it is the only component with a generic-vocab reverse map (bpx reverses coined sentinels only, pool has no reverse) — R2/R11 substrate divergence, not drift.",
+      "origin": "apx:v2.18.1-plain-text-reverse-collisions + apx:v2.19.0"
+    }
+  ]
+}
