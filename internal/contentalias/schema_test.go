@@ -89,7 +89,7 @@ func TestExecutableValuesUntouched(t *testing.T) {
 	}
 }
 func TestInvalidSchemasRejectBeforeSave(t *testing.T) {
-	for _, sc := range []string{`{"type":"object","properties":{"x":{},"x":{}}}`, `{"$ref":"https://example.com/schema"}`, `{"$ref":"#"}`, `{"patternProperties":{".*":{}}}`, `{"type":"object","propertyNames":{"type":"string","maxLength":8}}`, `{"type":"object","propertyNames":{"enum":["a"]}}`, `{"type":"object","propertyNames":{"type":"integer"}}`, `{"allOf":[{"properties":{"x":{}}}]}`, `{"type":"string","allOf":[{"pattern":"a"},{"$ref":"#"}]}`, `{"allOf":[]}`, `{"anyOf":[{"properties":{"x":{}}},{"properties":{"y":{}}}]}`, `{"type":"object","properties":{},"required":["missing"]}`} {
+	for _, sc := range []string{`{"type":"object","properties":{"x":{},"x":{}}}`, `{"$ref":"https://example.com/schema"}`, `{"$ref":"#"}`, `{"patternProperties":{".*":{}}}`, `{"type":"object","propertyNames":{"type":"string","maxLength":8}}`, `{"type":"object","propertyNames":{"enum":["a"]}}`, `{"type":"object","propertyNames":{"type":"integer"}}`, `{"allOf":[{"properties":{"x":{}}}]}`, `{"type":"string","allOf":[{"pattern":"a"},{"$ref":"#"}]}`, `{"allOf":[]}`, `{"anyOf":[{"properties":{"x":{"properties":{"a":{}}}}},{"properties":{"x":{"properties":{"b":{}}}}}]}`, `{"type":"object","properties":{},"required":["missing"]}`} {
 		s := testSession(t)
 		before, err := s.load()
 		if err != nil {
