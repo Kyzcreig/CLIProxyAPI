@@ -1,4 +1,4 @@
-// Package main implements the reset-weighted account scheduler plugin for CLIProxyAPI.
+// Package resetweighted is the routing brain of the reset-weighted account scheduler plugin.
 //
 // score.go is the pure routing brain, ported from the Claude Relay Pool's
 // claude_pool_lib.py (Router.rank / reclaim / fable_reserve_state / AffinityMap)
@@ -18,7 +18,7 @@
 //     weekly headroom is down to its Fable headroom is reserved for Fable work,
 //     and a Fable request ranks reserved seats first so each sub's Fable
 //     headroom drains before its own weekly reset.
-package main
+package resetweighted
 
 import (
 	"math"

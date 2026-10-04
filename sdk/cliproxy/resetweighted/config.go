@@ -1,4 +1,4 @@
-package main
+package resetweighted
 
 import (
 	"strings"
@@ -14,8 +14,8 @@ const (
 	ModeEnabled = "enabled" // plugin picks.
 )
 
-// pluginConfig is the YAML under plugins.configs.reset-weighted-scheduler.
-type pluginConfig struct {
+// yamlConfig is the YAML under plugins.configs.reset-weighted-scheduler.
+type yamlConfig struct {
 	Mode string `yaml:"mode"`
 
 	WeightReclaim      *float64 `yaml:"weight_reclaim"`
@@ -40,7 +40,7 @@ type pluginConfig struct {
 	DisablePolling bool              `yaml:"disable_polling"`
 }
 
-type runtimeConfig struct {
+type RuntimeConfig struct {
 	Mode          string
 	Score         ScoreConfig
 	PollInterval  time.Duration
@@ -54,30 +54,30 @@ type runtimeConfig struct {
 }
 
 const (
-	defaultSessionHeader = "X-Rws-Session"
-	minPollInterval      = 5 * time.Minute
+	DefaultSessionHeader = "X-Rws-Session"
+	MinPollInterval      = 5 * time.Minute
 	defaultUsageAceURL   = "https://usage.ace/usage.json"
 )
 
-func defaultRuntimeConfig() runtimeConfig {
-	return runtimeConfig{
+func DefaultRuntimeConfig() RuntimeConfig {
+	return RuntimeConfig{
 		Mode:          ModeShadow,
 		Score:         DefaultScoreConfig(),
-		PollInterval:  minPollInterval,
+		PollInterval:  MinPollInterval,
 		UsageAceURL:   defaultUsageAceURL,
 		AffinityMax:   10000,
-		SessionHeader: defaultSessionHeader,
+		SessionHeader: DefaultSessionHeader,
 		Providers:     map[string]bool{"codex": true, "claude": true, "xai": true, "kimi": true, "antigravity": true},
 		Polling:       true,
 	}
 }
 
-func decodeRuntimeConfig(raw []byte) (runtimeConfig, error) {
-	rc := defaultRuntimeConfig()
+func DecodeRuntimeConfig(raw []byte) (RuntimeConfig, error) {
+	rc := DefaultRuntimeConfig()
 	if len(raw) == 0 {
 		return rc, nil
 	}
-	var pc pluginConfig
+	var pc yamlConfig
 	if errUnmarshal := yaml.Unmarshal(raw, &pc); errUnmarshal != nil {
 		return rc, errUnmarshal
 	}
@@ -116,8 +116,8 @@ func decodeRuntimeConfig(raw []byte) (runtimeConfig, error) {
 	}
 	if pc.PollIntervalS != nil {
 		d := time.Duration(*pc.PollIntervalS * float64(time.Second))
-		if d < minPollInterval {
-			d = minPollInterval // vendor rate limits: never below 5 minutes
+		if d < MinPollInterval {
+			d = MinPollInterval // vendor rate limits: never below 5 minutes
 		}
 		rc.PollInterval = d
 	}
@@ -144,4 +144,20 @@ func decodeRuntimeConfig(raw []byte) (runtimeConfig, error) {
 	}
 	rc.Polling = !pc.DisablePolling && rc.Mode != ModeOff
 	return rc, nil
+}
+
+// PluginName is the plugin id (file name stem and plugins.configs key).
+const PluginName = "reset-weighted-scheduler"
+
+// Capabilities is the registration capability map. scheduler_across_priorities
+// asks the host for every available tier so reclaim can pull a lower-priority
+// seat forward for the reset reason (the relay's "mac climbs only for reset").
+func Capabilities() map[string]any {
+	return map[string]any{
+		"scheduler":                   true,
+		"scheduler_across_priorities": true,
+		"request_interceptor":         true,
+		"usage_plugin":                true,
+		"management_api":              true,
+	}
 }

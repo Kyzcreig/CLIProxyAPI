@@ -1,4 +1,4 @@
-package main
+package resetweighted
 
 import (
 	"encoding/json"
@@ -35,9 +35,9 @@ func (p *Poller) Start() {
 		defer func() { _ = recover() }()
 		p.tick()
 		for {
-			interval := p.engine.config().PollInterval
-			if interval < minPollInterval {
-				interval = minPollInterval
+			interval := p.engine.Config().PollInterval
+			if interval < MinPollInterval {
+				interval = MinPollInterval
 			}
 			select {
 			case <-p.stop:
@@ -57,25 +57,24 @@ func (p *Poller) Stop() {
 func (p *Poller) tick() {
 	defer func() {
 		if r := recover(); r != nil {
-			p.engine.lastPollErr.Store(fmt.Sprint("panic: ", r))
+			p.engine.notePoll(p.engine.Now(), fmt.Sprint("panic: ", r))
 		}
 	}()
-	cfg := p.engine.config()
+	cfg := p.engine.Config()
 	if !cfg.Polling {
 		return
 	}
 	errs := p.Refresh(cfg)
-	p.engine.lastPoll.Store(p.engine.now().Unix())
+	msg := ""
 	if len(errs) > 0 {
 		msgs := make([]string, 0, len(errs))
 		for _, err := range errs {
 			msgs = append(msgs, err.Error())
 		}
-		p.engine.lastPollErr.Store(strings.Join(msgs, "; "))
-	} else {
-		p.engine.lastPollErr.Store("")
+		msg = strings.Join(msgs, "; ")
 	}
-	_ = p.engine.affinity.Flush()
+	p.engine.notePoll(p.engine.Now(), msg)
+	_ = p.engine.FlushAffinity()
 }
 
 type hostAuthEntry = pluginapi.HostAuthFileEntry
@@ -131,9 +130,9 @@ func (p *Poller) httpGet(url string, headers http.Header) ([]byte, int, error) {
 // Refresh polls every supported credential once. Each failure is isolated: a
 // provider whose quota cannot be read keeps its previous snapshot until it ages
 // out (SnapshotMaxAge), after which the scorer treats it as unknown (fail-open).
-func (p *Poller) Refresh(cfg runtimeConfig) []error {
+func (p *Poller) Refresh(cfg RuntimeConfig) []error {
 	var errs []error
-	now := p.engine.now()
+	now := p.engine.Now()
 	entries, errList := p.listAuths()
 	if errList != nil {
 		return []error{fmt.Errorf("host.auth.list: %w", errList)}
@@ -235,7 +234,7 @@ func (p *Poller) pollVendor(provider string, entry hostAuthEntry, now time.Time)
 // pollUsageAce maps feed rows onto Claude credentials. Match order: an explicit
 // claude_key_map entry (auth id or email -> feed key), else the credential's
 // label/name/email containing the feed key (e.g. "sub-vps-6").
-func (p *Poller) pollUsageAce(cfg runtimeConfig, entries []hostAuthEntry, now time.Time) error {
+func (p *Poller) pollUsageAce(cfg RuntimeConfig, entries []hostAuthEntry, now time.Time) error {
 	body, status, errGet := p.httpGet(cfg.UsageAceURL, http.Header{"Accept": []string{"application/json"}})
 	if errGet != nil {
 		return errGet

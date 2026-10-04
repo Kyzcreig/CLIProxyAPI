@@ -1,4 +1,4 @@
-package main
+package resetweighted
 
 import (
 	"encoding/json"
@@ -104,7 +104,7 @@ type logCapture struct{ lines []map[string]any }
 func (l *logCapture) fn(_ string, _ string, fields map[string]any) { l.lines = append(l.lines, fields) }
 
 func newTestEngine(mode string) (*Engine, *logCapture) {
-	cfg := defaultRuntimeConfig()
+	cfg := DefaultRuntimeConfig()
 	cfg.Mode = mode
 	cfg.Polling = false
 	logs := &logCapture{}
@@ -184,7 +184,7 @@ func TestEngineAffinityPinsThenFollowsExhaustion(t *testing.T) {
 	e, logs := newTestEngine(ModeEnabled)
 	e.SetQuota("a", q(week(13, 7*time.Hour), fiveH(10)))
 	e.SetQuota("b", q(week(13, 6*24*time.Hour), fiveH(10)))
-	headers := http.Header{defaultSessionHeader: []string{"claude:sess-1"}}
+	headers := http.Header{DefaultSessionHeader: []string{"claude:sess-1"}}
 	first := e.Pick(pickReq("claude", "claude-sonnet-4-6", headers, "b", "a"))
 	if first.AuthID != "a" {
 		t.Fatalf("first = %+v", first)
@@ -218,7 +218,7 @@ func TestEngineFableSessionBindsUnderOwnKey(t *testing.T) {
 	e, _ := newTestEngine(ModeEnabled)
 	e.SetQuota("r", fableQ(80, 60, 3*time.Hour))
 	e.SetQuota("o", fableQ(40, 60, 5*24*time.Hour))
-	headers := http.Header{defaultSessionHeader: []string{"claude:s"}}
+	headers := http.Header{DefaultSessionHeader: []string{"claude:s"}}
 	nonFable := e.Pick(pickReq("claude", "claude-sonnet-4-6", headers, "r", "o"))
 	fable := e.Pick(pickReq("claude", "claude-fable-5-1", headers, "r", "o"))
 	if nonFable.AuthID != "o" || fable.AuthID != "r" {
@@ -233,7 +233,7 @@ func TestEngineUsage429ReleasesBindings(t *testing.T) {
 	e, _ := newTestEngine(ModeEnabled)
 	e.SetQuota("a", q(week(13, 7*time.Hour), fiveH(10)))
 	e.SetQuota("b", q(week(13, 6*24*time.Hour), fiveH(10)))
-	headers := http.Header{defaultSessionHeader: []string{"k"}}
+	headers := http.Header{DefaultSessionHeader: []string{"k"}}
 	if r := e.Pick(pickReq("codex", "m", headers, "a", "b")); r.AuthID != "a" {
 		t.Fatalf("pick = %+v", r)
 	}
@@ -250,21 +250,21 @@ func TestInterceptBeforeInjectsSessionHeader(t *testing.T) {
 	e, _ := newTestEngine(ModeEnabled)
 	body := []byte(`{"model":"claude-sonnet-4-6","metadata":{"user_id":"user_abc_account__session_0f3b-1"}}`)
 	resp := e.InterceptBefore(pluginapi.RequestInterceptRequest{Body: body})
-	if got := resp.Headers.Get(defaultSessionHeader); got != "claude:0f3b-1" {
+	if got := resp.Headers.Get(DefaultSessionHeader); got != "claude:0f3b-1" {
 		t.Fatalf("header = %q", got)
 	}
 	jsonUser := []byte(`{"metadata":{"user_id":"{\"device_id\":\"d\",\"session_id\":\"s-2\"}"}}`)
-	if got := e.InterceptBefore(pluginapi.RequestInterceptRequest{Body: jsonUser}).Headers.Get(defaultSessionHeader); got != "claude:s-2" {
+	if got := e.InterceptBefore(pluginapi.RequestInterceptRequest{Body: jsonUser}).Headers.Get(DefaultSessionHeader); got != "claude:s-2" {
 		t.Fatalf("json user_id header = %q", got)
 	}
-	if got := e.InterceptBefore(pluginapi.RequestInterceptRequest{Body: []byte(`{"prompt_cache_key":"pck-9"}`)}).Headers.Get(defaultSessionHeader); got != "pck:pck-9" {
+	if got := e.InterceptBefore(pluginapi.RequestInterceptRequest{Body: []byte(`{"prompt_cache_key":"pck-9"}`)}).Headers.Get(DefaultSessionHeader); got != "pck:pck-9" {
 		t.Fatalf("pck header = %q", got)
 	}
 	if resp := e.InterceptBefore(pluginapi.RequestInterceptRequest{Body: []byte(`{"messages":[]}`)}); len(resp.Headers) != 0 {
 		t.Fatalf("no session -> no header, got %+v", resp.Headers)
 	}
 	// Header fallbacks the scheduler reads directly.
-	if got := SessionKeyFromHeaders(http.Header{"Session-Id": []string{"c1"}}, defaultSessionHeader); got != "codex:c1" {
+	if got := SessionKeyFromHeaders(http.Header{"Session-Id": []string{"c1"}}, DefaultSessionHeader); got != "codex:c1" {
 		t.Fatalf("codex header key = %q", got)
 	}
 }
@@ -282,35 +282,35 @@ func TestEnginePickRecoversFromPanic(t *testing.T) {
 }
 
 func TestDecodeRuntimeConfig(t *testing.T) {
-	cfg, errDecode := decodeRuntimeConfig([]byte("mode: enabled\npoll_interval_s: 30\nfable_reserve_mode: shadow\nproviders: [codex, Claude]\nsession_header: X-Foo\n"))
+	cfg, errDecode := DecodeRuntimeConfig([]byte("mode: enabled\npoll_interval_s: 30\nfable_reserve_mode: shadow\nproviders: [codex, Claude]\nsession_header: X-Foo\n"))
 	if errDecode != nil {
 		t.Fatal(errDecode)
 	}
-	if cfg.Mode != ModeEnabled || cfg.PollInterval != minPollInterval || cfg.Score.FableReserveMode != "shadow" || !cfg.Providers["claude"] || cfg.Providers["xai"] || cfg.SessionHeader != "X-Foo" {
+	if cfg.Mode != ModeEnabled || cfg.PollInterval != MinPollInterval || cfg.Score.FableReserveMode != "shadow" || !cfg.Providers["claude"] || cfg.Providers["xai"] || cfg.SessionHeader != "X-Foo" {
 		t.Fatalf("cfg = %+v", cfg)
 	}
-	cfg, _ = decodeRuntimeConfig([]byte("mode: bogus\n"))
+	cfg, _ = DecodeRuntimeConfig([]byte("mode: bogus\n"))
 	if cfg.Mode != ModeShadow {
 		t.Fatalf("unknown mode -> shadow, got %q", cfg.Mode)
 	}
-	cfg, _ = decodeRuntimeConfig(nil)
+	cfg, _ = DecodeRuntimeConfig(nil)
 	if cfg.Mode != ModeShadow || !cfg.Polling {
 		t.Fatalf("defaults = %+v", cfg)
 	}
-	cfg, _ = decodeRuntimeConfig([]byte("mode: off\n"))
+	cfg, _ = DecodeRuntimeConfig([]byte("mode: off\n"))
 	if cfg.Polling {
 		t.Fatal("off must not poll")
 	}
 }
 
 func TestRegistrationCapabilities(t *testing.T) {
-	reg := pluginRegistration()
+	caps := Capabilities()
 	for _, cap := range []string{"scheduler", "scheduler_across_priorities", "request_interceptor", "usage_plugin", "management_api"} {
-		if reg.Capabilities[cap] != true {
+		if caps[cap] != true {
 			t.Fatalf("capability %s missing", cap)
 		}
 	}
-	if !strings.EqualFold(reg.Metadata.Name, pluginName) {
-		t.Fatalf("name = %q", reg.Metadata.Name)
+	if !strings.EqualFold(PluginName, "reset-weighted-scheduler") {
+		t.Fatalf("name = %q", PluginName)
 	}
 }

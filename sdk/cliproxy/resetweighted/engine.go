@@ -1,4 +1,4 @@
-package main
+package resetweighted
 
 import (
 	"encoding/json"
@@ -18,7 +18,7 @@ import (
 // Every method is panic-safe for the host: Pick recovers and declines.
 type Engine struct {
 	mu       sync.RWMutex
-	cfg      runtimeConfig
+	cfg      RuntimeConfig
 	quota    map[string]*Quota // by auth id (candidate ID)
 	inflight map[string]int
 	affinity *AffinityMap
@@ -35,7 +35,7 @@ type Engine struct {
 	lastPollErr  atomic.Value
 }
 
-func NewEngine(cfg runtimeConfig, logFn func(level, msg string, fields map[string]any)) *Engine {
+func NewEngine(cfg RuntimeConfig, logFn func(level, msg string, fields map[string]any)) *Engine {
 	if logFn == nil {
 		logFn = func(string, string, map[string]any) {}
 	}
@@ -52,7 +52,7 @@ func NewEngine(cfg runtimeConfig, logFn func(level, msg string, fields map[strin
 }
 
 // Reconfigure swaps the config; the affinity map is kept unless its path changed.
-func (e *Engine) Reconfigure(cfg runtimeConfig) {
+func (e *Engine) Reconfigure(cfg RuntimeConfig) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if cfg.AffinityPath != e.cfg.AffinityPath || cfg.AffinityMax != e.cfg.AffinityMax {
@@ -62,7 +62,7 @@ func (e *Engine) Reconfigure(cfg runtimeConfig) {
 	e.cfg = cfg
 }
 
-func (e *Engine) config() runtimeConfig {
+func (e *Engine) config() RuntimeConfig {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
 	return e.cfg
@@ -243,7 +243,7 @@ func (e *Engine) affinityNote(key, chosen, stage string, now time.Time) {
 	}
 }
 
-func (e *Engine) decide(cfg runtimeConfig, req pluginapi.SchedulerPickRequest, provider string, now time.Time) Decision {
+func (e *Engine) decide(cfg RuntimeConfig, req pluginapi.SchedulerPickRequest, provider string, now time.Time) Decision {
 	e.mu.RLock()
 	aff := e.affinity
 	inflight := make(map[string]int, len(e.inflight))
@@ -411,4 +411,23 @@ func (e *Engine) Status() map[string]any {
 		"last_poll_error":    lastErr,
 		"credentials":        creds,
 	}
+}
+
+// Now returns the engine clock (tests inject a fixed clock).
+func (e *Engine) Now() time.Time { return e.now() }
+
+// FlushAffinity persists the affinity map when a path is configured.
+func (e *Engine) FlushAffinity() error {
+	e.mu.RLock()
+	aff := e.affinity
+	e.mu.RUnlock()
+	return aff.Flush()
+}
+
+// Config returns the current runtime config.
+func (e *Engine) Config() RuntimeConfig { return e.config() }
+
+func (e *Engine) notePoll(at time.Time, errMsg string) {
+	e.lastPoll.Store(at.Unix())
+	e.lastPollErr.Store(errMsg)
 }

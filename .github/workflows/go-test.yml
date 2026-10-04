@@ -28,5 +28,10 @@ jobs:
       - name: Test
         run: |
           go test ./sdk/cliproxy/executor/... ./sdk/cliproxy/auth/... ./sdk/cliproxy/usage/... \
+            ./sdk/cliproxy/resetweighted/... \
             ./internal/redisqueue/... ./internal/runtime/executor/... ./internal/config/... \
             ./sdk/auth/... ./internal/cmd/...
+          go test ./test/ -run 'TestResetWeightedScheduler'
+      - name: Build the reset-weighted scheduler plugin (c-shared)
+        run: |
+          cd examples/plugin/reset-weighted-scheduler/go && go vet . && go build -buildmode=c-shared -o "$RUNNER_TEMP/reset-weighted-scheduler.so" .

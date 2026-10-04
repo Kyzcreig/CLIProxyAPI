@@ -57,27 +57,27 @@ import "C"
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"sync"
 	"unsafe"
 
+	rw "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/resetweighted"
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginabi"
 	"github.com/router-for-me/CLIProxyAPI/v8/sdk/pluginapi"
 )
 
 // main.go: the C ABI shell and RPC method dispatch. Everything routing-related
-// lives in engine.go / score.go / affinity.go (cgo-free, unit-tested).
+// lives in sdk/cliproxy/resetweighted (cgo-free, unit-tested in CI).
 
 const (
-	pluginName    = "reset-weighted-scheduler"
+	pluginName    = rw.PluginName
 	pluginVersion = "0.1.0"
 )
 
 var (
 	engineMu sync.Mutex
-	engine   *Engine
-	poller   *Poller
+	engine   *rw.Engine
+	poller   *rw.Poller
 )
 
 func main() {}
@@ -135,7 +135,7 @@ func cliproxyPluginShutdown() {
 		poller = nil
 	}
 	if engine != nil {
-		_ = engine.affinity.Flush()
+		_ = engine.FlushAffinity()
 	}
 }
 
@@ -236,14 +236,14 @@ func configure(raw []byte) error {
 			return errUnmarshal
 		}
 	}
-	cfg, errDecode := decodeRuntimeConfig(req.ConfigYAML)
+	cfg, errDecode := rw.DecodeRuntimeConfig(req.ConfigYAML)
 	if errDecode != nil {
 		return errDecode
 	}
 	engineMu.Lock()
 	defer engineMu.Unlock()
 	if engine == nil {
-		engine = NewEngine(cfg, hostLog)
+		engine = rw.NewEngine(cfg, hostLog)
 	} else {
 		engine.Reconfigure(cfg)
 	}
@@ -252,7 +252,7 @@ func configure(raw []byte) error {
 		poller = nil
 	}
 	if cfg.Polling {
-		poller = NewPoller(engine, callHost)
+		poller = rw.NewPoller(engine, callHost)
 		poller.Start()
 	}
 	hostLog("info", "reset-weighted-scheduler: configured", map[string]any{
@@ -262,7 +262,7 @@ func configure(raw []byte) error {
 	return nil
 }
 
-func currentEngine() *Engine {
+func currentEngine() *rw.Engine {
 	engineMu.Lock()
 	defer engineMu.Unlock()
 	return engine
@@ -334,7 +334,7 @@ func pluginRegistration() registration {
 			Author:           "ANG-Ventures",
 			GitHubRepository: "https://github.com/ANG-Ventures/CLIProxyAPI",
 			ConfigFields: []pluginapi.ConfigField{
-				{Name: "mode", Type: pluginapi.ConfigFieldTypeEnum, EnumValues: []string{ModeOff, ModeShadow, ModeEnabled}, Description: "off: decline every pick. shadow (default): score and log, routing unchanged. enabled: the plugin picks."},
+				{Name: "mode", Type: pluginapi.ConfigFieldTypeEnum, EnumValues: []string{rw.ModeOff, rw.ModeShadow, rw.ModeEnabled}, Description: "off: decline every pick. shadow (default): score and log, routing unchanged. enabled: the plugin picks."},
 				{Name: "fable_reserve_mode", Type: pluginapi.ConfigFieldTypeEnum, EnumValues: []string{"off", "shadow", "enforce"}, Description: "Fable (7d overage-included) reservation: enforce withholds reserved seats from non-Fable work and ranks them first for Fable work."},
 				{Name: "fable_share", Type: pluginapi.ConfigFieldTypeNumber, Description: "Fable allowance as a fraction of the total weekly window (default 0.5)."},
 				{Name: "fable_reserve_margin_pct", Type: pluginapi.ConfigFieldTypeNumber, Description: "Extra total-window percent held back before a seat counts as reserved (default 5)."},
@@ -354,13 +354,7 @@ func pluginRegistration() registration {
 				{Name: "disable_polling", Type: pluginapi.ConfigFieldTypeBoolean, Description: "Skip vendor polling (tests / an external feeder)."},
 			},
 		},
-		Capabilities: map[string]any{
-			"scheduler":                   true,
-			"scheduler_across_priorities": true,
-			"request_interceptor":         true,
-			"usage_plugin":                true,
-			"management_api":              true,
-		},
+		Capabilities: rw.Capabilities(),
 	}
 }
 
@@ -388,5 +382,3 @@ func writeResponse(response *C.cliproxy_buffer, raw []byte) {
 	response.ptr = ptr
 	response.len = C.size_t(len(raw))
 }
-
-var _ = errors.New
