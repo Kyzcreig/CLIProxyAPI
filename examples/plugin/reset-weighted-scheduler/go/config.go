@@ -1,0 +1,147 @@
+package main
+
+import (
+	"strings"
+	"time"
+
+	"gopkg.in/yaml.v3"
+)
+
+// Mode is the plugin routing mode (plugins.configs.reset-weighted-scheduler.mode).
+const (
+	ModeOff     = "off"     // plugin declines every pick (Handled:false); no polling.
+	ModeShadow  = "shadow"  // score + log the would-be pick; routing unchanged (Handled:false).
+	ModeEnabled = "enabled" // plugin picks.
+)
+
+// pluginConfig is the YAML under plugins.configs.reset-weighted-scheduler.
+type pluginConfig struct {
+	Mode string `yaml:"mode"`
+
+	WeightReclaim      *float64 `yaml:"weight_reclaim"`
+	BalanceK           *float64 `yaml:"balance_k"`
+	BaseFloor          *float64 `yaml:"base_floor"`
+	HorizonFraction    *float64 `yaml:"horizon_fraction"`
+	ShortGuardPct      *float64 `yaml:"short_guard_pct"`
+	SnapshotMaxAgeS    *float64 `yaml:"snapshot_max_age_s"`
+	ScoreEps           *float64 `yaml:"score_eps"`
+	FableShare         *float64 `yaml:"fable_share"`
+	FableReserveMargin *float64 `yaml:"fable_reserve_margin_pct"`
+	FableReserveMode   string   `yaml:"fable_reserve_mode"`
+	FableModelPrefixes []string `yaml:"fable_model_prefixes"`
+
+	PollIntervalS  *float64          `yaml:"poll_interval_s"`
+	UsageAceURL    string            `yaml:"usage_ace_url"`
+	ClaudeKeyMap   map[string]string `yaml:"claude_key_map"` // auth id or email -> usage.ace key
+	AffinityPath   string            `yaml:"affinity_path"`
+	AffinityMax    *int              `yaml:"affinity_max"`
+	SessionHeader  string            `yaml:"session_header"`
+	Providers      []string          `yaml:"providers"` // providers the plugin scores; others -> Handled:false
+	DisablePolling bool              `yaml:"disable_polling"`
+}
+
+type runtimeConfig struct {
+	Mode          string
+	Score         ScoreConfig
+	PollInterval  time.Duration
+	UsageAceURL   string
+	ClaudeKeyMap  map[string]string
+	AffinityPath  string
+	AffinityMax   int
+	SessionHeader string
+	Providers     map[string]bool
+	Polling       bool
+}
+
+const (
+	defaultSessionHeader = "X-Rws-Session"
+	minPollInterval      = 5 * time.Minute
+	defaultUsageAceURL   = "https://usage.ace/usage.json"
+)
+
+func defaultRuntimeConfig() runtimeConfig {
+	return runtimeConfig{
+		Mode:          ModeShadow,
+		Score:         DefaultScoreConfig(),
+		PollInterval:  minPollInterval,
+		UsageAceURL:   defaultUsageAceURL,
+		AffinityMax:   10000,
+		SessionHeader: defaultSessionHeader,
+		Providers:     map[string]bool{"codex": true, "claude": true, "xai": true, "kimi": true, "antigravity": true},
+		Polling:       true,
+	}
+}
+
+func decodeRuntimeConfig(raw []byte) (runtimeConfig, error) {
+	rc := defaultRuntimeConfig()
+	if len(raw) == 0 {
+		return rc, nil
+	}
+	var pc pluginConfig
+	if errUnmarshal := yaml.Unmarshal(raw, &pc); errUnmarshal != nil {
+		return rc, errUnmarshal
+	}
+	switch strings.ToLower(strings.TrimSpace(pc.Mode)) {
+	case "", ModeShadow:
+		rc.Mode = ModeShadow
+	case ModeEnabled, "enable", "on", "true":
+		rc.Mode = ModeEnabled
+	case ModeOff, "disabled", "false":
+		rc.Mode = ModeOff
+	default:
+		rc.Mode = ModeShadow // unknown value: never silently arm
+	}
+	setF := func(dst *float64, src *float64) {
+		if src != nil && *src == *src {
+			*dst = *src
+		}
+	}
+	setF(&rc.Score.WeightReclaim, pc.WeightReclaim)
+	setF(&rc.Score.BalanceK, pc.BalanceK)
+	setF(&rc.Score.BaseFloor, pc.BaseFloor)
+	setF(&rc.Score.HorizonFraction, pc.HorizonFraction)
+	setF(&rc.Score.ShortGuardPct, pc.ShortGuardPct)
+	setF(&rc.Score.ScoreEps, pc.ScoreEps)
+	setF(&rc.Score.FableShare, pc.FableShare)
+	setF(&rc.Score.FableReserveMargin, pc.FableReserveMargin)
+	if pc.SnapshotMaxAgeS != nil && *pc.SnapshotMaxAgeS >= 0 {
+		rc.Score.SnapshotMaxAge = time.Duration(*pc.SnapshotMaxAgeS * float64(time.Second))
+	}
+	switch strings.ToLower(strings.TrimSpace(pc.FableReserveMode)) {
+	case "off", "shadow", "enforce":
+		rc.Score.FableReserveMode = strings.ToLower(strings.TrimSpace(pc.FableReserveMode))
+	}
+	if len(pc.FableModelPrefixes) > 0 {
+		rc.Score.FableModelPrefixes = pc.FableModelPrefixes
+	}
+	if pc.PollIntervalS != nil {
+		d := time.Duration(*pc.PollIntervalS * float64(time.Second))
+		if d < minPollInterval {
+			d = minPollInterval // vendor rate limits: never below 5 minutes
+		}
+		rc.PollInterval = d
+	}
+	if u := strings.TrimSpace(pc.UsageAceURL); u != "" {
+		rc.UsageAceURL = u
+	}
+	if len(pc.ClaudeKeyMap) > 0 {
+		rc.ClaudeKeyMap = pc.ClaudeKeyMap
+	}
+	rc.AffinityPath = strings.TrimSpace(pc.AffinityPath)
+	if pc.AffinityMax != nil && *pc.AffinityMax > 0 {
+		rc.AffinityMax = *pc.AffinityMax
+	}
+	if h := strings.TrimSpace(pc.SessionHeader); h != "" {
+		rc.SessionHeader = h
+	}
+	if len(pc.Providers) > 0 {
+		rc.Providers = make(map[string]bool, len(pc.Providers))
+		for _, p := range pc.Providers {
+			if p = strings.ToLower(strings.TrimSpace(p)); p != "" {
+				rc.Providers[p] = true
+			}
+		}
+	}
+	rc.Polling = !pc.DisablePolling && rc.Mode != ModeOff
+	return rc, nil
+}
