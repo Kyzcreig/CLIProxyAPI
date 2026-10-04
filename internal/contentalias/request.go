@@ -73,10 +73,12 @@ func Prepare(raw []byte, s *Session) ([]byte, *RequestMap, error) {
 			if schemaNode == nil {
 				return nil, nil, Error("schema")
 			}
+			// The latest declaration wins: the store outlives client deploys, and a
+			// tool whose schema was edited (even one description) comes back under the
+			// same name. Aliases derive from tool name and property path only, so
+			// rebinding keeps every existing alias; in-flight requests keep their own
+			// compiled RequestMap.
 			schemaRaw := bytes.Clone(raw[schemaNode.start:schemaNode.end])
-			if old, ok := st.Tools[name]; ok && canonical(old.Schema) != canonical(schemaRaw) {
-				return nil, nil, Error("schema_changed")
-			}
 			alias, err := st.allocate("t", name)
 			if err != nil {
 				return nil, nil, err
