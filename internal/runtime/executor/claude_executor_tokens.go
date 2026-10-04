@@ -55,7 +55,7 @@ func (e *ClaudeExecutor) CountTokens(ctx context.Context, auth *cliproxyauth.Aut
 	// Custom API-key gateways without a native count_tokens contract continue to
 	// use the local estimator without injecting generation-only CLI instructions.
 	_, detection := detectIncomingClaudeCodeRequest(ctx, opts.Headers, req.Payload, true, e.cfg)
-	body, _, aliasErr := e.prepareDPXAlias(body, opts, detection.Confirmed, false)
+	_, body, _, aliasErr := e.prepareDPXAlias(ctx, body, opts, detection.Confirmed, false)
 	if aliasErr != nil { return cliproxyexecutor.Response{}, aliasErr }
 	count, err := helps.CountClaudeInputTokens(body)
 	if err != nil {
@@ -220,7 +220,7 @@ func (e *ClaudeExecutor) countTokensUpstream(ctx context.Context, auth *cliproxy
 	if errMidSystem := validateClaudeMidSystemMessageModel(body, confirmedClaudeCode, directAnthropic); errMidSystem != nil {
 		return cliproxyexecutor.Response{}, errMidSystem
 	}
-	body, aliasMap, aliasErr := e.prepareDPXAlias(body, opts, confirmedClaudeCode, cloaked)
+	ctx, body, aliasMap, aliasErr := e.prepareDPXAlias(ctx, body, opts, confirmedClaudeCode, cloaked)
 	if aliasErr != nil { return cliproxyexecutor.Response{}, aliasErr }
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {

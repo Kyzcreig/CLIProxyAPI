@@ -2,8 +2,10 @@ package executor
 
 import (
 	"bytes"
+	"context"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/config"
 	"github.com/router-for-me/CLIProxyAPI/v8/internal/contentalias"
@@ -66,15 +68,17 @@ func dpxUnsafeDaemonConfig(cfg *config.Config) bool {
 	return false
 }
 
-func (e *ClaudeExecutor) prepareDPXAlias(raw []byte, opts execpkg.Options, native, cloaked bool) ([]byte, *contentalias.RequestMap, error) {
+// prepareDPXAlias returns ctx carrying the Prepare timing for the wirelog row
+// (t_997bc8a2) when it aliased; otherwise ctx unchanged.
+func (e *ClaudeExecutor) prepareDPXAlias(ctx context.Context, raw []byte, opts execpkg.Options, native, cloaked bool) (context.Context, []byte, *contentalias.RequestMap, error) {
 	if !e.dpxLaneGateEnabled() {
-		return raw, nil, nil
+		return ctx, raw, nil, nil
 	}
 	if opts.SourceFormat != translator.FromString("claude") || !native || cloaked {
-		return nil, nil, contentalias.Error("native_route_required")
+		return ctx, nil, nil, contentalias.Error("native_route_required")
 	}
 	if dpxUnsafeDaemonConfig(e.cfg) {
-		return nil, nil, contentalias.Error("unsafe_daemon_config")
+		return ctx, nil, nil, contentalias.Error("unsafe_daemon_config")
 	}
 	cfg := e.cfg.DPXContentAlias
 	userAgent := ""
@@ -84,16 +88,19 @@ func (e *ClaudeExecutor) prepareDPXAlias(raw []byte, opts execpkg.Options, nativ
 	// The lane gate runs even when aliasing is off (a re-sign-only d-family
 	// unit still admits only the entrypoints its lanes declare, t_40200f8a).
 	if _, reason := helps.ResolveDPXRequestLane(cfg.EffectiveLanes(), raw, userAgent); reason != "" {
-		return nil, nil, contentalias.Error(reason)
+		return ctx, nil, nil, contentalias.Error(reason)
 	}
 	if !e.dpxAliasEnabled() {
-		return raw, nil, nil
+		return ctx, raw, nil, nil
 	}
+	start := time.Now()
 	session, err := contentalias.Open(cfg.StoreDirectory, contentalias.Binding{Principal: cfg.Principal, Session: cfg.SessionID, Version: cfg.Version}, contentalias.DefaultManifest())
 	if err != nil {
-		return nil, nil, err
+		return ctx, nil, nil, err
 	}
-	return contentalias.Prepare(raw, session)
+	wire, m, err := contentalias.Prepare(raw, session)
+	ctx = helps.WithDPXPrepareTiming(ctx, helps.DPXPrepareTiming{Total: time.Since(start), LockWait: session.LockWait()})
+	return ctx, wire, m, err
 }
 
 // dpxWirelogClient adds the W1 wirelog row writer to a declared d-family

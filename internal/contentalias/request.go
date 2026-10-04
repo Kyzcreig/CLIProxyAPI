@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"strings"
+	"time"
 )
 
 type RequestMap struct {
@@ -24,7 +25,9 @@ func Prepare(raw []byte, s *Session) ([]byte, *RequestMap, error) {
 	if n.kind != '{' {
 		return nil, nil, Error("request")
 	}
+	waitStart := time.Now()
 	s.mu.Lock()
+	s.lockWait += time.Since(waitStart)
 	defer s.mu.Unlock()
 	lock, err := s.lock()
 	if err != nil {
