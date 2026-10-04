@@ -220,6 +220,16 @@ func TestStrayAliasKeyMarkerReplaysForward(t *testing.T) {
 	}
 }
 
+func TestStrayAliasKeyFreeMapAndCodecKeysUntouched(t *testing.T) {
+	// Free-keyed maps declare no names to point at, and word/literal symbols
+	// are codec text, not parameter aliases: both keep the old pass-through.
+	m, a := prepareStray(t)
+	input := restoreBoth(t, m, a.block, `{"`+a.reason+`":"r","dpx_v1_l_000000000000000000000000":"v"}`)
+	if input["reason"] != "r" || input["dpx_v1_l_000000000000000000000000"] != "v" {
+		t.Fatalf("codec-kind key changed: %v", input)
+	}
+}
+
 func firstMarker(input map[string]any) string {
 	for key := range input {
 		if strings.HasPrefix(key, "unknown_key") {
