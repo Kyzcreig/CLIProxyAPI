@@ -54,6 +54,19 @@ var (
 
 var dpxRedactedHeaders = map[string]bool{"authorization": true, "x-api-key": true, "cookie": true, "proxy-authorization": true}
 
+// DPXPrepareTiming is the content-alias Prepare cost of one request: Total
+// is the wall time of Open+Prepare, LockWait the part spent waiting for the
+// unit's store lock (t_997bc8a2). It rides the request context to the row.
+type DPXPrepareTiming struct{ Total, LockWait time.Duration }
+
+type dpxPrepareTimingKey struct{}
+
+// WithDPXPrepareTiming attaches t to ctx for the wirelog row of the request
+// built from it.
+func WithDPXPrepareTiming(ctx context.Context, t DPXPrepareTiming) context.Context {
+	return context.WithValue(ctx, dpxPrepareTimingKey{}, t)
+}
+
 // DPXWirelogClient wraps client so every request it sends produces one row.
 func DPXWirelogClient(client *http.Client, cfg DPXWirelogConfig) *http.Client {
 	if client == nil || cfg.Spool == "" {
@@ -100,6 +113,10 @@ func (t dpxWirelogTransport) RoundTrip(req *http.Request) (*http.Response, error
 		"v": 2, "id": dpxRowID(), "lane": lane, "sub": t.cfg.Sub, "host": dpxHost(),
 		"ts": start.UTC().Format("2006-01-02T15:04:05.000Z"), "capture": "dpx",
 		"req": map[string]any{"method": req.Method, "path": req.URL.RequestURI(), "headers": dpxHeaders(req.Header), "body": DPXBodyDigest(body, t.cfg.BrandWords)},
+	}
+	if timing, ok := req.Context().Value(dpxPrepareTimingKey{}).(DPXPrepareTiming); ok {
+		row["prepareMs"] = timing.Total.Milliseconds()
+		row["lockWaitMs"] = timing.LockWait.Milliseconds()
 	}
 	resp, err := t.base.RoundTrip(req)
 	if err != nil {

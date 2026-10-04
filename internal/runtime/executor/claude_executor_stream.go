@@ -269,7 +269,7 @@ func (e *ClaudeExecutor) ExecuteStream(ctx context.Context, auth *cliproxyauth.A
 		matcher := helps.BuildSensitiveWordMatcher(wireSettings.sensitiveWords)
 		bodyForUpstream = helps.ObfuscateSensitiveWords(bodyForUpstream, matcher)
 	}
-	bodyForUpstream, aliasMap, err := e.prepareDPXAlias(bodyForUpstream, opts, confirmedClaudeCode, cloaked)
+	ctx, bodyForUpstream, aliasMap, err := e.prepareDPXAlias(ctx, bodyForUpstream, opts, confirmedClaudeCode, cloaked)
 	if err != nil { return nil, err }
 	aliasPreparedBody := bodyForUpstream
 	cchBilling := ""

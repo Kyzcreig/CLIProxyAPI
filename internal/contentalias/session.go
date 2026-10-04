@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 )
 
 type Binding struct{ Principal, Session, Version string }
@@ -60,7 +61,14 @@ type Session struct {
 	binding  Binding
 	manifest Manifest
 	mu       sync.Mutex
+	// lockWait sums the time this session spent waiting for s.mu and the
+	// store flock (t_997bc8a2). A Session is opened per request, so the sum
+	// is that request's queueing behind other requests on the unit.
+	lockWait time.Duration
 }
+
+// LockWait reports how long this session waited for the store lock so far.
+func (s *Session) LockWait() time.Duration { return s.lockWait }
 
 func session(dir string, b Binding, m Manifest) (*Session, error) {
 	if b.Principal == "" || b.Session == "" || b.Version != "v1" {
@@ -113,7 +121,10 @@ func (s *Session) lock() (*os.File, error) {
 		return nil, Error("store_lock")
 	}
 	f := os.NewFile(uintptr(fd), "lock")
-	if err := syscall.Flock(fd, syscall.LOCK_EX); err != nil {
+	waitStart := time.Now()
+	err = syscall.Flock(fd, syscall.LOCK_EX)
+	s.lockWait += time.Since(waitStart)
+	if err != nil {
 		f.Close()
 		return nil, Error("store_lock")
 	}
