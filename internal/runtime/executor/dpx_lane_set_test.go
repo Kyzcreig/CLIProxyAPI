@@ -115,6 +115,11 @@ func TestDPXAliasLaneSetExecute(t *testing.T) {
 	for _, line := range strings.Split(strings.TrimSpace(string(raw)), "\n") {
 		row := gjson.Parse(line)
 		got = append(got, row.Get("lane").String()+"/"+row.Get("req.body.billing.cc_entrypoint").String())
+		// t_997bc8a2: an aliasing unit's row splits accept->upstream into
+		// Prepare time and store-lock wait.
+		if !row.Get("prepareMs").Exists() || !row.Get("lockWaitMs").Exists() {
+			t.Errorf("wirelog row lacks prepareMs/lockWaitMs: %s", line)
+		}
 	}
 	if want := "dslx/sdk-ts dtlx/cli static-label/sdk-ts"; strings.Join(got, " ") != want {
 		t.Errorf("wirelog lanes %q, want %q", strings.Join(got, " "), want)
