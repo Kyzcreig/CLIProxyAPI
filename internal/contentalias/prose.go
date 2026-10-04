@@ -31,15 +31,21 @@ func (st *state) encodeText(text string) (string, error) {
 	}
 	for pos := 0; pos < len(text); {
 		// Escape source codec symbols once before spelling encoding, not recursively.
-		if loc := codecPattern.FindStringIndex(text[pos:]); loc != nil && loc[0] == 0 {
-			literal := text[pos : pos+loc[1]]
-			alias, err := st.allocate("l", literal)
-			if err != nil {
-				return "", err
+		// Only try the regexp where the remainder starts with its literal prefix
+		// (t_129cf1ac): an unanchored FindStringIndex on text[pos:] scanned the whole
+		// remainder at every position, O(n^2): 4 s per 444 KB prompt, held under the
+		// store lock, so every request on the unit queued behind it.
+		if strings.HasPrefix(text[pos:], "dpx_v1_") {
+			if loc := codecPattern.FindStringIndex(text[pos:]); loc != nil && loc[0] == 0 {
+				literal := text[pos : pos+loc[1]]
+				alias, err := st.allocate("l", literal)
+				if err != nil {
+					return "", err
+				}
+				out.WriteString(alias)
+				pos += loc[1]
+				continue
 			}
-			out.WriteString(alias)
-			pos += loc[1]
-			continue
 		}
 		rr, sz := utf8.DecodeRuneInString(text[pos:])
 		if !wordRune(rr) {
