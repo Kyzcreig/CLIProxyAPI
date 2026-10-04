@@ -141,13 +141,19 @@ func (openaiChat) Request(raw []byte, f textFn) ([]byte, error) {
 		if raw, err = setTextOrParts(raw, m+".content", "text", f); err != nil {
 			return nil, err
 		}
+		// Tool-call ids: CPA's translators mint them from the tool NAME
+		// (<name>-<nanos>-<n>), so an id carries the brand word too. Encoded
+		// with the same codec on both the call and the tool message, the
+		// pair stays consistent upstream and restores on the way back.
+		if raw, err = setText(raw, m+".tool_call_id", f); err != nil {
+			return nil, err
+		}
 		for j := 0; j < count(raw, m+".tool_calls"); j++ {
-			tc := fmt.Sprintf("%s.tool_calls.%d.function", m, j)
-			if raw, err = setText(raw, tc+".name", f); err != nil {
-				return nil, err
-			}
-			if raw, err = setText(raw, tc+".arguments", f); err != nil {
-				return nil, err
+			tc := fmt.Sprintf("%s.tool_calls.%d", m, j)
+			for _, p := range []string{tc + ".id", tc + ".function.name", tc + ".function.arguments"} {
+				if raw, err = setText(raw, p, f); err != nil {
+					return nil, err
+				}
 			}
 		}
 	}
@@ -176,12 +182,11 @@ func (openaiChat) Response(raw []byte, f textFn) ([]byte, error) {
 			return nil, err
 		}
 		for j := 0; j < count(raw, msg+".tool_calls"); j++ {
-			tc := fmt.Sprintf("%s.tool_calls.%d.function", msg, j)
-			if raw, err = setText(raw, tc+".name", f); err != nil {
-				return nil, err
-			}
-			if raw, err = setText(raw, tc+".arguments", f); err != nil {
-				return nil, err
+			tc := fmt.Sprintf("%s.tool_calls.%d", msg, j)
+			for _, p := range []string{tc + ".id", tc + ".function.name", tc + ".function.arguments"} {
+				if raw, err = setText(raw, p, f); err != nil {
+					return nil, err
+				}
 			}
 		}
 	}
@@ -249,11 +254,16 @@ func claudeContent(raw []byte, path string, f textFn) ([]byte, error) {
 		case "text":
 			raw, err = setText(raw, b+".text", f)
 		case "tool_use", "server_tool_use":
-			if raw, err = setText(raw, b+".name", f); err != nil {
-				return nil, err
+			for _, p := range []string{b + ".id", b + ".name"} {
+				if raw, err = setText(raw, p, f); err != nil {
+					return nil, err
+				}
 			}
 			raw, err = setStringValues(raw, b+".input", f)
 		case "tool_result":
+			if raw, err = setText(raw, b+".tool_use_id", f); err != nil {
+				return nil, err
+			}
 			raw, err = setTextOrParts(raw, b+".content", "text", f)
 		}
 		if err != nil {

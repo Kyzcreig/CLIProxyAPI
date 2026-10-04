@@ -104,15 +104,17 @@ func openaiChunk(raw []byte, st *streamState) ([]byte, error) {
 			if !call.Get("index").Exists() {
 				tcIdx = j
 			}
-			tc := fmt.Sprintf("%s.delta.tool_calls.%d.function", c, j)
-			if name := gjson.GetBytes(raw, tc+".name"); name.Type == gjson.String {
-				if decoded := st.codec.Decode(name.Str); decoded != name.Str {
-					if raw, err = sjson.SetBytes(raw, tc+".name", decoded); err != nil {
-						return nil, err
+			tc := fmt.Sprintf("%s.delta.tool_calls.%d", c, j)
+			for _, p := range []string{tc + ".id", tc + ".function.name"} {
+				if v := gjson.GetBytes(raw, p); v.Type == gjson.String {
+					if decoded := st.codec.Decode(v.Str); decoded != v.Str {
+						if raw, err = sjson.SetBytes(raw, p, decoded); err != nil {
+							return nil, err
+						}
 					}
 				}
 			}
-			if raw, err = feedText(raw, tc+".arguments", fmt.Sprintf("c%d.t%d", idx, tcIdx), st); err != nil {
+			if raw, err = feedText(raw, tc+".function.arguments", fmt.Sprintf("c%d.t%d", idx, tcIdx), st); err != nil {
 				return nil, err
 			}
 		}
@@ -224,10 +226,12 @@ func claudeEvent(event []byte, st *streamState) ([]byte, bool, error) {
 		kind := gjson.GetBytes(data, "content_block.type").Str
 		st.kinds[idx] = kind
 		if kind == "tool_use" || kind == "server_tool_use" {
-			if name := gjson.GetBytes(data, "content_block.name"); name.Type == gjson.String {
-				if decoded := st.codec.Decode(name.Str); decoded != name.Str {
-					if rewritten, err = sjson.SetBytes(rewritten, "content_block.name", decoded); err != nil {
-						return nil, false, err
+			for _, p := range []string{"content_block.id", "content_block.name"} {
+				if v := gjson.GetBytes(data, p); v.Type == gjson.String {
+					if decoded := st.codec.Decode(v.Str); decoded != v.Str {
+						if rewritten, err = sjson.SetBytes(rewritten, p, decoded); err != nil {
+							return nil, false, err
+						}
 					}
 				}
 			}
