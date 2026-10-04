@@ -86,11 +86,21 @@ func (c *compiler) compile(n *node, path string) (*schema, error) {
 			return nil, Error("unsupported_schema")
 		}
 	}
+	// anyOf/oneOf members that name no property need no mapping. Structural
+	// members (t_91e140ec: skill_manage's per-action op branches) compile at the
+	// PARENT path, so a key shared by several branches gets one alias keyed by
+	// (tool, parent path, key) and never by branch index. Their maps merge into
+	// this node's map; restore then needs no branch match. A key whose branches
+	// need different nested maps fails closed in merge.
+	var structural []*node
 	for _, key := range []string{"anyOf", "oneOf"} {
 		if alternatives := n.get(key); alternatives != nil {
+			if alternatives.kind != '[' {
+				return nil, Error("ambiguous_schema")
+			}
 			for _, a := range alternatives.items {
 				if !valueOnlyAlternative(a) {
-					return nil, Error("ambiguous_schema")
+					structural = append(structural, a)
 				}
 			}
 		}
@@ -120,6 +130,18 @@ func (c *compiler) compile(n *node, path string) (*schema, error) {
 				return nil, err
 			}
 			s.props[key] = child
+		}
+	}
+	for _, a := range structural {
+		if a.kind != '{' && a.kind != 't' && a.kind != 'f' {
+			return nil, Error("ambiguous_schema")
+		}
+		alt, err := c.compile(a, path)
+		if err != nil {
+			return nil, err
+		}
+		if err := s.merge(alt); err != nil {
+			return nil, err
 		}
 	}
 	for _, key := range []string{"required", "dependentRequired", "dependencies"} {
@@ -328,6 +350,70 @@ func (s *schema) arguments(n *node, inverse bool, edits *[]edit) error {
 		}
 	}
 	return nil
+}
+
+// merge folds a structural anyOf/oneOf member's map into its parent's. A key
+// both declare must carry the same alias and an equal nested map; items and
+// additionalProperties likewise. Anything else would make the map depend on
+// which branch matched, so it stays ambiguous.
+func (s *schema) merge(alt *schema) error {
+	for key, child := range alt.props {
+		alias := alt.forward[key]
+		if prev, ok := s.props[key]; ok {
+			if s.forward[key] != alias || !sameShape(prev, child) {
+				return Error("ambiguous_schema")
+			}
+			continue
+		}
+		if owner, ok := s.reverse[alias]; ok && owner != key {
+			return Error("ambiguous_schema")
+		}
+		s.props[key] = child
+		s.forward[key] = alias
+		s.reverse[alias] = key
+	}
+	var err error
+	if s.items, err = mergeShape(s.items, alt.items); err != nil {
+		return err
+	}
+	s.additional, err = mergeShape(s.additional, alt.additional)
+	return err
+}
+
+func mergeShape(a, b *schema) (*schema, error) {
+	if emptyShape(b) {
+		return a, nil
+	}
+	if emptyShape(a) {
+		return b, nil
+	}
+	if !sameShape(a, b) {
+		return nil, Error("ambiguous_schema")
+	}
+	return a, nil
+}
+
+// emptyShape: the schema renames nothing anywhere below it.
+func emptyShape(s *schema) bool {
+	return s == nil || (len(s.props) == 0 && emptyShape(s.items) && emptyShape(s.additional))
+}
+
+// sameShape: both schemas rename exactly the same keys to the same aliases on
+// every path. Descriptions and value assertions do not matter to the map.
+func sameShape(a, b *schema) bool {
+	if a == b || (emptyShape(a) && emptyShape(b)) {
+		return true
+	}
+	if emptyShape(a) || emptyShape(b) || len(a.props) != len(b.props) {
+		return false
+	}
+	for key, child := range a.props {
+		other, ok := b.props[key]
+		if !ok || a.forward[key] != b.forward[key] || !sameShape(child, other) {
+			return false
+		}
+	}
+	return sameShape(a.items, b.items) && sameShape(a.additional, b.additional)
 }
 
 func vacuousPropertyNames(n *node) bool {

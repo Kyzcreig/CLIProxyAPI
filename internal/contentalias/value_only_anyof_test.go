@@ -70,20 +70,13 @@ func TestValueOnlyAnyOfFreeFormObjectItems(t *testing.T) {
 	}
 }
 
-// Fail-closed controls: an alternative that declares or reaches a property name
-// is still ambiguous (the key map depends on which branch matched).
+// t_91e140ec: structural alternatives are admitted when their key map is
+// branch-free (structural_anyof_test.go); these former refusals are now in
+// TestStructuralAnyOfAdmitted. A tuple `items` array is still no schema the
+// compiler accepts, so it fails closed.
 func TestStructuralAnyOfStillRefused(t *testing.T) {
-	for _, alt := range []string{
-		`{"type":"array","items":{"type":"object","properties":{"x":{"type":"string"}}}}`,
-		`{"type":"array","items":{"$ref":"#/properties/command"}}`,
-		`{"type":"array","items":{"anyOf":[{"properties":{"x":{}}}]}}`,
-		`{"type":"array","items":[{"type":"string"}]}`,
-		`{"type":"object","additionalProperties":{"type":"string"}}`,
-	} {
-		sc := `{"type":"object","properties":{"command":{"type":"string"},"v":{"anyOf":[{"type":"boolean"},` + alt + `]}}}`
-		_, _, err := Prepare([]byte(`{"tools":[{"name":"T","input_schema":`+sc+`}]}`), testSession(t))
-		if err == nil || !strings.Contains(err.Error(), "ambiguous_schema") {
-			t.Errorf("alternative %s: want ambiguous_schema, got %v", alt, err)
-		}
+	sc := `{"type":"object","properties":{"command":{"type":"string"},"v":{"anyOf":[{"type":"boolean"},{"type":"array","items":[{"type":"string"}]}]}}}`
+	if _, _, err := Prepare([]byte(`{"tools":[{"name":"T","input_schema":`+sc+`}]}`), testSession(t)); err == nil {
+		t.Error("tuple items alternative: want refusal, got nil")
 	}
 }
