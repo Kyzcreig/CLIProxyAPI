@@ -59,6 +59,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sync"
+	"time"
 	"unsafe"
 
 	rw "github.com/router-for-me/CLIProxyAPI/v8/sdk/cliproxy/resetweighted"
@@ -254,12 +255,44 @@ func configure(raw []byte) error {
 	if cfg.Polling {
 		poller = rw.NewPoller(engine, callHost)
 		poller.Start()
+	} else if len(cfg.QuotaSeeds) > 0 {
+		// Bench mode: static quota, no vendor traffic. Applied asynchronously because the
+		// host's auth manager is not attached yet while plugin.register runs at boot.
+		go seedQuotaWhenHostReady(engine)
 	}
 	hostLog("info", "reset-weighted-scheduler: configured", map[string]any{
 		"event": "configured", "mode": cfg.Mode, "fable_reserve_mode": cfg.Score.FableReserveMode,
 		"poll_interval_s": cfg.PollInterval.Seconds(), "polling": cfg.Polling, "session_header": cfg.SessionHeader,
 	})
 	return nil
+}
+
+func seedQuotaWhenHostReady(e *rw.Engine) {
+	defer func() { _ = recover() }()
+	var lastErr string
+	for attempt := 0; attempt < 120; attempt++ {
+		raw, errCall := callHost(pluginabi.MethodHostAuthList, []byte(`{}`))
+		if errCall != nil {
+			lastErr = errCall.Error()
+			if attempt == 0 || attempt == 10 {
+				hostLog("debug", "reset-weighted-scheduler: host.auth.list not ready", map[string]any{"event": "quota_seed_wait", "error": lastErr, "attempt": attempt})
+			}
+		} else {
+			var resp struct {
+				Files []pluginapi.HostAuthFileEntry `json:"files"`
+			}
+			if errUnmarshal := json.Unmarshal(raw, &resp); errUnmarshal != nil {
+				lastErr = errUnmarshal.Error()
+			} else if applied := e.ApplyQuotaSeeds(resp.Files); applied > 0 {
+				hostLog("info", "reset-weighted-scheduler: quota seeds applied", map[string]any{"event": "quota_seed", "applied": applied, "auths": len(resp.Files), "attempt": attempt})
+				return
+			} else {
+				lastErr = fmt.Sprintf("no seed matched %d host auths", len(resp.Files))
+			}
+		}
+		time.Sleep(time.Second)
+	}
+	hostLog("warn", "reset-weighted-scheduler: quota seeds not applied", map[string]any{"event": "quota_seed", "applied": 0, "error": lastErr})
 }
 
 func currentEngine() *rw.Engine {

@@ -38,6 +38,24 @@ type yamlConfig struct {
 	SessionHeader  string            `yaml:"session_header"`
 	Providers      []string          `yaml:"providers"` // providers the plugin scores; others -> Handled:false
 	DisablePolling bool              `yaml:"disable_polling"`
+	// QuotaSeed is a bench aid: static quota per credential matcher (auth id,
+	// label, name or email substring) applied at configure time and on every
+	// poll before live data. Live polling overwrites matched entries.
+	QuotaSeed map[string]quotaSeed `yaml:"quota_seed"`
+}
+
+type quotaSeed struct {
+	LongUsedPct  float64  `yaml:"long_used_pct"`
+	LongResetsIn string   `yaml:"long_resets_in"` // Go duration, e.g. 7h
+	LongSpan     string   `yaml:"long_span"`      // Go duration, default 168h
+	ShortUsedPct *float64 `yaml:"short_used_pct"`
+	FableUsedPct *float64 `yaml:"fable_used_pct"`
+}
+
+// QuotaSeedEntry is the decoded static quota for one credential matcher.
+type QuotaSeedEntry struct {
+	Match string
+	Quota Quota
 }
 
 type RuntimeConfig struct {
@@ -51,6 +69,7 @@ type RuntimeConfig struct {
 	SessionHeader string
 	Providers     map[string]bool
 	Polling       bool
+	QuotaSeeds    []QuotaSeedEntry
 }
 
 const (
@@ -143,6 +162,24 @@ func DecodeRuntimeConfig(raw []byte) (RuntimeConfig, error) {
 		}
 	}
 	rc.Polling = !pc.DisablePolling && rc.Mode != ModeOff
+	for match, seed := range pc.QuotaSeed {
+		q := Quota{Source: "quota_seed"}
+		span := spanWeek
+		if d, err := time.ParseDuration(strings.TrimSpace(seed.LongSpan)); err == nil && d > 0 {
+			span = d
+		}
+		q.Long = Window{Used: seed.LongUsedPct, Known: true, Span: span, Rejected: seed.LongUsedPct >= 100}
+		if d, err := time.ParseDuration(strings.TrimSpace(seed.LongResetsIn)); err == nil && d > 0 {
+			q.Long.ResetsAt = time.Now().Add(d)
+		}
+		if seed.ShortUsedPct != nil {
+			q.Short = Window{Used: *seed.ShortUsedPct, Known: true, Span: span5h, ResetsAt: time.Now().Add(2 * time.Hour), Rejected: *seed.ShortUsedPct >= 100}
+		}
+		if seed.FableUsedPct != nil {
+			q.Fable = Window{Used: *seed.FableUsedPct, Known: true, Span: span, ResetsAt: q.Long.ResetsAt}
+		}
+		rc.QuotaSeeds = append(rc.QuotaSeeds, QuotaSeedEntry{Match: strings.TrimSpace(match), Quota: q})
+	}
 	return rc, nil
 }
 

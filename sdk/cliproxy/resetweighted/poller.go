@@ -137,6 +137,9 @@ func (p *Poller) Refresh(cfg RuntimeConfig) []error {
 	if errList != nil {
 		return []error{fmt.Errorf("host.auth.list: %w", errList)}
 	}
+	if len(cfg.QuotaSeeds) > 0 {
+		p.engine.ApplyQuotaSeeds(entries)
+	}
 	var claudeEntries []hostAuthEntry
 	for _, entry := range entries {
 		if entry.Disabled {

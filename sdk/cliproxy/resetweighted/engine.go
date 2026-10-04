@@ -62,6 +62,28 @@ func (e *Engine) Reconfigure(cfg RuntimeConfig) {
 	e.cfg = cfg
 }
 
+// ApplyQuotaSeeds stores the config's static quota for every listed host
+// credential whose id, label, name or email contains the seed's match string.
+func (e *Engine) ApplyQuotaSeeds(entries []pluginapi.HostAuthFileEntry) int {
+	cfg := e.config()
+	applied := 0
+	for _, seed := range cfg.QuotaSeeds {
+		if seed.Match == "" {
+			continue
+		}
+		for _, entry := range entries {
+			hay := strings.ToLower(entry.ID + " " + entry.Label + " " + entry.Name + " " + entry.Email)
+			if strings.Contains(hay, strings.ToLower(seed.Match)) {
+				q := seed.Quota
+				q.ObservedAt = e.now()
+				e.SetQuota(entry.ID, &q)
+				applied++
+			}
+		}
+	}
+	return applied
+}
+
 func (e *Engine) config() RuntimeConfig {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
@@ -313,6 +335,9 @@ func (e *Engine) decide(cfg RuntimeConfig, req pluginapi.SchedulerPickRequest, p
 	return d
 }
 
+// emit writes ONE JSON line per selection. The host's log formatter prints only
+// an allowlisted field set, so the JSON document IS the message; the structured
+// fields ride along for sinks that keep them.
 func (e *Engine) emit(d Decision) {
 	raw, errMarshal := json.Marshal(d)
 	if errMarshal != nil {
@@ -321,7 +346,7 @@ func (e *Engine) emit(d Decision) {
 	fields := map[string]any{"event": d.Event, "chosen": d.Chosen, "stage": d.Stage, "reason": d.Reason,
 		"affinity_key": d.AffinityKey, "bound": d.Bound, "host_first": d.HostFirst, "differs": d.Differs,
 		"model": d.Model, "provider": d.Provider, "is_fable": d.IsFable, "decision": string(raw)}
-	e.logFn("info", "reset-weighted-scheduler: "+d.Event, fields)
+	e.logFn("info", string(raw), fields)
 }
 
 // Usage / inflight -------------------------------------------------------------
