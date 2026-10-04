@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 )
 
 type Binding struct{ Principal, Session, Version string }
@@ -107,7 +108,7 @@ func Open(dir string, b Binding, m Manifest) (*Session, error) {
 	_, err = s.load()
 	return s, err
 }
-func (s *Session) lock() (*os.File, error) {
+func (s *Session) lock() (*heldLock, error) {
 	fd, err := syscall.Open(filepath.Join(s.dir, "lock"), syscall.O_CREAT|syscall.O_RDWR|syscall.O_NOFOLLOW, 0600)
 	if err != nil {
 		return nil, Error("store_lock")
@@ -117,9 +118,29 @@ func (s *Session) lock() (*os.File, error) {
 		f.Close()
 		return nil, Error("store_lock")
 	}
-	return f, nil
+	return &heldLock{f, time.Now()}, nil
 }
-func unlock(f *os.File) { syscall.Flock(int(f.Fd()), syscall.LOCK_UN); f.Close() }
+
+// heldLock is the exclusive store flock plus the moment it was acquired.
+// Everything between lock() and unlock() serializes every request on the unit
+// (t_129cf1ac), so its duration is a performance invariant: see
+// lockhold_test.go and CONTENTALIAS.md "Performance invariants".
+type heldLock struct {
+	f  *os.File
+	at time.Time
+}
+
+// lockHeldHook observes each store-lock hold. Only tests set it; it is nil in
+// production builds, where unlock pays one nil check.
+var lockHeldHook func(held time.Duration)
+
+func unlock(h *heldLock) {
+	if hook := lockHeldHook; hook != nil {
+		hook(time.Since(h.at))
+	}
+	syscall.Flock(int(h.f.Fd()), syscall.LOCK_UN)
+	h.f.Close()
+}
 func (s *Session) load() (state, error) {
 	var st state
 	if _, err := session(s.dir, s.binding, s.manifest); err != nil {
