@@ -13,16 +13,6 @@ type RequestMap struct {
 	reverse map[string]string
 }
 
-func canonical(raw []byte) string {
-	var v any
-	d := json.NewDecoder(bytes.NewReader(raw))
-	d.UseNumber()
-	if d.Decode(&v) != nil {
-		return ""
-	}
-	b, _ := json.Marshal(v)
-	return string(b)
-}
 func Prepare(raw []byte, s *Session) ([]byte, *RequestMap, error) {
 	if s == nil {
 		return bytes.Clone(raw), nil, nil
@@ -73,10 +63,13 @@ func Prepare(raw []byte, s *Session) ([]byte, *RequestMap, error) {
 			if schemaNode == nil {
 				return nil, nil, Error("schema")
 			}
+			// A declared schema always re-pins the stored one (t_dbf31d31). The map
+			// outlives client builds, so refusing a changed schema (the old
+			// schema_changed) failed every tool-bearing request after any tool
+			// edit until the map was wiped. Aliases are pure functions of
+			// (binding, tool, path, key), so unchanged names keep their aliases,
+			// and this request's arguments compile from the schema it declares.
 			schemaRaw := bytes.Clone(raw[schemaNode.start:schemaNode.end])
-			if old, ok := st.Tools[name]; ok && canonical(old.Schema) != canonical(schemaRaw) {
-				return nil, nil, Error("schema_changed")
-			}
 			alias, err := st.allocate("t", name)
 			if err != nil {
 				return nil, nil, err
