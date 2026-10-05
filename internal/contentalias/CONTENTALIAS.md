@@ -30,3 +30,27 @@ six members of the class (unanchored encode scan, 50 ms sleep under the lock,
 quadratic tool walk, linear symbol-allocation scan, quadratic JSON decode, SSE
 history rescan) and exits 1 if any stays green. Run it on CI or ACE-AI; fleet
 hosts deny local `go test`.
+
+## History-only tool names (t_ca4ca1e2, t_63ed650a)
+
+A transcript `tool_use.name` or `tool_reference.tool_name` can name a tool that
+is absent from this request's `tools[]`: a tool the model hallucinated and the
+caller answered "does not exist", a deferred or tool_search-loaded tool, or a
+toolset that changed between turns. The transcript travels with every retry, so
+refusing such a request kills the session on every seat.
+
+Contract (option (a), name-only alias): `historyToolAlias` returns the stored
+alias when the name is a declared tool. Otherwise it returns
+`symbol(binding, "t", name)`, the same deterministic alias the name would get if
+it were declared. The alias depends only on the binding and the name, so the
+model sees one consistent alias across turns, and a later declaration of that
+tool keeps it. The name goes into `Symbols` only. It is not added to `Tools`,
+`RequestMap.allowed` or `reverse`, so a response `tool_use` or
+`tool_reference` that names it is still refused with `unknown_tool`: the tool
+was never offered, and the model cannot call it. Pass-through (option (b)) was
+rejected because it would put a raw tool name on the wire.
+
+`history_tool` remains only for shapes no alias can serve: an empty name, and
+a name already shaped `dpx_v1_*` (a wire alias echoed back as a plain name).
+A refused request leaves the persisted map unchanged. Tests:
+`history_unknown_tool_test.go`.
