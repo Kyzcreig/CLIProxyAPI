@@ -99,7 +99,7 @@ func Create(dir string, b Binding, m Manifest) (*Session, error) {
 	if _, err := os.Lstat(filepath.Join(dir, "map.json")); !os.IsNotExist(err) {
 		return nil, Error("store_exists")
 	}
-	st := state{b, m, map[string]entry{}, map[string]storedTool{}}
+	st := state{Binding: b, Manifest: m, Symbols: map[string]entry{}, Tools: map[string]storedTool{}}
 	if err := s.save(st); err != nil {
 		return nil, err
 	}

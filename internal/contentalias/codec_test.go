@@ -17,10 +17,20 @@ func privateDir(t *testing.T) string {
 	}
 	return dir
 }
+
+// testVersion is the map version the package suite runs under: v2 (the
+// deployed scheme, t_13128fb0) unless DPX_TEST_MAP_VERSION=v1 re-runs it on v1.
+func testVersion() string {
+	if v := os.Getenv("DPX_TEST_MAP_VERSION"); v != "" {
+		return v
+	}
+	return "v2"
+}
+
 func testSession(t *testing.T) *Session {
 	t.Helper()
 	dir := privateDir(t)
-	s, err := Create(dir, Binding{Principal: "sandbox", Session: "00000000-0000-4000-8000-000000000001", Version: "v1"}, DefaultManifest())
+	s, err := Create(dir, Binding{Principal: "sandbox", Session: "00000000-0000-4000-8000-000000000001", Version: testVersion()}, DefaultManifest())
 	if err != nil {
 		t.Fatal(err)
 	}

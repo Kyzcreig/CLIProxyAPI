@@ -30,17 +30,25 @@ import (
 )
 
 func TestDPXAliasDeterminismGolden(t *testing.T) {
+	// v2 (t_13128fb0) changes only the property-alias alphabet; AC-M12 must
+	// hold for both map versions.
+	for _, version := range []string{"v1", "v2"} {
+		t.Run(version, func(t *testing.T) { dpxAliasDeterminismGolden(t, version) })
+	}
+}
+
+func dpxAliasDeterminismGolden(t *testing.T, version string) {
 	dir := t.TempDir()
 	if err := os.Chmod(dir, 0o700); err != nil {
 		t.Fatal(err)
 	}
-	binding := contentalias.Binding{Principal: "acm12", Session: "22222222-3333-4444-8555-666666666666", Version: "v1"}
+	binding := contentalias.Binding{Principal: "acm12", Session: "22222222-3333-4444-8555-666666666666", Version: version}
 	if _, err := contentalias.Create(dir, binding, contentalias.DefaultManifest()); err != nil {
 		t.Fatal(err)
 	}
 	spool := filepath.Join(t.TempDir(), "wirelog.spool.jsonl")
 	cfg := &config.Config{MaxRetryCredentials: 1, Routing: config.RoutingConfig{PromptCachePolicy: "off"}, DPXContentAlias: config.DPXContentAlias{
-		Enabled: true, StoreDirectory: dir, Principal: binding.Principal, SessionID: binding.Session, Version: "v1",
+		Enabled: true, StoreDirectory: dir, Principal: binding.Principal, SessionID: binding.Session, Version: version,
 		WirelogSpool: spool, WirelogLane: "dtlx", WirelogSub: "25",
 	}}
 	var seen []string
