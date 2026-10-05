@@ -16,8 +16,9 @@ import (
 type Binding struct{ Principal, Session, Version string }
 type Manifest struct{ Words []string }
 
-func DefaultManifest() Manifest { return Manifest{[]string{"hermes", "openclaw"}} }
-func digest(s string) string    { h := sha256.Sum256([]byte(s)); return hex.EncodeToString(h[:]) }
+func DefaultManifest() Manifest     { return Manifest{[]string{"hermes", "openclaw"}} }
+func digest(s string) string        { h := sha256.Sum256([]byte(s)); return hex.EncodeToString(h[:]) }
+func digestBytes(b []byte) [32]byte { return sha256.Sum256(b) }
 
 var wordSeparators = strings.NewReplacer("_", "", "-", "")
 
@@ -51,6 +52,8 @@ type state struct {
 	Manifest Manifest
 	Symbols  map[string]entry
 	Tools    map[string]storedTool
+	// properties indexes v2 property originals -> alias (not persisted).
+	properties map[string]string
 }
 type envelope struct {
 	Payload  json.RawMessage
@@ -71,7 +74,7 @@ type Session struct {
 func (s *Session) LockWait() time.Duration { return s.lockWait }
 
 func session(dir string, b Binding, m Manifest) (*Session, error) {
-	if b.Principal == "" || b.Session == "" || b.Version != "v1" {
+	if b.Principal == "" || b.Session == "" || !validVersion(b.Version) {
 		return nil, Error("binding")
 	}
 	if err := m.validate(); err != nil {
@@ -96,7 +99,7 @@ func Create(dir string, b Binding, m Manifest) (*Session, error) {
 	if _, err := os.Lstat(filepath.Join(dir, "map.json")); !os.IsNotExist(err) {
 		return nil, Error("store_exists")
 	}
-	st := state{b, m, map[string]entry{}, map[string]storedTool{}}
+	st := state{Binding: b, Manifest: m, Symbols: map[string]entry{}, Tools: map[string]storedTool{}}
 	if err := s.save(st); err != nil {
 		return nil, err
 	}
@@ -184,6 +187,19 @@ func (s *Session) load() (state, error) {
 		return st, Error("store_version")
 	}
 	for alias, e := range st.Symbols {
+		if st.Binding.Version == bindingV2 && e.Kind == "p" {
+			if !validPropertyAlias(st.Binding, alias, e.Original) {
+				return st, Error("store_corrupt")
+			}
+			if st.properties == nil {
+				st.properties = map[string]string{}
+			}
+			if _, dup := st.properties[e.Original]; dup {
+				return st, Error("store_corrupt")
+			}
+			st.properties[e.Original] = alias
+			continue
+		}
 		if alias != symbol(st.Binding, e.Kind, e.Original) {
 			return st, Error("store_corrupt")
 		}
@@ -250,6 +266,9 @@ func symbol(b Binding, kind, original string) string {
 	return "dpx_v1_" + kind + "_" + digest(string(key))[:24]
 }
 func (st *state) allocate(kind, original string) (string, error) {
+	if kind == "p" && st.Binding.Version == bindingV2 {
+		return st.allocateProperty(original)
+	}
 	alias := symbol(st.Binding, kind, original)
 	if old, ok := st.Symbols[alias]; ok && old != (entry{kind, original}) {
 		return "", Error("symbol_collision")
