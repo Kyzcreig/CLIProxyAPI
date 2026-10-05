@@ -32,11 +32,11 @@ func (m *RequestMap) referenceEdits(block *node, st *state, inverse bool, edits 
 			}
 			mapped = original
 		} else {
-			tool, ok := st.Tools[name.str()]
-			if !ok {
-				return Error("history_tool")
+			alias, err := historyToolAlias(st, name.str())
+			if err != nil {
+				return err
 			}
-			mapped = tool.Alias
+			mapped = alias
 		}
 		*edits = append(*edits, replace(name, mapped))
 	}
