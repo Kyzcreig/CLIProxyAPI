@@ -220,13 +220,38 @@ func TestStrayAliasKeyMarkerReplaysForward(t *testing.T) {
 	}
 }
 
-func TestStrayAliasKeyFreeMapAndCodecKeysUntouched(t *testing.T) {
-	// Free-keyed maps declare no names to point at, and word/literal symbols
-	// are codec text, not parameter aliases: both keep the old pass-through.
+func TestStrayAliasKeyEveryClassRefusedLoudly(t *testing.T) {
+	// t_f59c5c00: the measured leak was dpx_v1_b_waltz on execute_code, a class
+	// the codec never mints (the model collapsed v2's dpx_v1_p_bloom_waltz). Any
+	// dpx_v1_<class>_ key on an object that declares parameters is a stray,
+	// whether the class is one the codec mints or one the model invented.
 	m, a := prepareStray(t)
-	input := restoreBoth(t, m, a.block, `{"`+a.reason+`":"r","dpx_v1_l_000000000000000000000000":"v"}`)
-	if input["reason"] != "r" || input["dpx_v1_l_000000000000000000000000"] != "v" {
-		t.Fatalf("codec-kind key changed: %v", input)
+	for _, key := range []string{
+		"dpx_v1_b_waltz",
+		"dpx_v1_p_bloom_waltz",
+		"dpx_v1_t_000000000000000000000000",
+		"dpx_v1_w_000000000000000000000000",
+		"dpx_v1_l_000000000000000000000000",
+		"dpx_v1_x_waltz_bloom",
+		"dpx_v1_B_waltz",
+	} {
+		input := restoreBoth(t, m, a.block, `{"`+key+`":"x","`+a.reason+`":"r"}`)
+		requireMarker(t, input, []string{"reason", "kind", "opts"})
+		if input["reason"] != "r" || input[firstMarker(input)] != "x" {
+			t.Fatalf("%s: own key or stray value lost: %v", key, input)
+		}
+	}
+}
+
+func TestStrayAliasKeyFreeMapUntouched(t *testing.T) {
+	// A free-keyed map declares no names to point at; its keys are caller data.
+	_, m, err := Prepare([]byte(`{"tools":[{"name":"env","input_schema":{"type":"object","additionalProperties":{"type":"string"}}}]}`), testSession(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := restoreBoth(t, m, m.st.Tools["env"].Alias, `{"dpx_v1_b_waltz":"v"}`)
+	if len(input) != 1 || input["dpx_v1_b_waltz"] != "v" {
+		t.Fatalf("free-keyed map changed: %v", input)
 	}
 }
 
