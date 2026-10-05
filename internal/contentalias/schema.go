@@ -2,6 +2,7 @@ package contentalias
 
 import (
 	"encoding/json"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -337,13 +338,16 @@ func (s *schema) arguments(n *node, inverse bool, edits *[]edit) error {
 			if v, ok := s.reverse[key]; ok {
 				original = v
 				mapped = v
-			} else if (strings.HasPrefix(key, "dpx_v1_p_") || strings.HasPrefix(key, "dpx_v1_t_")) && len(s.forward) > 0 {
+			} else if strayClassPattern.MatchString(key) && len(s.forward) > 0 {
 				// t_186d86c5: the model wrote an alias that is not this object's
 				// (a sibling tool's property, or a 1-2 hex near-copy). Never let the
 				// raw token leave DPX: the caller would echo it, the next request
 				// would literal-escape it, and the model loops on a name it cannot
 				// read. A marker naming this object's real parameters makes the
 				// caller's unknown-key refusal self-correcting. No silent repair.
+				// t_f59c5c00: any dpx_v1_<class>_ shape, not an allow-list of p/t.
+				// The model also invents classes: v2's dpx_v1_p_bloom_waltz came
+				// back as dpx_v1_b_waltz.
 				strays++
 				mapped = s.strayMarker(strays)
 			}
@@ -369,6 +373,11 @@ func (s *schema) arguments(n *node, inverse bool, edits *[]edit) error {
 	}
 	return nil
 }
+
+// strayClassPattern is the symbol shape dpx_v1_<one-letter class>_, any class
+// (minted p/t/w/l or one the model invented). A caller's own dynamic key such
+// as dpx_v1_customer has no class letter and keeps passing through.
+var strayClassPattern = regexp.MustCompile(`^dpx_v1_[A-Za-z]_`)
 
 // strayMarker names the plain parameter names of this object, sorted. The
 // caller accepts plain names (the inverse map passes them through unchanged).
