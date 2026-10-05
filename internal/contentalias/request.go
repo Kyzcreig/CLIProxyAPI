@@ -177,14 +177,14 @@ func (m *RequestMap) forwardContent(n *node, st *state, edits *[]edit) error {
 			}
 		case "tool_use":
 			name := block.get("name")
-			tool, ok := st.Tools[name.str()]
 			if block.has("signature") {
 				return Error("signed_tool_block")
 			}
-			if !ok {
-				return Error("history_tool")
+			alias, err := historyToolAlias(st, name.str())
+			if err != nil {
+				return err
 			}
-			*edits = append(*edits, replace(name, tool.Alias))
+			*edits = append(*edits, replace(name, alias))
 			if block.get("type").str() == "tool_use" {
 				input := block.get("input")
 				if input == nil || input.kind != '{' {
@@ -313,4 +313,26 @@ func valueEdits(n *node, f func(string) (string, error), edits *[]edit) error {
 		}
 	}
 	return nil
+}
+
+// historyToolAlias maps a tool name found in conversation history. A name in
+// the store keeps its established alias. A name the store never saw (a
+// hallucinated call the caller answered "tool does not exist", or a tool from a
+// toolset the session has since dropped) gets the same deterministic symbol a
+// declared tool would, but it is NOT registered as a callable tool: no schema,
+// no RequestMap.allowed/reverse entry, so a response that names it is still
+// refused. Before t_ca4ca1e2 this was a hard 400 history_tool, which no retry
+// or seat rotation can clear: one hallucinated name poisoned the session.
+func historyToolAlias(st *state, name string) (string, error) {
+	if tool, ok := st.Tools[name]; ok {
+		return tool.Alias, nil
+	}
+	if name == "" {
+		return "", Error("history_tool")
+	}
+	if strings.HasPrefix(name, "dpx_v1_") {
+		// A wire alias echoed back as a plain name stays a refusal.
+		return "", Error("history_tool")
+	}
+	return st.allocate("t", name)
 }

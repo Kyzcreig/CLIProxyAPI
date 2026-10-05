@@ -30,7 +30,9 @@ func TestToolReferenceHistoryAndAtomicRefusal(t *testing.T) {
 	}
 	before, _ := s.load()
 	beforeJSON, _ := json.Marshal(before)
-	bad := referenceShapes("unknown")
+	// t_ca4ca1e2: an unknown history name is aliased, not refused (see
+	// history_unknown_tool_test.go); signed blocks stay atomic refusals.
+	bad := []string{}
 	for _, block := range referenceShapes("Bash") {
 		bad = append(bad, strings.Replace(block, `{`, `{"signature":"signed",`, 1))
 		bad = append(bad, strings.Replace(block, `"tool_name"`, `"signature":"signed","tool_name"`, 1))
