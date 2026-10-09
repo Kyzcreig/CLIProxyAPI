@@ -29,6 +29,20 @@ type DPXContentAlias struct {
 	WirelogSpool string `yaml:"wirelog-spool" json:"-"`
 	WirelogLane  string `yaml:"wirelog-lane" json:"-"`
 	WirelogSub   string `yaml:"wirelog-sub" json:"-"`
+	// WirelogBodies is the body-capture mode of the wirelog rows (Ace ruling
+	// 2026-10-08: full bodies on every lane, on the box, 45 days): "full"
+	// (default when empty) adds req.body.raw / res.body.raw beside the digest,
+	// "shape" and "none" keep the digest only (the dpx digest is the lane's gate
+	// evidence and is never dropped). Full rows go to WirelogBodySpool, a DISK
+	// path, never the RAM spool; full with no body spool degrades to the digest
+	// row marked bodiesSuspended=no_body_spool.
+	WirelogBodies    string `yaml:"wirelog-bodies" json:"-"`
+	WirelogBodySpool string `yaml:"wirelog-body-spool" json:"-"`
+	// WirelogMinFreeGB is the free-space floor on the body spool's filesystem
+	// (0 = the fleet default, 5 GB, same as wirelog.js WIRELOG_MIN_FREE_GB).
+	// Below it a full row is written digest-only to the RAM spool, marked
+	// bodiesSuspended=low_disk.
+	WirelogMinFreeGB float64 `yaml:"wirelog-min-free-gb" json:"-"`
 	// AuthFileCount is the number of `*.json` credential files under auth-dir
 	// when this config snapshot was (re)loaded (spec one-cliproxyapi-lineage
 	// D4 / Phase 2, AC9). One principal = one credential: an alias daemon that

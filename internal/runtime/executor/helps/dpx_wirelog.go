@@ -1,12 +1,19 @@
 package helps
 
-// DPX wirelog (site W1, SPEC-modes §7): one digest-only v2 row per upstream
-// request, describing the body that actually left (aliased, CPA-signed). Rows go
-// to an append-only spool file inside the unit's RAM state directory; the
-// Studio launcher relays them to ~/.claude-wirelog/dpx/<sub>/. No content, no
-// credential value is written: bodies are reduced to counts, hashes and the
-// billing block's fields, and credential-bearing headers are replaced by a
+// DPX wirelog (site W1, SPEC-modes §7): one v2 row per upstream request,
+// describing the body that actually left (aliased, CPA-signed). Every row
+// carries the digest (counts, hashes, the billing block's fields); no
+// credential value is written: credential-bearing headers are replaced by a
 // fixed marker.
+//
+// Body mode (wirelog-bodies, Ace ruling 2026-10-08: full bodies on every lane,
+// on the box, 45 days). "full" (the default) adds req.body.raw / res.body.raw,
+// the wirelog.js record schema, and writes that row to the DISK body spool
+// (wirelog-body-spool), never the RAM spool. "shape"/"none" write the digest
+// row to the RAM spool. A full row that cannot go to disk (no body spool, free
+// space under the floor, write error) is written digest-only to the RAM spool
+// and names why in bodiesSuspended. Every row states its mode in `bodies`. The
+// Studio launcher relays both spools to ~/.claude-wirelog/dpx/<sub>/.
 
 import (
 	"bufio"
@@ -15,6 +22,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -22,6 +30,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
@@ -44,7 +53,36 @@ type DPXWirelogConfig struct {
 	Lanes      []string
 	Sub        string
 	BrandWords []string
+	// Bodies is full (default when empty or unrecognised) | shape | none.
+	Bodies string
+	// BodySpool is the DISK append file for full rows.
+	BodySpool string
+	// MinFreeGB is the free-space floor on BodySpool's filesystem (0 = 5).
+	MinFreeGB float64
 }
+
+// dpxFullBodyCap bounds the response bytes one full row keeps in memory; a
+// longer body is cut and the row says res.body.rawTruncated.
+const dpxFullBodyCap = 64 << 20
+
+// dpxDigestBodyCap is the response prefix a digest-only row keeps for usage.
+const dpxDigestBodyCap = 1 << 20
+
+const dpxDefaultMinFreeGB = 5
+
+// BodyMode normalises the configured mode: shape and none are explicit
+// opt-outs, everything else is the policy default, full.
+func (c DPXWirelogConfig) BodyMode() string {
+	switch strings.ToLower(strings.TrimSpace(c.Bodies)) {
+	case "shape":
+		return "shape"
+	case "none":
+		return "none"
+	}
+	return "full"
+}
+
+func (c DPXWirelogConfig) fullBodies() bool { return c.BodyMode() == "full" && c.BodySpool != "" }
 
 var (
 	dpxWirelogMu  sync.Mutex
@@ -125,13 +163,17 @@ func (t dpxWirelogTransport) RoundTrip(req *http.Request) (*http.Response, error
 		// `error` keeps the bounded prose for a reader that needs the detail.
 		row["durationMs"] = time.Since(start).Milliseconds()
 		row["res"] = map[string]any{"status": 0, "phase": "headers", "errorClass": DPXTransportErrorClass(err), "error": dpxErrorClass(err)}
-		t.write(row)
+		t.emit(row, body, nil, 0, "")
 		return resp, err
 	}
 	res := map[string]any{"status": resp.StatusCode, "headers": dpxHeaders(resp.Header)}
 	stream := strings.Contains(resp.Header.Get("Content-Type"), "text/event-stream")
 	encoding := strings.ToLower(strings.TrimSpace(resp.Header.Get("Content-Encoding")))
-	resp.Body = &dpxWirelogBody{ReadCloser: resp.Body, stream: stream, done: func(raw []byte, n int, end dpxBodyEnd) {
+	limit := dpxDigestBodyCap
+	if t.cfg.fullBodies() {
+		limit = dpxFullBodyCap
+	}
+	resp.Body = &dpxWirelogBody{ReadCloser: resp.Body, stream: stream, limit: limit, done: func(raw []byte, n int, end dpxBodyEnd) {
 		decoded, errDecode := dpxDecode(raw, encoding)
 		res["body"] = dpxResponseDigest(decoded, n, stream)
 		if errDecode != nil {
@@ -152,7 +194,11 @@ func (t dpxWirelogTransport) RoundTrip(req *http.Request) (*http.Response, error
 		}
 		row["res"] = res
 		row["durationMs"] = time.Since(start).Milliseconds()
-		t.write(row)
+		rawEncoding := ""
+		if errDecode != nil {
+			rawEncoding = encoding
+		}
+		t.emit(row, body, decoded, n, rawEncoding)
 	}}
 	return resp, nil
 }
@@ -213,27 +259,119 @@ func DPXTransportErrorClass(err error) string {
 	return "other"
 }
 
-func (t dpxWirelogTransport) write(row map[string]any) {
+// emit writes the finished row in the configured body mode. reqRaw is the body
+// that left; resRaw the (decoded) response bytes kept, resN the bytes read;
+// rawEncoding names the Content-Encoding when resRaw could not be decoded (it
+// is then stored base64).
+func (t dpxWirelogTransport) emit(row map[string]any, reqRaw, resRaw []byte, resN int, rawEncoding string) {
+	mode := t.cfg.BodyMode()
+	if mode != "full" {
+		row["bodies"] = mode
+		t.write(t.cfg.Spool, row)
+		return
+	}
+	suspended := ""
+	switch {
+	case t.cfg.BodySpool == "":
+		suspended = "no_body_spool"
+	case dpxLowDisk(t.cfg.BodySpool, t.cfg.MinFreeGB):
+		suspended = "low_disk"
+	}
+	if suspended == "" {
+		row["bodies"] = "full"
+		reqBody, _ := row["req"].(map[string]any)["body"].(map[string]any)
+		if reqBody != nil {
+			reqBody["raw"] = string(reqRaw)
+		}
+		var resBody map[string]any
+		if res, ok := row["res"].(map[string]any); ok {
+			resBody, _ = res["body"].(map[string]any)
+		}
+		if resBody != nil {
+			if rawEncoding != "" {
+				resBody["raw"] = base64.StdEncoding.EncodeToString(resRaw)
+				resBody["rawEncoding"] = "base64+" + rawEncoding
+			} else {
+				resBody["raw"] = string(resRaw)
+			}
+			if resN > dpxFullBodyCap {
+				resBody["rawTruncated"] = true
+			}
+		}
+		if t.write(t.cfg.BodySpool, row) {
+			return
+		}
+		if reqBody != nil {
+			delete(reqBody, "raw")
+		}
+		if resBody != nil {
+			delete(resBody, "raw")
+			delete(resBody, "rawEncoding")
+			delete(resBody, "rawTruncated")
+		}
+		suspended = "write_failed"
+	}
+	row["bodies"] = "shape"
+	row["bodiesSuspended"] = suspended
+	t.write(t.cfg.Spool, row)
+}
+
+func (t dpxWirelogTransport) write(path string, row map[string]any) bool {
 	line, err := json.Marshal(row)
 	if err != nil {
-		return
+		return false
 	}
 	dpxWirelogMu.Lock()
 	defer dpxWirelogMu.Unlock()
-	f, err := os.OpenFile(t.cfg.Spool, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
 	if err != nil {
-		return
+		return false
 	}
-	_, _ = f.Write(append(line, '\n'))
-	_ = f.Close()
+	_, errWrite := f.Write(append(line, '\n'))
+	errClose := f.Close()
+	return errWrite == nil && errClose == nil
 }
 
-// dpxWirelogBody keeps at most 1 MiB of the response for the usage digest and
+var (
+	dpxFreeMu    sync.Mutex
+	dpxFreeCache = map[string]dpxFreeSample{}
+	dpxFreeTTL   = 30 * time.Second
+	dpxFreeBytes = dpxStatfsFree
+)
+
+type dpxFreeSample struct {
+	at   time.Time
+	free uint64
+	ok   bool
+}
+
+// dpxLowDisk reports whether the filesystem holding path has less than
+// minFreeGB (0 = 5) free, sampled at most every 30 s. Unknown free space does
+// not block capture (wirelog.js behaves the same).
+func dpxLowDisk(path string, minFreeGB float64) bool {
+	if minFreeGB <= 0 {
+		minFreeGB = dpxDefaultMinFreeGB
+	}
+	dir := filepath.Dir(path)
+	dpxFreeMu.Lock()
+	s, hit := dpxFreeCache[dir]
+	if !hit || time.Since(s.at) >= dpxFreeTTL {
+		free, ok := dpxFreeBytes(dir)
+		s = dpxFreeSample{at: time.Now(), free: free, ok: ok}
+		dpxFreeCache[dir] = s
+	}
+	dpxFreeMu.Unlock()
+	return s.ok && float64(s.free) < minFreeGB*(1<<30)
+}
+
+// dpxWirelogBody keeps at most limit bytes of the response (1 MiB for the usage
+// digest, 64 MiB for a full-bodies row) and
 // fires done exactly once: complete at EOF, or incomplete on a read error or a
 // Close before EOF (the executor's context cut a stalled body).
 type dpxWirelogBody struct {
 	io.ReadCloser
 	stream bool
+	limit  int
 	buf    bytes.Buffer
 	n      int
 	once   sync.Once
@@ -244,8 +382,12 @@ func (b *dpxWirelogBody) Read(p []byte) (int, error) {
 	n, err := b.ReadCloser.Read(p)
 	if n > 0 {
 		b.n += n
-		if b.buf.Len() < 1<<20 {
-			b.buf.Write(p[:n])
+		limit := b.limit
+		if limit <= 0 {
+			limit = dpxDigestBodyCap
+		}
+		if room := limit - b.buf.Len(); room > 0 {
+			b.buf.Write(p[:min(n, room)])
 		}
 	}
 	if err == io.EOF {

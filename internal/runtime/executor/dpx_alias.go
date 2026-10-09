@@ -112,7 +112,8 @@ func (e *ClaudeExecutor) dpxWirelogClient(client *http.Client) *http.Client {
 		return client
 	}
 	cfg := e.cfg.DPXContentAlias
-	return helps.DPXWirelogClient(client, helps.DPXWirelogConfig{Spool: cfg.WirelogSpool, Lane: cfg.WirelogLane, Lanes: cfg.Lanes, Sub: cfg.WirelogSub, BrandWords: contentalias.DefaultManifest().Words})
+	return helps.DPXWirelogClient(client, helps.DPXWirelogConfig{Spool: cfg.WirelogSpool, Lane: cfg.WirelogLane, Lanes: cfg.Lanes, Sub: cfg.WirelogSub, BrandWords: contentalias.DefaultManifest().Words,
+		Bodies: cfg.WirelogBodies, BodySpool: cfg.WirelogBodySpool, MinFreeGB: cfg.WirelogMinFreeGB})
 }
 
 // validateDPXFinalBody enforces that nothing after aliasing changes the upstream
