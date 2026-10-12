@@ -234,6 +234,10 @@ func TestStrayAliasKeyEveryClassRefusedLoudly(t *testing.T) {
 		"dpx_v1_l_000000000000000000000000",
 		"dpx_v1_x_waltz_bloom",
 		"dpx_v1_B_waltz",
+		// t_c59dfc3f: a bare class with no suffix (measured on sub 19).
+		"dpx_v1_b",
+		"dpx_v1_p",
+		"dpx_v1_B",
 	} {
 		input := restoreBoth(t, m, a.block, `{"`+key+`":"x","`+a.reason+`":"r"}`)
 		requireMarker(t, input, []string{"reason", "kind", "opts"})
