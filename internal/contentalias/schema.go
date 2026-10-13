@@ -375,9 +375,10 @@ func (s *schema) arguments(n *node, inverse bool, edits *[]edit) error {
 }
 
 // strayClassPattern is the symbol shape dpx_v1_<one-letter class>_, any class
-// (minted p/t/w/l or one the model invented). A caller's own dynamic key such
-// as dpx_v1_customer has no class letter and keeps passing through.
-var strayClassPattern = regexp.MustCompile(`^dpx_v1_[A-Za-z]_`)
+// (minted p/t/w/l or one the model invented), or a bare class with no suffix
+// (t_c59dfc3f: the model wrote dpx_v1_b on sub 19). A caller's own dynamic key
+// such as dpx_v1_customer has no class letter and keeps passing through.
+var strayClassPattern = regexp.MustCompile(`^dpx_v1_[A-Za-z](_|$)`)
 
 // strayMarker names the plain parameter names of this object, sorted. The
 // caller accepts plain names (the inverse map passes them through unchanged).
