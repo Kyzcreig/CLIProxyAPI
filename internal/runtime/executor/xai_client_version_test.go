@@ -2,6 +2,7 @@ package executor
 
 import (
 	"net/http"
+	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -52,7 +53,7 @@ func TestXAIChatProxyIdentityHeadersDeriveFromOneConstant(t *testing.T) {
 	if got := req.Header.Get(xaiClientVersionHeader); got != xaiClientVersionValue {
 		t.Fatalf("%s = %q, want %q", xaiClientVersionHeader, got, xaiClientVersionValue)
 	}
-	if got, want := req.Header.Get("User-Agent"), "xai-grok-workspace/"+xaiClientVersionValue; got != want {
+	if got, want := req.Header.Get("User-Agent"), xaiCLIUserAgent(runtime.GOOS, runtime.GOARCH); got != want { // fleet: grok-shell UA (mitm capture, t_f1437191)
 		t.Fatalf("User-Agent = %q, want %q (must derive from xaiClientVersionValue)", got, want)
 	}
 }
@@ -93,7 +94,7 @@ func TestXAIChatProxyIdentityHeadersFollowDynamicVersion(t *testing.T) {
 	if got := req.Header.Get(xaiClientVersionHeader); got != "1.2.34" {
 		t.Fatalf("%s = %q, want dynamic version 1.2.34", xaiClientVersionHeader, got)
 	}
-	if got, want := req.Header.Get("User-Agent"), "xai-grok-workspace/1.2.34"; got != want {
+	if got, want := req.Header.Get("User-Agent"), xaiCLIUserAgent(runtime.GOOS, runtime.GOARCH); got != want || !strings.HasPrefix(got, "grok-shell/1.2.34 (") {
 		t.Fatalf("User-Agent = %q, want %q", got, want)
 	}
 }
