@@ -6,6 +6,9 @@ package config
 
 // Config represents the application's configuration, loaded from a YAML file.
 type Config struct {
+	// Models selects optional catalog sources independently for each catalog.
+	Models ModelCatalogs `yaml:"models" json:"models"`
+
 	SDKConfig `yaml:",inline"`
 	DPXContentAlias DPXContentAlias `yaml:"dpx-content-alias" json:"dpx-content-alias"`
 	// Host is the network host/interface on which the API server will bind.
@@ -13,6 +16,9 @@ type Config struct {
 	Host string `yaml:"host" json:"-"`
 	// Port is the network port on which the API server will listen.
 	Port int `yaml:"port" json:"-"`
+
+	// GitHubToken is the global token for GitHub requests, taking precedence over GITHUB_TOKEN.
+	GitHubToken string `yaml:"github-token" json:"-"`
 
 	// TrustedProxies lists the IPs or CIDRs allowed to provide forwarded client IP headers.
 	// The server applies this list at startup; changing it requires a restart.
@@ -23,6 +29,10 @@ type Config struct {
 
 	// Home config is runtime-only and is populated from -home-jwt.
 	Home HomeConfig `yaml:"-" json:"-"`
+
+	// SourceHash is runtime-only: the SHA-256 of the config file bytes this config was
+	// parsed from, or empty when the config was not loaded from a file.
+	SourceHash string `yaml:"-" json:"-"`
 
 	// CredentialConcurrency contains Home-authoritative credential lifecycle settings.
 	CredentialConcurrency CredentialConcurrencyConfig `yaml:"credential-concurrency" json:"credential-concurrency"`
