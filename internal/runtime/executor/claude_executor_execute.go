@@ -226,6 +226,9 @@ func (e *ClaudeExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, r
 		matcher := helps.BuildSensitiveWordMatcher(wireSettings.sensitiveWords)
 		bodyForUpstream = helps.ObfuscateSensitiveWords(bodyForUpstream, matcher)
 	}
+	// Business-body edit: it must precede aliasing, or the DPX byte guard
+	// refuses the turn as post_alias_mutation (t_ea3a4a0b).
+	bodyForUpstream = applyClaudePreservedThinkingBinding(bodyForUpstream)
 	ctx, bodyForUpstream, aliasMap, err := e.prepareDPXAlias(ctx, bodyForUpstream, opts, confirmedClaudeCode, cloaked)
 	if err != nil { return resp, err }
 	aliasPreparedBody := bodyForUpstream
@@ -243,7 +246,6 @@ func (e *ClaudeExecutor) Execute(ctx context.Context, auth *cliproxyauth.Auth, r
 	if claudeCompactionSummaryFromContext(ctx) {
 		bodyForUpstream = finalizeClaudeCompactionSummaryBody(bodyForUpstream)
 	}
-	bodyForUpstream = applyClaudePreservedThinkingBinding(bodyForUpstream)
 	// User rules match the fully prepared business body and are applied only once.
 	var touchedPayloadPaths map[string]bool
 	bodyForUpstream, touchedPayloadPaths = helps.ApplyPayloadConfigWithTrackedPaths(
