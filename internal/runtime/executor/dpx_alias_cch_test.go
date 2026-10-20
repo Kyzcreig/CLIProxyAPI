@@ -43,13 +43,25 @@ type dpxSignedRun struct {
 // native CCH signing is active, and returns the exact upstream capture.
 func runDPXSigned(t *testing.T, block string, stream bool, messages string) dpxSignedRun {
 	t.Helper()
+	return runDPXSignedWith(t, block, stream, messages, nil, "")
+}
+
+// runDPXSignedWith is runDPXSigned with an optional payload edit and model.
+func runDPXSignedWith(t *testing.T, block string, stream bool, messages string, edit func(string) string, model string) dpxSignedRun {
+	t.Helper()
 	e, req, opts := aliasFixture(t)
+	if model != "" {
+		req.Model = model
+	}
 	system := `"system":"Hermes"`
 	if block != "" {
 		system = `"system":[{"type":"text","text":` + dpxJSON(t, block) + `},{"type":"text","text":"Hermes"}]`
 	}
 	payload := strings.Replace(string(req.Payload), `"system":"Hermes"`, system, 1)
 	payload = strings.Replace(payload, `"messages":`+dpxTurnOne, `"messages":`+messages, 1)
+	if edit != nil {
+		payload = edit(payload)
+	}
 	if stream {
 		payload = `{"stream":true,` + payload[1:]
 		opts.Stream = true
