@@ -53,7 +53,7 @@ func TestDPXAliasExecutorHTTP(t *testing.T) {
 		raw, _ := io.ReadAll(r.Body)
 		req := execpkg.Request{Model: gjson.GetBytes(raw, "model").String(), Payload: raw}
 		opts := execpkg.Options{SourceFormat: translator.FromString("claude"), OriginalRequest: raw, Headers: r.Header.Clone()}
-		response, err := e.Execute(context.Background(), &authpkg.Auth{ID: "offline", Provider: "claude", Attributes: map[string]string{"api_key": "offline-upstream", "base_url": upstream.URL, "cloak_mode": "never"}}, req, opts)
+		response, err := e.Execute(context.Background(), &authpkg.Auth{ID: "offline", Provider: "claude", Attributes: map[string]string{"api_key": "offline-upstream", "base_url": upstream.URL}}, req, opts)
 		if err != nil {
 			t.Error(err)
 			w.WriteHeader(400)

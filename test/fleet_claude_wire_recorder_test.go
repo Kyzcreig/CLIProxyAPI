@@ -194,7 +194,7 @@ func fleetRecordClaudeWire(t *testing.T, cfg *config.Config, arm fleetClaudeWire
 	t.Cleanup(func() { registry.GetGlobalRegistry().UnregisterClient(authID) })
 	if _, errRegister := manager.Register(context.Background(), &cliproxyauth.Auth{
 		ID: authID, Provider: "claude", Status: cliproxyauth.StatusActive,
-		Attributes: map[string]string{"base_url": server.URL, "api_key": "fleet-claude-wire-upstream-key", "cloak_mode": "never"},
+		Attributes: map[string]string{"base_url": server.URL, "api_key": "fleet-claude-wire-upstream-key"},
 	}); errRegister != nil {
 		t.Fatalf("register auth: %v", errRegister)
 	}

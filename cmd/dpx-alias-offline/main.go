@@ -66,7 +66,7 @@ func main() {
 	if c.UpstreamKey != "" {
 		upstreamKey = c.UpstreamKey
 	}
-	auth := &authpkg.Auth{ID: "offline-upstream", Provider: "claude", Attributes: map[string]string{"api_key": upstreamKey, "base_url": c.Upstream, "cloak_mode": "never"}}
+	auth := &authpkg.Auth{ID: "offline-upstream", Provider: "claude", Attributes: map[string]string{"api_key": upstreamKey, "base_url": c.Upstream}}
 	if c.UpstreamKey != "" {
 		// A saved OAuth credential carries its profile account; synthetic here.
 		auth.Metadata = map[string]any{"account_uuid": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"}

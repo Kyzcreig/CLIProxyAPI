@@ -54,7 +54,7 @@ func TestDPXAliasToolSchemaChangeAcrossRequests(t *testing.T) {
 		raw := []byte(`{"model":"claude-sonnet-4-6","max_tokens":128,"system":"Hermes","metadata":{"user_id":` + string(identity) + `},"messages":[{"role":"user","content":"make a card"}],"tools":[{"name":"kanban_create","input_schema":{"type":"object","properties":{"title":{"type":"string"},"wake":{"type":"boolean","description":"` + wakeDescription + `"}},"required":["title"]}}]}`)
 		req := execpkg.Request{Model: "claude-sonnet-4-6", Payload: raw}
 		opts := execpkg.Options{SourceFormat: translator.FromString("claude"), OriginalRequest: raw, Headers: http.Header{"User-Agent": {"claude-cli/2.1.284 (external, cli)"}, "X-App": {"cli"}, "Anthropic-Beta": {"claude-code-20250219"}}}
-		response, err := e.Execute(context.Background(), &authpkg.Auth{ID: "offline", Provider: "claude", Attributes: map[string]string{"api_key": "offline-upstream", "base_url": upstream.URL, "cloak_mode": "never"}}, req, opts)
+		response, err := e.Execute(context.Background(), &authpkg.Auth{ID: "offline", Provider: "claude", Attributes: map[string]string{"api_key": "offline-upstream", "base_url": upstream.URL}}, req, opts)
 		if err != nil {
 			return 400, []byte(err.Error())
 		}

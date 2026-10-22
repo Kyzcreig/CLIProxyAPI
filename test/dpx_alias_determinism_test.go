@@ -63,7 +63,7 @@ func dpxAliasDeterminismGolden(t *testing.T, version string) {
 		zw.Close()
 	}))
 	defer upstream.Close()
-	auth := &authpkg.Auth{ID: "acm12", Provider: "claude", Attributes: map[string]string{"api_key": "offline-upstream", "base_url": upstream.URL, "cloak_mode": "never"}}
+	auth := &authpkg.Auth{ID: "acm12", Provider: "claude", Attributes: map[string]string{"api_key": "offline-upstream", "base_url": upstream.URL}}
 	headers := http.Header{"X-Api-Key": {"offline-client"}, "User-Agent": {"claude-cli/2.1.284 (external, cli)"}, "X-App": {"cli"}, "Anthropic-Beta": {"claude-code-20250219"}}
 
 	send := func(e *executor.ClaudeExecutor, session string, turns int) {
