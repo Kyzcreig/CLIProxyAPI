@@ -24,7 +24,7 @@ import (
 )
 
 func offlineAuth(base string) *authpkg.Auth {
-	return &authpkg.Auth{ID: "offline", Provider: "claude", Attributes: map[string]string{"api_key": "offline-synthetic", "base_url": base, "cloak_mode": "never"}}
+	return &authpkg.Auth{ID: "offline", Provider: "claude", Attributes: map[string]string{"api_key": "offline-synthetic", "base_url": base}}
 }
 
 func TestDPXAliasCountParity(t *testing.T) {

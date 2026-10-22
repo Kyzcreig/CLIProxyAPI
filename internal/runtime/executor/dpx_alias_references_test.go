@@ -77,7 +77,7 @@ func TestDPXAliasToolReferencesHTTP(t *testing.T) {
 				}
 			}))
 			defer upstream.Close()
-			auth := &authpkg.Auth{ID: "reference-test", Provider: "claude", Attributes: map[string]string{"api_key": "offline-synthetic", "base_url": upstream.URL, "cloak_mode": "never"}}
+			auth := &authpkg.Auth{ID: "reference-test", Provider: "claude", Attributes: map[string]string{"api_key": "offline-synthetic", "base_url": upstream.URL}}
 			var out []byte
 			if mode == "native-sse" || mode == "translated-sse-observer" {
 				response, e := e.ExecuteStream(context.Background(), auth, req, opts)

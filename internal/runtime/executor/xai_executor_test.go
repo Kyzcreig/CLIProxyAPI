@@ -6426,7 +6426,7 @@ func TestApplyXAIChatHeaders(t *testing.T) {
 			},
 		}
 		applyXAIChatHeaders(proxyReq, proxyAuth, "xai-token", true, "conv-1", clientHeaders)
-		if got, want := proxyReq.Header.Get("User-Agent"), "xai-grok-workspace/"+xaiClientVersionValue; got != want {
+		if got, want := proxyReq.Header.Get("User-Agent"), xaiCLIUserAgent(runtime.GOOS, runtime.GOARCH); got != want {
 			t.Fatalf("CLI chat proxy User-Agent = %q, want %q", got, want)
 		}
 	})

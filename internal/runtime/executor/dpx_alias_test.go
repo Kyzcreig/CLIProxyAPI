@@ -52,7 +52,7 @@ func TestDPXAliasExecutorHTTP(t *testing.T) {
 		json.NewEncoder(w).Encode(response)
 	}))
 	defer upstream.Close()
-	auth := &authpkg.Auth{ID: "sandbox", Provider: "claude", Attributes: map[string]string{"api_key": "offline-synthetic", "base_url": upstream.URL, "cloak_mode": "never"}}
+	auth := &authpkg.Auth{ID: "sandbox", Provider: "claude", Attributes: map[string]string{"api_key": "offline-synthetic", "base_url": upstream.URL}}
 	response, err := e.Execute(context.Background(), auth, req, opts)
 	if err != nil {
 		t.Fatal(err)
@@ -67,7 +67,7 @@ func TestDPXAliasUnknownProtocol(t *testing.T) {
 	calls := 0
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { calls++; w.WriteHeader(500) }))
 	defer upstream.Close()
-	auth := &authpkg.Auth{Attributes: map[string]string{"api_key": "offline-synthetic", "base_url": upstream.URL, "cloak_mode": "never"}}
+	auth := &authpkg.Auth{Attributes: map[string]string{"api_key": "offline-synthetic", "base_url": upstream.URL}}
 	if _, err := e.Execute(context.Background(), auth, req, opts); err == nil || calls != 0 {
 		t.Fatal("unsupported protocol dispatched")
 	}
