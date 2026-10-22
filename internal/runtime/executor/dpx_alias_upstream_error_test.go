@@ -35,7 +35,7 @@ func TestDPXAliasUpstreamErrorBodyRestored(t *testing.T) {
 			req.Model = "claude-opus-4-8"
 			req.Payload = []byte(strings.Replace(string(req.Payload), `"model":"claude-sonnet-4-6"`, `"model":"claude-opus-4-8","fallback_credit_token":"fct-opaque"`, 1))
 			opts.OriginalRequest = req.Payload
-			auth := &authpkg.Auth{ID: "sandbox", Provider: "claude", Attributes: map[string]string{"api_key": "offline-synthetic", "base_url": upstream.URL, "cloak_mode": "never"}}
+			auth := &authpkg.Auth{ID: "sandbox", Provider: "claude", Attributes: map[string]string{"api_key": "offline-synthetic", "base_url": upstream.URL}}
 			var err error
 			if stream {
 				_, err = e.ExecuteStream(context.Background(), auth, req, opts)

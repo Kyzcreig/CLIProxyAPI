@@ -87,7 +87,7 @@ func runDPXSignedWith(t *testing.T, block string, stream bool, messages string, 
 		fmt.Fprintf(w, `{"id":"m","type":"message","role":"assistant","model":%q,"content":[{"type":"tool_use","id":"c","name":%q,"input":{%q:"/tmp/Hermes"}}],"stop_reason":"tool_use","usage":{"input_tokens":5,"output_tokens":7}}`, req.Model, name, key)
 	}))
 	defer upstream.Close()
-	auth := &authpkg.Auth{ID: "probe", Provider: "claude", Attributes: map[string]string{"api_key": "sk-ant-oat01-offline-synthetic", "base_url": upstream.URL, "cloak_mode": "never"}, Metadata: map[string]any{"account_uuid": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"}}
+	auth := &authpkg.Auth{ID: "probe", Provider: "claude", Attributes: map[string]string{"api_key": "sk-ant-oat01-offline-synthetic", "base_url": upstream.URL}, Metadata: map[string]any{"account_uuid": "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"}}
 	if stream {
 		response, err := e.ExecuteStream(context.Background(), auth, req, opts)
 		run.err = err

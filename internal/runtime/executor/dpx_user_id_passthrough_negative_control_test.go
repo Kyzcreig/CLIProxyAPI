@@ -58,7 +58,7 @@ func TestDPXOAuthSDKTSUserIDPassthrough(t *testing.T) {
 			}))
 			defer upstream.Close()
 			auth := &authpkg.Auth{ID: "oauth-sandbox", Provider: "claude",
-				Attributes: map[string]string{"api_key": "sk-ant-oat01-offline-synthetic", "base_url": upstream.URL, "cloak_mode": "never"},
+				Attributes: map[string]string{"api_key": "sk-ant-oat01-offline-synthetic", "base_url": upstream.URL},
 				Metadata:   map[string]any{"account_uuid": tc.account}}
 			if tc.stream {
 				res, err := e.ExecuteStream(context.Background(), auth, req, opts)

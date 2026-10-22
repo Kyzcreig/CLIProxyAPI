@@ -62,7 +62,7 @@ func TestAllExecutorResponseBranchesRestore(t *testing.T) {
 					}
 				}))
 				defer upstream.Close()
-				auth := &authpkg.Auth{ID: "one", Provider: "claude", Attributes: map[string]string{"api_key": "offline-synthetic", "base_url": upstream.URL, "cloak_mode": "never"}}
+				auth := &authpkg.Auth{ID: "one", Provider: "claude", Attributes: map[string]string{"api_key": "offline-synthetic", "base_url": upstream.URL}}
 				var out []byte
 				if stream {
 					response, err := e.ExecuteStream(context.Background(), auth, req, opts)

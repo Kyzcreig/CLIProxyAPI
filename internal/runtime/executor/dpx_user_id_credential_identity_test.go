@@ -43,7 +43,7 @@ func TestDPXOAuthUserIDIsCredentialIdentity(t *testing.T) {
 	} {
 		t.Run(sub.name, func(t *testing.T) {
 			auth := &authpkg.Auth{ID: "oauth-" + sub.name, Provider: "claude",
-				Attributes: map[string]string{"api_key": "sk-ant-oat01-synthetic", "cloak_mode": "never"},
+				Attributes: map[string]string{"api_key": "sk-ant-oat01-synthetic"},
 				Metadata:   map[string]any{"account_uuid": sub.account}}
 			var devices []string
 			for i, stream := range []bool{false, true, false} {

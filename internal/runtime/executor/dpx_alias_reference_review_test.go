@@ -28,7 +28,7 @@ func TestReviewToolReferenceActualHTTP(t *testing.T) {
 		fmt.Fprint(w, "event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\nevent: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":1}}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n")
 	}))
 	defer server.Close()
-	auth := &authpkg.Auth{ID: "review", Provider: "claude", Attributes: map[string]string{"api_key": "offline-synthetic", "base_url": server.URL, "cloak_mode": "never"}}
+	auth := &authpkg.Auth{ID: "review", Provider: "claude", Attributes: map[string]string{"api_key": "offline-synthetic", "base_url": server.URL}}
 	response, err := e.ExecuteStream(context.Background(), auth, req, opts)
 	if err != nil {
 		t.Fatal(err)
