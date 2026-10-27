@@ -54,3 +54,25 @@ rejected because it would put a raw tool name on the wire.
 a name already shaped `dpx_v1_*` (a wire alias echoed back as a plain name).
 A refused request leaves the persisted map unchanged. Tests:
 `history_unknown_tool_test.go`.
+
+## Near-copied tool aliases (t_7bd8c9b9)
+
+The model mis-copies a `dpx_v1_t_<24 hex>` tool alias in about 0.16% of tool
+calls (10 of 6,347, 2026-10-25..27; a 2-hex slip, or a tail rewritten as a
+word such as `...648c7seed`). A response `tool_use` whose name is alias-shaped
+(`strayClassPattern`) but not declared by this request now leaves DPX as
+`unknown_tool_N` with input `{}`, on both the SSE `Stream` and `RestoreJSON`.
+Before, it was a hard `unknown_tool` that failed the whole turn. The caller
+answers with its own unknown-tool error, which lists its tools, and the model
+re-calls. There is no nearest-neighbour repair, because a guess could run the
+wrong tool.
+
+The marker is a plain tool-name token (no parentheses), because the caller
+stores it in history and a non-DPX fallback hop sends that history raw. It has
+no `dpx_v1_` token, so the next request aliases it as a history-only name (see
+above). It does not refuse with `history_tool`, and it stays non-callable.
+
+A name that is not alias-shaped (for example a raw `Bash`) is still a hard
+`unknown_tool`. The model only sees aliases, so a raw name is a different fault
+and should stay loud. Tests: `tool_alias_near_copy_test.go`. Mutation check:
+`python3 scripts/dpx/contentalias_tool_marker_mutants.py` (6 mutants).
