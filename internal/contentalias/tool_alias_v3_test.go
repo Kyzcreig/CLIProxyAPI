@@ -308,6 +308,38 @@ func TestV3ToolPromptCost(t *testing.T) {
 	}
 }
 
+// The ">= 3" bound holds for ANY tool set under ANY binding, not only the
+// catalogs measured below: over all len(aliasWords)^2 possible word-pair
+// aliases, no two distinct ones are within Levenshtein distance 2. For two
+// equal-length strings, distance <= 2 means Hamming <= 2 or one deletion plus
+// one insertion, i.e. a shared single-deletion string. Hamming >= 3 follows
+// from TestV2AliasWordsPairwiseDistance; the shared-deletion case is checked
+// here exhaustively.
+func TestV3AllWordPairsPairwiseDistance(t *testing.T) {
+	owner := map[string]string{}
+	pairs := 0
+	for _, a := range aliasWords {
+		for _, b := range aliasWords {
+			alias := "dpx_v1_t_" + a + "_" + b
+			pairs++
+			tail := alias[len("dpx_v1_t_"):]
+			seen := map[string]bool{}
+			for i := range tail {
+				del := tail[:i] + tail[i+1:]
+				if seen[del] {
+					continue
+				}
+				seen[del] = true
+				if prev, ok := owner[del]; ok && prev != alias {
+					t.Fatalf("%q and %q share deletion %q: Levenshtein <= 2", prev, alias, del)
+				}
+				owner[del] = alias
+			}
+		}
+	}
+	t.Logf("word-pair aliases checked: %d (deletion keys %d)", pairs, len(owner))
+}
+
 // Confusability of TOOL aliases over the synthetic catalog, and over every
 // live tool set when DPX_LIVE_MAPS names a directory of map.json copies (any
 // version; each is re-prepared under a v3 binding with its own principal).
