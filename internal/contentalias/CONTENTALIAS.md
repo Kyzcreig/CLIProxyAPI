@@ -76,3 +76,35 @@ A name that is not alias-shaped (for example a raw `Bash`) is still a hard
 `unknown_tool`. The model only sees aliases, so a raw name is a different fault
 and should stay loud. Tests: `tool_alias_near_copy_test.go`. Mutation check:
 `python3 scripts/dpx/contentalias_tool_marker_mutants.py` (6 mutants).
+
+## Map v3: word-pair tool aliases (t_551a4f33)
+
+Binding `version: v3` spells a tool alias the way v2 spells a property alias:
+`dpx_v1_t_<word>_<word>`, two 5-letter words from `aliasWords`
+(`toolalias.go`). Any two distinct word-pair aliases are at least 3 edits apart
+(Hamming and Levenshtein), proved over all 145^2 = 21,025 aliases by
+`TestV3AllWordPairsPairwiseDistance`, so a 1-2 character slip never names
+another declared tool and falls to the `unknown_tool_N` marker above. The tail
+is a closed word, so there is no open hex run for the model to finish as
+English. Property aliases are unchanged from v2. The `dpx_v1_` prefix stays
+(codec namespace, `strayClassPattern`, the marker net). v1 and v2 maps still
+load with their 24-hex tool aliases; a v2 store does not open under a v3
+binding, and the reverse.
+
+Allocation is probe 0 of `toolSymbol(binding, name, k)` unless another tool
+holds it, persisted in the map, so an alias never moves within a session. A
+history-only name (section above) is allocated the same way and stays
+non-callable.
+
+Prompt cache: switching a unit to v3 changes every tool name once, so the first
+request per session after the unit restarts misses the cached tool block. A unit
+restart already mints a new session (new binding, every alias changes), so v3
+adds no miss beyond the restart that deploys it. Steady state, a v3 alias is
+20 bytes against 33: the 60-tool synthetic catalog's tool block is 780 bytes
+smaller (`TestV3ToolPromptCost`). Roll it per unit with the row's
+`alias_version: v3` (claude-dpx `studio/dpx_unit.py`, `ALIAS_VERSIONS`).
+
+Tests: `tool_alias_v3_test.go`; `DPX_LIVE_MAPS=<dir> go test -run
+TestV3ToolMinPairwiseDistance ./internal/contentalias` re-prepares every live
+tool set under a v3 binding. The package suite runs on v3 by default
+(`DPX_TEST_MAP_VERSION=v1|v2` re-runs it on an older version).

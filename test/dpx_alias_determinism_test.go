@@ -30,9 +30,9 @@ import (
 )
 
 func TestDPXAliasDeterminismGolden(t *testing.T) {
-	// v2 (t_13128fb0) changes only the property-alias alphabet; AC-M12 must
-	// hold for both map versions.
-	for _, version := range []string{"v1", "v2"} {
+	// v2 (t_13128fb0) changes the property-alias alphabet and v3 (t_551a4f33)
+	// the tool-alias alphabet; AC-M12 must hold for every map version.
+	for _, version := range []string{"v1", "v2", "v3"} {
 		t.Run(version, func(t *testing.T) { dpxAliasDeterminismGolden(t, version) })
 	}
 }

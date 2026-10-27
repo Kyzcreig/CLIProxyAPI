@@ -52,8 +52,10 @@ type state struct {
 	Manifest Manifest
 	Symbols  map[string]entry
 	Tools    map[string]storedTool
-	// properties indexes v2 property originals -> alias (not persisted).
+	// properties indexes v2/v3 property originals -> alias (not persisted).
 	properties map[string]string
+	// tools indexes v3 tool names -> alias (not persisted).
+	tools map[string]string
 }
 type envelope struct {
 	Payload  json.RawMessage
@@ -187,7 +189,20 @@ func (s *Session) load() (state, error) {
 		return st, Error("store_version")
 	}
 	for alias, e := range st.Symbols {
-		if st.Binding.Version == bindingV2 && e.Kind == "p" {
+		if wordPairTools(st.Binding) && e.Kind == "t" {
+			if !validToolAlias(st.Binding, alias, e.Original) {
+				return st, Error("store_corrupt")
+			}
+			if st.tools == nil {
+				st.tools = map[string]string{}
+			}
+			if _, dup := st.tools[e.Original]; dup {
+				return st, Error("store_corrupt")
+			}
+			st.tools[e.Original] = alias
+			continue
+		}
+		if wordPairAliases(st.Binding) && e.Kind == "p" {
 			if !validPropertyAlias(st.Binding, alias, e.Original) {
 				return st, Error("store_corrupt")
 			}
@@ -209,7 +224,11 @@ func (s *Session) load() (state, error) {
 		return st, Error("store_corrupt")
 	}
 	for name, tool := range st.Tools {
-		if tool.Alias != symbol(st.Binding, "t", name) || st.Symbols[tool.Alias] != (entry{"t", name}) {
+		want := symbol(st.Binding, "t", name)
+		if wordPairTools(st.Binding) {
+			want = st.tools[name]
+		}
+		if want == "" || tool.Alias != want || st.Symbols[tool.Alias] != (entry{"t", name}) {
 			return st, Error("store_tool_relation")
 		}
 		if _, err := parse(tool.Schema); err != nil {
@@ -266,8 +285,11 @@ func symbol(b Binding, kind, original string) string {
 	return "dpx_v1_" + kind + "_" + digest(string(key))[:24]
 }
 func (st *state) allocate(kind, original string) (string, error) {
-	if kind == "p" && st.Binding.Version == bindingV2 {
+	if kind == "p" && wordPairAliases(st.Binding) {
 		return st.allocateProperty(original)
+	}
+	if kind == "t" && wordPairTools(st.Binding) {
+		return st.allocateTool(original)
 	}
 	alias := symbol(st.Binding, kind, original)
 	if old, ok := st.Symbols[alias]; ok && old != (entry{kind, original}) {

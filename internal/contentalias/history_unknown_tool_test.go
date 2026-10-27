@@ -35,7 +35,7 @@ func TestHistoryToolUseAbsentFromToolsIsAliased(t *testing.T) {
 	if err != nil {
 		t.Fatalf("store does not reload after history-only alias: %v", err)
 	}
-	want := symbol(st.Binding, "t", "ssh")
+	want := storedAlias(t, st, "t", "ssh")
 	got := n.get("messages").items[1].get("content").items[0].get("name").str()
 	if got != want {
 		t.Fatalf("history-only name = %q, want deterministic %q", got, want)
@@ -83,7 +83,7 @@ func TestHistoryReferenceAbsentFromToolsIsAliased(t *testing.T) {
 			t.Fatalf("history tool_reference absent from tools[] refused: %v", err)
 		}
 		st, _ := s.load()
-		alias := symbol(st.Binding, "t", "unknown")
+		alias := storedAlias(t, st, "t", "unknown")
 		if !bytes.Contains(wire, []byte(`"tool_name":"`+alias+`"`)) {
 			t.Fatalf("reference not aliased: %s", wire)
 		}

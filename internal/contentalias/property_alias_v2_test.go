@@ -289,7 +289,7 @@ func TestV2BindingDoesNotOpenV1Store(t *testing.T) {
 	if _, err := Open(dir, v2Binding(), DefaultManifest()); err == nil {
 		t.Fatal("v1 store opened under v2 binding")
 	}
-	if _, err := Create(privateDir(t), Binding{Principal: "p", Session: "s", Version: "v3"}, DefaultManifest()); err == nil {
+	if _, err := Create(privateDir(t), Binding{Principal: "p", Session: "s", Version: "v9"}, DefaultManifest()); err == nil {
 		t.Fatal("unknown version accepted")
 	}
 }
