@@ -48,7 +48,7 @@ var aliasWords = [...]string{
 	"woman",
 }
 
-func validVersion(v string) bool { return v == bindingV1 || v == bindingV2 }
+func validVersion(v string) bool { return v == bindingV1 || v == bindingV2 || v == bindingV3 }
 
 // propertySymbol is probe k's v2 alias for a property original.
 func propertySymbol(b Binding, original string, k int) string {

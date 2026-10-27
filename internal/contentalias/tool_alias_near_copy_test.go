@@ -200,7 +200,7 @@ func TestToolMarkerHistoryPreparesCleanly(t *testing.T) {
 	}
 	// The marker's history alias is not callable: a response naming it is
 	// itself a marker, never a restore to a real tool.
-	markerAlias := symbol(after.Binding, "t", marker)
+	markerAlias := storedAlias(t, after, "t", marker)
 	if !bytes.Contains(wire, []byte(markerAlias)) {
 		t.Fatalf("marker not aliased deterministically: %s", wire)
 	}

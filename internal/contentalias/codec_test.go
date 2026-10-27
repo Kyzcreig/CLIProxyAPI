@@ -18,13 +18,14 @@ func privateDir(t *testing.T) string {
 	return dir
 }
 
-// testVersion is the map version the package suite runs under: v2 (the
-// deployed scheme, t_13128fb0) unless DPX_TEST_MAP_VERSION=v1 re-runs it on v1.
+// testVersion is the map version the package suite runs under: v3 (word-pair
+// tool and property aliases, t_551a4f33) unless DPX_TEST_MAP_VERSION=v1|v2
+// re-runs it on an older map version.
 func testVersion() string {
 	if v := os.Getenv("DPX_TEST_MAP_VERSION"); v != "" {
 		return v
 	}
-	return "v2"
+	return "v3"
 }
 
 func testSession(t *testing.T) *Session {
