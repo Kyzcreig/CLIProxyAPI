@@ -1,0 +1,15 @@
+{
+  "source": "census.py over DPX wirelogs ~/.claude-wirelog/dpx/<unit>/<day>.jsonl against each unit's state/map/map.json, 2026-10-25..27 (t_7bd8c9b9). Every response tool_use name not in the unit's map, with the nearest declared alias and their Levenshtein distance. ts is the wirelog row time, UTC.",
+  "pairs": [
+    {"unit": "0",  "ts": "2026-10-26T06:51:17Z", "emitted": "dpx_v1_t_97f1c57bc0d88303e0dc728b",  "declared": "dpx_v1_t_97f1c57bc0d88303e4dc728b", "dist": 1},
+    {"unit": "13", "ts": "2026-10-26T09:03:12Z", "emitted": "dpx_v1_t_e246a11b58397c51cf6ed6b4",  "declared": "dpx_v1_t_e246a11b58397c51cf6ef0c9", "dist": 4},
+    {"unit": "13", "ts": "2026-10-26T13:48:11Z", "emitted": "dpx_v1_t_e246a11b58397c51cf6ed6ad",  "declared": "dpx_v1_t_e246a11b58397c51cf6ef0c9", "dist": 4},
+    {"unit": "13", "ts": "2026-10-26T14:17:01Z", "emitted": "dpx_v1_t_e246a11b58397c51cf6ed0c9",  "declared": "dpx_v1_t_e246a11b58397c51cf6ef0c9", "dist": 1},
+    {"unit": "13", "ts": "2026-10-26T14:18:17Z", "emitted": "dpx_v1_t_e246a11b58397c51cf6ed6d88", "declared": "dpx_v1_t_e246a11b58397c51cf6ef0c9", "dist": 5},
+    {"unit": "13", "ts": "2026-10-26T15:02:09Z", "emitted": "dpx_v1_t_e246a11b58397c51cf6efdf5d", "declared": "dpx_v1_t_e246a11b58397c51cf6ef0c9", "dist": 4},
+    {"unit": "13", "ts": "2026-10-26T15:20:11Z", "emitted": "dpx_v1_t_e246a11b58397c51cf6ed0c9",  "declared": "dpx_v1_t_e246a11b58397c51cf6ef0c9", "dist": 1},
+    {"unit": "15", "ts": "2026-10-26T15:31:33Z", "emitted": "dpx_v1_t_a1e685aea8f2a7615351c317",  "declared": "dpx_v1_t_a1e685aea8f2a7603631c317", "dist": 4},
+    {"unit": "3",  "ts": "2026-10-27T12:00:57Z", "emitted": "dpx_v1_t_918e1f4ed50b193223191dce",  "declared": "dpx_v1_t_918e1f4ed50b193223158dce", "dist": 2, "declared_tool": "mcp__bpx__write_file"},
+    {"unit": "3",  "ts": "2026-10-27T12:07:56Z", "emitted": "dpx_v1_t_54cc7511020bdcab648c7seed", "declared": "dpx_v1_t_54cc7511020bdcab648c7ce0", "dist": 3, "declared_tool": "mcp__bpx__terminal"}
+  ]
+}

@@ -18,7 +18,17 @@ TESTS = ["TestToolAliasNearCopyStreamBecomesMarker",
          "TestToolAliasNearCopyJSONBecomesMarker",
          "TestToolAliasExactStillRestores",
          "TestToolNameNotAliasShapedStillRefused",
-         "TestToolMarkerHistoryPreparesCleanly"]
+         "TestToolMarkerHistoryPreparesCleanly",
+         # t_b54ef60f: the 10 captured live near-copies (testdata corpus).
+         "TestLiveNearCopyCorpus",
+         "TestLiveNearCopyEditOpsCannotHitV3Sibling"]
+
+# Mutants the live-corpus test itself must catch (t_b54ef60f): reverting the
+# marker branch on either path is exactly the pre-#42 turn kill.
+MUST_CATCH = {
+    "stream_marker_reverted": "TestLiveNearCopyCorpus",
+    "json_marker_reverted": "TestLiveNearCopyCorpus",
+}
 
 
 def sub(pattern, repl, flags=0):
@@ -80,6 +90,8 @@ def main():
         rows.append((name, caught))
         if not caught:
             gaps.append(name)
+        elif name in MUST_CATCH and MUST_CATCH[name] not in caught:
+            gaps.append(f"{name} (not caught by {MUST_CATCH[name]})")
     w = max(len(n) for n, _ in rows)
     for name, caught in rows:
         print(f"{name:<{w}}  RED: {', '.join(caught) or '-'}")
