@@ -38,7 +38,9 @@ func TestDPXAliasNoRetryAfterDispatch(t *testing.T) {
 				key := ""
 				gjson.GetBytes(raw, "tools.0.input_schema.properties").ForEach(func(k, v gjson.Result) bool { key = k.String(); return false })
 				if mode == "reverse_error" {
-					name = "dpx_v1_t_unknown"
+					// Not alias-shaped: an undeclared dpx_v1_t_ name is the unknown_tool_N
+					// marker since t_7bd8c9b9, a raw unknown name still fails the inverse.
+					name = "unknown_raw_tool"
 				}
 				body := aliasSSE(name, key, req.Model)
 				if mode == "partial_tool" {

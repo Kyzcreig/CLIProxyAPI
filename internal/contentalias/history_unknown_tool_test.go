@@ -51,8 +51,11 @@ func TestHistoryToolUseAbsentFromToolsIsAliased(t *testing.T) {
 	}
 	// The model must not be able to call it: it was never offered.
 	call := []byte(`{"content":[{"type":"tool_use","id":"toolu_03","name":"` + want + `","input":{}}]}`)
-	if _, err := m.RestoreJSON(call); err == nil {
-		t.Fatal("history-only tool became callable")
+	// Since t_7bd8c9b9 an undeclared alias-shaped name leaves as the
+	// unknown_tool_N marker instead of failing the turn; either way it never
+	// restores to a callable name.
+	if out, err := m.RestoreJSON(call); err == nil && !bytes.Contains(out, []byte(`"name":"unknown_tool_1"`)) {
+		t.Fatalf("history-only tool became callable: %s", out)
 	}
 	// Same body again: identical wire (stable alias, prefix cache intact).
 	again, _, err := Prepare([]byte(unknownHistoryRequest), s)

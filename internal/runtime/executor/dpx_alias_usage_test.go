@@ -32,7 +32,7 @@ func TestDPXAliasActualUsageOnInverseError(t *testing.T) {
 		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if stream {
 				w.Header().Set("Content-Type", "text/event-stream")
-				w.Write(aliasSSE("dpx_v1_t_unknown", "bad", req.Model))
+				w.Write(aliasSSE("unknown_raw_tool", "bad", req.Model) /* not alias-shaped: still an inverse error (t_7bd8c9b9) */)
 			} else {
 				w.Header().Set("Content-Type", "application/json")
 				io.WriteString(w, `{"content":[{"type":"tool_use","name":"unknown","input":{}}],"usage":{"input_tokens":5,"output_tokens":7}}`)

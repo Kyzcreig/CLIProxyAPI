@@ -214,20 +214,21 @@ func (m *RequestMap) RestoreJSON(raw []byte) ([]byte, error) {
 		return nil, Error("response")
 	}
 	edits := []edit{}
+	markers := 0
 	content := n.get("content")
 	if content != nil {
 		if content.kind != '[' {
 			return nil, Error("content")
 		}
 		for _, block := range content.items {
-			if err := m.restoreBlock(block, &edits); err != nil {
+			if err := m.restoreBlock(block, &edits, &markers); err != nil {
 				return nil, err
 			}
 		}
 	}
 	return apply(raw, edits)
 }
-func (m *RequestMap) restoreBlock(block *node, edits *[]edit) error {
+func (m *RequestMap) restoreBlock(block *node, edits *[]edit, markers *int) error {
 	switch block.get("type").str() {
 	case "text":
 		if block.has("signature") {
@@ -243,7 +244,15 @@ func (m *RequestMap) restoreBlock(block *node, edits *[]edit) error {
 			return Error("signed_tool_block")
 		}
 		if !ok || !m.allowed[original] {
-			return Error("unknown_tool")
+			if !strayClassPattern.MatchString(name.str()) {
+				return Error("unknown_tool")
+			}
+			*markers++
+			*edits = append(*edits, replace(name, unknownToolMarker(*markers)))
+			if input := block.get("input"); input != nil {
+				*edits = append(*edits, edit{input.start, input.end, []byte("{}")})
+			}
+			return nil
 		}
 		*edits = append(*edits, replace(name, original))
 		if block.get("type").str() == "tool_use" {
