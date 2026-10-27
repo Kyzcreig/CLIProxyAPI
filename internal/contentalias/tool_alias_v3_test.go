@@ -376,6 +376,11 @@ func TestV3ToolMinPairwiseDistance(t *testing.T) {
 		if len(tools) > 1 && (h < 3 || l < 3) {
 			t.Fatalf("%s: tool min distance hamming=%d levenshtein=%d (%v)", name, h, l, pair)
 		}
+		// 60 tools over 145^2 aliases collide rarely; a deep probe means the
+		// alias space shrank (e.g. a one-word tail).
+		if name == "synthetic" && maxProbe > 1 {
+			t.Fatalf("synthetic: max tool probe %d, want <= 1", maxProbe)
+		}
 		if len(props) > 1 && (ph < 3 || pl < 3) {
 			t.Fatalf("%s: property min distance hamming=%d levenshtein=%d", name, ph, pl)
 		}
