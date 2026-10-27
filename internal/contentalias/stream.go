@@ -21,6 +21,7 @@ type blockState struct {
 	deltas []*queued
 	input  []byte
 	text   textDecoder
+	marker string // t_7bd8c9b9: undeclared alias-shaped tool name -> unknownToolMarker
 }
 type Stream struct {
 	m                      *RequestMap
@@ -31,6 +32,7 @@ type Stream struct {
 	started, ended, failed bool
 	terminal               bool
 	queuedBytes            int
+	markers                int
 }
 
 func (m *RequestMap) NewStream() *Stream {
@@ -221,8 +223,13 @@ func (s *Stream) handle(raw []byte) error {
 			}
 		}
 		if b.kind == "tool_use" {
-			if _, ok := s.m.reverse[block.get("name").str()]; !ok {
-				return Error("unknown_tool")
+			name := block.get("name").str()
+			if original, ok := s.m.reverse[name]; !ok || !s.m.allowed[original] {
+				if !strayClassPattern.MatchString(name) {
+					return Error("unknown_tool")
+				}
+				s.markers++
+				b.marker = unknownToolMarker(s.markers)
 			}
 			if block.has("signature") {
 				return Error("signed_tool_block")
@@ -315,16 +322,20 @@ func (s *Stream) handle(raw []byte) error {
 			start, _ := parse(startData)
 			name := start.get("content_block").get("name")
 			original := s.m.reverse[name.str()]
-			edits := []edit{}
-			if err := s.m.schemas[original].arguments(args, true, &edits); err != nil {
-				return err
-			}
-			if err := valueEdits(args, s.m.decodeValue, &edits); err != nil {
-				return err
-			}
-			restored, err := apply(b.input, edits)
-			if err != nil {
-				return err
+			restored := []byte("{}")
+			if b.marker != "" {
+				original = b.marker
+			} else {
+				edits := []edit{}
+				if err := s.m.schemas[original].arguments(args, true, &edits); err != nil {
+					return err
+				}
+				if err := valueEdits(args, s.m.decodeValue, &edits); err != nil {
+					return err
+				}
+				if restored, err = apply(b.input, edits); err != nil {
+					return err
+				}
 			}
 			changed, err := apply(startData, []edit{replace(name, original)})
 			if err != nil {

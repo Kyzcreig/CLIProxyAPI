@@ -58,8 +58,10 @@ func TestDeclaredToolSymbolTable(t *testing.T) {
 	}
 	for _, name := range []string{"mcp__one__TaskFoo", "dpx_v1_t_unknown"} {
 		response, _ := json.Marshal(map[string]any{"content": []any{map[string]any{"type": "tool_use", "name": name, "input": map[string]any{}}}})
-		if _, err := m.RestoreJSON(response); err == nil {
-			t.Fatal("unknown/double restoration accepted")
+		// t_7bd8c9b9: an undeclared alias-shaped name becomes the
+		// unknown_tool_N marker; a raw name is still refused.
+		if out, err := m.RestoreJSON(response); err == nil && !bytes.Contains(out, []byte(`"name":"unknown_tool_1"`)) {
+			t.Fatalf("unknown/double restoration accepted: %s", out)
 		}
 	}
 }
