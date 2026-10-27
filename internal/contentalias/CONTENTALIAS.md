@@ -82,7 +82,7 @@ and should stay loud. Tests: `tool_alias_near_copy_test.go`. Mutation check:
 Binding `version: v3` spells a tool alias the way v2 spells a property alias:
 `dpx_v1_t_<word>_<word>`, two 5-letter words from `aliasWords`
 (`toolalias.go`). Any two distinct word-pair aliases are at least 3 edits apart
-(Hamming and Levenshtein), proved over all 141^2 pairs by
+(Hamming and Levenshtein), proved over all 145^2 = 21,025 aliases by
 `TestV3AllWordPairsPairwiseDistance`, so a 1-2 character slip never names
 another declared tool and falls to the `unknown_tool_N` marker above. The tail
 is a closed word, so there is no open hex run for the model to finish as
