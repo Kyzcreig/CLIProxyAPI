@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -2043,7 +2044,14 @@ func TestSessionAffinitySelector_CrossProviderIsolation(t *testing.T) {
 func TestSessionCache_GetAndRefresh(t *testing.T) {
 	t.Parallel()
 
-	cache := NewSessionCache(100 * time.Millisecond)
+	// Fake clock: the TTL arithmetic is asserted exactly, independent of
+	// scheduler latency (wall-clock sleeps flaked on loaded CI runners).
+	var nowNanos atomic.Int64
+	base := time.Unix(1_700_000_000, 0)
+	clock := func() time.Time { return base.Add(time.Duration(nowNanos.Load())) }
+	advance := func(d time.Duration) { nowNanos.Add(int64(d)) }
+
+	cache := newSessionCacheWithClock(100*time.Millisecond, defaultMaxSessionEntries, clock)
 	defer cache.Stop()
 
 	cache.Set("session1", "auth1")
@@ -2054,23 +2062,23 @@ func TestSessionCache_GetAndRefresh(t *testing.T) {
 		t.Fatalf("GetAndRefresh() = %q, %v, want auth1, true", got, ok)
 	}
 
-	// Wait half TTL and access again (should refresh)
-	time.Sleep(60 * time.Millisecond)
+	// Advance past half TTL and access again (should refresh)
+	advance(60 * time.Millisecond)
 	got, ok = cache.GetAndRefresh("session1")
 	if !ok || got != "auth1" {
 		t.Fatalf("GetAndRefresh() after 60ms = %q, %v, want auth1, true", got, ok)
 	}
 
-	// Wait another 60ms (total 120ms from original, but TTL refreshed at 60ms)
-	// Entry should still be valid because TTL was refreshed
-	time.Sleep(60 * time.Millisecond)
+	// Advance another 60ms (120ms from Set, past the original 100ms TTL).
+	// Entry should still be valid because TTL was refreshed at 60ms.
+	advance(60 * time.Millisecond)
 	got, ok = cache.GetAndRefresh("session1")
 	if !ok || got != "auth1" {
 		t.Fatalf("GetAndRefresh() after refresh = %q, %v, want auth1, true (TTL should have been refreshed)", got, ok)
 	}
 
-	// Now wait full TTL without access
-	time.Sleep(110 * time.Millisecond)
+	// Now advance a full TTL without access
+	advance(110 * time.Millisecond)
 	got, ok = cache.GetAndRefresh("session1")
 	if ok {
 		t.Fatalf("GetAndRefresh() after expiry = %q, %v, want '', false", got, ok)
