@@ -133,6 +133,7 @@ func (m *Manager) Execute(ctx context.Context, providers []string, req cliproxye
 	}
 
 	defaultRequestRetry, maxRetryCredentials, maxWait := m.retrySettings()
+	ctx, transientRetry := withTransientRetryState(ctx, defaultRequestRetry)
 
 	var lastErr error
 	var preferredUpstreamErr error
@@ -152,6 +153,9 @@ func (m *Manager) Execute(ctx context.Context, providers []string, req cliproxye
 		}
 		lastErr = errExec
 		wait, shouldRetry := m.shouldRetryAfterErrorWithAttempted(ctx, opts, errExec, attempt, normalized, retryModel, maxWait, -1, defaultRequestRetry, roundAttempted)
+		if !shouldRetry {
+			wait, shouldRetry = m.transientRetryDecision(ctx, opts, transientRetry, errExec, attempt, roundAttempted, normalized, retryModel, maxWait)
+		}
 		if !shouldRetry {
 			break
 		}
@@ -194,6 +198,7 @@ func (m *Manager) ExecuteCount(ctx context.Context, providers []string, req clip
 	}
 
 	defaultRequestRetry, maxRetryCredentials, maxWait := m.retrySettings()
+	ctx, transientRetry := withTransientRetryState(ctx, defaultRequestRetry)
 
 	var lastErr error
 	var preferredUpstreamErr error
@@ -213,6 +218,9 @@ func (m *Manager) ExecuteCount(ctx context.Context, providers []string, req clip
 		}
 		lastErr = errExec
 		wait, shouldRetry := m.shouldRetryAfterErrorWithAttempted(ctx, opts, errExec, attempt, normalized, retryModel, maxWait, -1, defaultRequestRetry, roundAttempted)
+		if !shouldRetry {
+			wait, shouldRetry = m.transientRetryDecision(ctx, opts, transientRetry, errExec, attempt, roundAttempted, normalized, retryModel, maxWait)
+		}
 		if !shouldRetry {
 			break
 		}
@@ -249,6 +257,7 @@ func (m *Manager) ExecuteStream(ctx context.Context, providers []string, req cli
 	opts = m.withPromptCacheKeyPolicy(normalized, req, opts)
 
 	defaultRequestRetry, maxRetryCredentials, maxWait := m.retrySettings()
+	ctx, transientRetry := withTransientRetryState(ctx, defaultRequestRetry)
 
 	var lastErr error
 	var preferredUpstreamErr error
@@ -286,6 +295,9 @@ func (m *Manager) ExecuteStream(ctx context.Context, providers []string, req cli
 		}
 		lastErr = errStream
 		wait, shouldRetry := m.shouldRetryAfterErrorWithAttempted(ctx, opts, errStream, attempt, normalized, retryModel, maxWait, homeRetryLimit, defaultRequestRetry, roundAttempted)
+		if !shouldRetry {
+			wait, shouldRetry = m.transientRetryDecision(ctx, opts, transientRetry, errStream, attempt, roundAttempted, normalized, retryModel, maxWait)
+		}
 		if !shouldRetry {
 			break
 		}
@@ -493,10 +505,14 @@ func (m *Manager) executeMixedOnce(ctx context.Context, providers []string, req 
 	homeMode := m.HomeEnabled()
 	homeAuthCount := 1
 	tried := make(map[string]struct{})
+	roundExcluded := map[string]struct{}{}
+	transientSeeded := false
 	if !homeMode {
-		for authID := range m.requestRetryRoundExclusions(retryRound, defaultRequestRetry) {
+		roundExcluded = m.requestRetryRoundExclusions(retryRound, defaultRequestRetry)
+		for authID := range roundExcluded {
 			tried[authID] = struct{}{}
 		}
+		transientSeeded = seedTransientExclusions(ctx, tried)
 	}
 	attempted := make(map[string]struct{})
 	var lastErr error
@@ -516,6 +532,12 @@ func (m *Manager) executeMixedOnce(ctx context.Context, providers []string, req 
 		}
 		auth, executor, provider, errPick := m.pickNextMixed(ctx, providers, routeModel, pickOpts, tried)
 		if errPick != nil {
+			if transientSeeded && len(attempted) == 0 {
+				// Only already-failed credentials remain: retry on one of them.
+				transientSeeded = false
+				releaseTransientExclusions(ctx, tried, roundExcluded)
+				continue
+			}
 			if shouldReturnLastErrorOnPickFailure(homeMode, lastErr, errPick) {
 				return cliproxyexecutor.Response{}, preferredExecutionAttemptError(lastErr, upstreamErr)
 			}
@@ -523,6 +545,7 @@ func (m *Manager) executeMixedOnce(ctx context.Context, providers []string, req 
 		}
 
 		entry := logEntryWithRequestID(ctx)
+		logTransientRetryPick(ctx, entry, auth)
 		debugLogAuthSelection(entry, auth, provider, routeModel)
 		publishSelectedAuthMetadata(opts.Metadata, auth)
 
@@ -707,10 +730,14 @@ func (m *Manager) executeCountMixedOnce(ctx context.Context, providers []string,
 	homeMode := m.HomeEnabled()
 	homeAuthCount := 1
 	tried := make(map[string]struct{})
+	roundExcluded := map[string]struct{}{}
+	transientSeeded := false
 	if !homeMode {
-		for authID := range m.requestRetryRoundExclusions(retryRound, defaultRequestRetry) {
+		roundExcluded = m.requestRetryRoundExclusions(retryRound, defaultRequestRetry)
+		for authID := range roundExcluded {
 			tried[authID] = struct{}{}
 		}
+		transientSeeded = seedTransientExclusions(ctx, tried)
 	}
 	attempted := make(map[string]struct{})
 	var lastErr error
@@ -730,6 +757,12 @@ func (m *Manager) executeCountMixedOnce(ctx context.Context, providers []string,
 		}
 		auth, executor, provider, errPick := m.pickNextMixed(ctx, providers, routeModel, pickOpts, tried)
 		if errPick != nil {
+			if transientSeeded && len(attempted) == 0 {
+				// Only already-failed credentials remain: retry on one of them.
+				transientSeeded = false
+				releaseTransientExclusions(ctx, tried, roundExcluded)
+				continue
+			}
 			if shouldReturnLastErrorOnPickFailure(homeMode, lastErr, errPick) {
 				return cliproxyexecutor.Response{}, preferredExecutionAttemptError(lastErr, upstreamErr)
 			}
@@ -737,6 +770,7 @@ func (m *Manager) executeCountMixedOnce(ctx context.Context, providers []string,
 		}
 
 		entry := logEntryWithRequestID(ctx)
+		logTransientRetryPick(ctx, entry, auth)
 		debugLogAuthSelection(entry, auth, provider, routeModel)
 		publishSelectedAuthMetadata(opts.Metadata, auth)
 
@@ -926,10 +960,14 @@ func (m *Manager) executeStreamMixedOnce(ctx context.Context, providers []string
 	homeMode := m.HomeEnabled()
 	homeAuthCount := 1
 	tried := make(map[string]struct{})
+	roundExcluded := map[string]struct{}{}
+	transientSeeded := false
 	if !homeMode {
-		for authID := range m.requestRetryRoundExclusions(retryRound, defaultRequestRetry) {
+		roundExcluded = m.requestRetryRoundExclusions(retryRound, defaultRequestRetry)
+		for authID := range roundExcluded {
 			tried[authID] = struct{}{}
 		}
+		transientSeeded = seedTransientExclusions(ctx, tried)
 	}
 	homeExcludedAuthIDs := make(map[string]struct{})
 	homeSameAuthRetries := make(map[string]int)
@@ -972,6 +1010,12 @@ func (m *Manager) executeStreamMixedOnce(ctx context.Context, providers []string
 			}
 		} else {
 			auth, executor, provider, errPick = m.pickNextMixed(ctx, providers, routeModel, pickOpts, tried)
+		}
+		if errPick != nil && !homeMode && transientSeeded && len(attempted) == 0 {
+			// Only already-failed credentials remain: retry on one of them.
+			transientSeeded = false
+			releaseTransientExclusions(ctx, tried, roundExcluded)
+			continue
 		}
 		if errPick != nil {
 			preferredErr := preferredExecutionAttemptError(lastErr, upstreamErr)
@@ -1040,6 +1084,7 @@ func (m *Manager) executeStreamMixedOnce(ctx context.Context, providers []string
 		}
 
 		entry := logEntryWithRequestID(ctx)
+		logTransientRetryPick(ctx, entry, auth)
 		debugLogAuthSelection(entry, auth, provider, routeModel)
 		if selection != nil {
 			if errRuntimeAuth := m.bindHomeSelectionRuntimeAuth(ctx, opts, selection); errRuntimeAuth != nil {
