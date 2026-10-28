@@ -31,6 +31,13 @@ func (codexIncompleteStreamError) IsRequestScoped() bool {
 	return true
 }
 
+// IsTransientUpstream lets the conductor retry the request on another credential
+// (bounded by request-retry): the upstream closed the stream before
+// response.completed, which says nothing about the request or the credential.
+func (codexIncompleteStreamError) IsTransientUpstream() bool {
+	return true
+}
+
 type codexEmptyIncompleteStreamError struct {
 	statusErr
 }
