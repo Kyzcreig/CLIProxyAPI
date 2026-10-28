@@ -27,9 +27,15 @@ func newCodexIncompleteStreamError() codexIncompleteStreamError {
 	}}
 }
 
-func (codexIncompleteStreamError) IsRequestScoped() bool {
-	return true
-}
+// codexIncompleteStreamError is deliberately NOT request-scoped (fleet card t_c9bd528e, 2026-10-27).
+// A body that ends before response.completed is a transport fault: the request itself was fine and
+// may be replayed. Marking it request-scoped (upstream 09da52ad) made the conductor return it at
+// once, so the non-stream Execute path, which reads the WHOLE body before returning and has sent
+// the client nothing, never tried the next credential, never applied request-retry, and never
+// logged an "upstream execution failed" line. During a 20 h gpt-6.1-sol truncation wave that turned
+// ~1/3 of Prism's openai legs into hard failures that the cpa log did not show. The 408 status
+// still routes it through the transient-upstream cooldown branch, and the stream path's bootstrap
+// retry already treats 408 as retryable before the first byte.
 
 type codexEmptyIncompleteStreamError struct {
 	statusErr

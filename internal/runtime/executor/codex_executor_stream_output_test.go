@@ -180,7 +180,7 @@ func TestCodexExecutorExecuteExplicitTerminalFailureIsNotRequestScoped(t *testin
 	assertNotRequestScopedTestError(t, err)
 }
 
-func TestCodexExecutorExecuteMissingCompletionIsRequestScoped(t *testing.T) {
+func TestCodexExecutorExecuteMissingCompletionIsRetryable(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		_, _ = w.Write([]byte("data: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_1\",\"model\":\"gpt-5.5\"}}\n\n"))
@@ -206,10 +206,10 @@ func TestCodexExecutorExecuteMissingCompletionIsRequestScoped(t *testing.T) {
 	if got := statusCodeFromTestError(t, err); got != http.StatusRequestTimeout {
 		t.Fatalf("status code = %d, want %d; err=%v", got, http.StatusRequestTimeout, err)
 	}
-	assertRequestScopedTestError(t, err)
+	assertNotRequestScopedTestError(t, err)
 }
 
-func TestCodexExecutorExecuteStreamMissingCompletionIsRequestScoped(t *testing.T) {
+func TestCodexExecutorExecuteStreamMissingCompletionIsRetryable(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		_, _ = w.Write([]byte("data: {\"type\":\"response.created\",\"response\":{\"id\":\"resp_1\",\"model\":\"gpt-5.5\"}}\n\n"))
@@ -245,7 +245,7 @@ func TestCodexExecutorExecuteStreamMissingCompletionIsRequestScoped(t *testing.T
 	if got := statusCodeFromTestError(t, streamErr); got != http.StatusRequestTimeout {
 		t.Fatalf("status code = %d, want %d; err=%v", got, http.StatusRequestTimeout, streamErr)
 	}
-	assertRequestScopedTestError(t, streamErr)
+	assertNotRequestScopedTestError(t, streamErr)
 }
 
 func TestCodexExecutorExecuteStreamExplicitTerminalFailureIsNotSuccessful(t *testing.T) {
@@ -338,7 +338,7 @@ func TestCodexAutoExecutorHTTPFallbackForwardsSequentialCutoffReasoningSummaryDe
 	}
 }
 
-func TestCodexExecutorTransportFailureBeforeTerminalIsRequestScoped(t *testing.T) {
+func TestCodexExecutorTransportFailureBeforeTerminalIsRetryable(t *testing.T) {
 	tests := []struct {
 		name   string
 		stream bool
@@ -387,7 +387,7 @@ func TestCodexExecutorTransportFailureBeforeTerminalIsRequestScoped(t *testing.T
 			if got := statusCodeFromTestError(t, terminalErr); got != http.StatusRequestTimeout {
 				t.Fatalf("status code = %d, want %d; err=%v", got, http.StatusRequestTimeout, terminalErr)
 			}
-			assertRequestScopedTestError(t, terminalErr)
+			assertNotRequestScopedTestError(t, terminalErr)
 		})
 	}
 }
@@ -655,6 +655,7 @@ func assertRequestScopedTestError(t *testing.T, err error) {
 	}
 }
 
+// A truncated codex stream is a retryable transport fault, not request-scoped (t_c9bd528e).
 func assertNotRequestScopedTestError(t *testing.T, err error) {
 	t.Helper()
 
