@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -2256,9 +2257,18 @@ func TestXAIWebsockets_KeepalivePingDuringUpload_WithSession(t *testing.T) {
 			return nil
 		})
 
+		// Closed when the client's request frame has been read; the fake upstream
+		// must not answer (and close) before then, or the client's pending payload
+		// write races the close (t_a85452bd).
+		requestReceived := make(chan struct{})
+		var requestOnce sync.Once
 		go func() {
 			for {
-				if _, _, errReadLoop := conn.ReadMessage(); errReadLoop != nil {
+				msgType, _, errReadLoop := conn.ReadMessage()
+				if errReadLoop == nil && msgType == websocket.TextMessage {
+					requestOnce.Do(func() { close(requestReceived) })
+				}
+				if errReadLoop != nil {
 					return
 				}
 			}
@@ -2281,6 +2291,13 @@ func TestXAIWebsockets_KeepalivePingDuringUpload_WithSession(t *testing.T) {
 			close(pongDeliveredDuringWrite)
 		case <-time.After(2 * time.Second):
 			t.Errorf("pong was not received while payload write was in progress")
+			return
+		}
+
+		select {
+		case <-requestReceived:
+		case <-time.After(2 * time.Second):
+			t.Errorf("fake upstream never received the client request frame")
 			return
 		}
 
@@ -2352,9 +2369,18 @@ func TestXAIWebsockets_KeepalivePingDuringUpload_Sessionless(t *testing.T) {
 			return nil
 		})
 
+		// Closed when the client's request frame has been read; the fake upstream
+		// must not answer (and close) before then, or the client's pending payload
+		// write races the close (t_a85452bd).
+		requestReceived := make(chan struct{})
+		var requestOnce sync.Once
 		go func() {
 			for {
-				if _, _, errReadLoop := conn.ReadMessage(); errReadLoop != nil {
+				msgType, _, errReadLoop := conn.ReadMessage()
+				if errReadLoop == nil && msgType == websocket.TextMessage {
+					requestOnce.Do(func() { close(requestReceived) })
+				}
+				if errReadLoop != nil {
 					return
 				}
 			}
@@ -2377,6 +2403,13 @@ func TestXAIWebsockets_KeepalivePingDuringUpload_Sessionless(t *testing.T) {
 			close(pongDeliveredDuringWrite)
 		case <-time.After(2 * time.Second):
 			t.Errorf("pong was not received while payload write was in progress on sessionless connection")
+			return
+		}
+
+		select {
+		case <-requestReceived:
+		case <-time.After(2 * time.Second):
+			t.Errorf("fake upstream never received the client request frame")
 			return
 		}
 

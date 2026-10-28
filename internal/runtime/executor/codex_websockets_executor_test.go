@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -2669,9 +2670,18 @@ func TestCodexWebsockets_KeepalivePingDuringUpload_WithSession(t *testing.T) {
 
 		// Start server reader loop so server processes control frames.
 		readErrCh := make(chan error, 1)
+		// Closed when the client's request frame has been read; the fake upstream
+		// must not answer (and close) before then, or the client's pending payload
+		// write races the close (t_a85452bd).
+		requestReceived := make(chan struct{})
+		var requestOnce sync.Once
 		go func() {
 			for {
-				if _, _, errRead := conn.ReadMessage(); errRead != nil {
+				msgType, _, errRead := conn.ReadMessage()
+				if errRead == nil && msgType == websocket.TextMessage {
+					requestOnce.Do(func() { close(requestReceived) })
+				}
+				if errRead != nil {
 					readErrCh <- errRead
 					return
 				}
@@ -2702,6 +2712,13 @@ func TestCodexWebsockets_KeepalivePingDuringUpload_WithSession(t *testing.T) {
 		}
 
 		// Now send terminal response.
+		select {
+		case <-requestReceived:
+		case <-time.After(2 * time.Second):
+			t.Errorf("fake upstream never received the client request frame")
+			return
+		}
+
 		respPayload := []byte(`{"type":"response.completed","response":{"id":"resp-1","status":"completed","output":[]}}`)
 		_ = conn.WriteMessage(websocket.TextMessage, respPayload)
 	}))
@@ -2766,9 +2783,18 @@ func TestCodexWebsockets_KeepalivePingDuringUpload_Sessionless(t *testing.T) {
 			return nil
 		})
 
+		// Closed when the client's request frame has been read; the fake upstream
+		// must not answer (and close) before then, or the client's pending payload
+		// write races the close (t_a85452bd).
+		requestReceived := make(chan struct{})
+		var requestOnce sync.Once
 		go func() {
 			for {
-				if _, _, errRead := conn.ReadMessage(); errRead != nil {
+				msgType, _, errRead := conn.ReadMessage()
+				if errRead == nil && msgType == websocket.TextMessage {
+					requestOnce.Do(func() { close(requestReceived) })
+				}
+				if errRead != nil {
 					return
 				}
 			}
@@ -2794,6 +2820,13 @@ func TestCodexWebsockets_KeepalivePingDuringUpload_Sessionless(t *testing.T) {
 			close(pongDeliveredDuringWrite)
 		case <-time.After(2 * time.Second):
 			t.Errorf("pong was not received while payload write was in progress on sessionless connection")
+			return
+		}
+
+		select {
+		case <-requestReceived:
+		case <-time.After(2 * time.Second):
+			t.Errorf("fake upstream never received the client request frame")
 			return
 		}
 
@@ -2858,9 +2891,18 @@ func TestCodexWebsockets_KeepalivePingDuringUpload_NonstreamSessionless(t *testi
 			return nil
 		})
 
+		// Closed when the client's request frame has been read; the fake upstream
+		// must not answer (and close) before then, or the client's pending payload
+		// write races the close (t_a85452bd).
+		requestReceived := make(chan struct{})
+		var requestOnce sync.Once
 		go func() {
 			for {
-				if _, _, errRead := conn.ReadMessage(); errRead != nil {
+				msgType, _, errRead := conn.ReadMessage()
+				if errRead == nil && msgType == websocket.TextMessage {
+					requestOnce.Do(func() { close(requestReceived) })
+				}
+				if errRead != nil {
 					return
 				}
 			}
@@ -2886,6 +2928,13 @@ func TestCodexWebsockets_KeepalivePingDuringUpload_NonstreamSessionless(t *testi
 			close(pongDeliveredDuringWrite)
 		case <-time.After(2 * time.Second):
 			t.Errorf("pong was not received while payload write was in progress on nonstream sessionless connection")
+			return
+		}
+
+		select {
+		case <-requestReceived:
+		case <-time.After(2 * time.Second):
+			t.Errorf("fake upstream never received the client request frame")
 			return
 		}
 
