@@ -18,16 +18,21 @@ Budgets, enforced by `lockhold_test.go` (runs in dpx-gates via lab_gate's
   generated in-test (`synthetic_fixture_test.go`: 60 tools, 60 messages, a
   manifest word and a codec literal every 2 KB): median < 100 ms on a warm map,
   < 300 ms on the first (cold) Prepare. The budget is generous for CI runners.
-- N=16 concurrent Prepares on one unit (`TestPreparePerformanceUnderParallelCallers`): p95 <= 16 x 50 ms, and <= 3x the queue
-  the measured single hold predicts. Prepare serializes by design, so the bound
-  is on the queue, not a ratio to N=1.
+- N=16 concurrent Prepares on one unit (`TestPreparePerformanceUnderParallelCallers`):
+  p95 <= 1.25 x the sum of the 16 store-lock holds recorded in that phase + one
+  solo latency; the best of 7 solo Prepares costs <= 5x the thread CPU of 8
+  `json.Valid` passes over the same body; and it spends < 40 ms blocked (wall
+  minus thread CPU minus runqueue wait, `/proc/thread-self/schedstat`: sleep, I/O).
+  Every bound is relative to the same run, so a loaded CI host stretches both
+  sides alike (a fixed 800 ms cap failed on correct code on the ci-box, t_dae16eeb).
+  Prepare serializes by design, so the bound is on the queue, not a ratio to N=1.
 - 1x/4x/16x scaling (`TestPrepareScalesLinearly`), each axis alone (system text, tool catalog, message
   history) through Prepare, and text through both decode paths (`RestoreJSON`,
   the SSE `Stream`): 16x/1x <= 64 (linear ~16, quadratic ~256).
 
 Mutation check: `python3 scripts/dpx/contentalias_lockhold_mutants.py` re-introduces
-six members of the class (unanchored encode scan, 50 ms sleep under the lock,
-quadratic tool walk, linear symbol-allocation scan, quadratic JSON decode, SSE
+seven members of the class (unanchored encode scan, 50 ms sleep under the lock,
+slow CPU work under `Session.mu` outside the flock, quadratic tool walk, linear symbol-allocation scan, quadratic JSON decode, SSE
 history rescan) and exits 1 if any stays green. Run it on CI or ACE-AI; fleet
 hosts deny local `go test`.
 

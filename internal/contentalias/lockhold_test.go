@@ -20,6 +20,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"os"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -32,8 +34,28 @@ const (
 	lockHoldBudget = 100 * time.Millisecond
 	// concurrentWorkers is how many requests race on one unit state.
 	concurrentWorkers = 16
-	// lockShare is what one queued request may add to the others' latency.
-	lockShare = 50 * time.Millisecond
+	// blockedWaitBudget bounds the time one solo Prepare spends blocked (sleep,
+	// I/O, a blocked syscall): wall time minus the thread's CPU time minus its
+	// runqueue wait, from /proc/thread-self/schedstat. Runqueue wait is what host
+	// load adds, so this is load-immune; the best of the solo runs is taken.
+	// Measured best-of-7 ~1 ms idle (ACE-AI), 1.6-15 ms on the ci-box at load
+	// 200/256 (fsync of map.json). A 50 ms wait under the lock adds at least
+	// 50 ms to every run.
+	blockedWaitBudget = 40 * time.Millisecond
+	// queueMargin is how far the N-caller p95 may exceed the sum of the
+	// store-lock holds recorded during the N-caller phase itself (plus one solo
+	// latency for the work outside the lock). The last caller waits for every
+	// other hold, so p95 ~ that sum on correct code; host load stretches both
+	// sides alike. A slow step that serializes callers outside the store flock
+	// (invisible to the hold) pushes the ratio past it.
+	queueMargin = 1.25
+	// prepareCPURatio bounds the CPU one solo Prepare costs (all of it under the
+	// store lock) against a same-run reference: 8 json.Valid passes over the same
+	// body, both the best thread-CPU time of 7 runs. A loaded or slower host
+	// scales both alike. Measured 1.7-2.5 on ACE-AI and the loaded ci-box; the
+	// pre-#24 unanchored encode scan and a linear symbol-collision scan measure
+	// 11-21, a slow step outside the flock ~7.
+	prepareCPURatio = 5.0
 )
 
 func fixture450(t testing.TB) []byte { return syntheticBody(t, fixtureSizes[len(fixtureSizes)-1]) }
@@ -103,14 +125,39 @@ func TestPrepareLockHoldBudget(t *testing.T) {
 	}
 }
 
+// threadSched reads the calling OS thread's on-CPU time and runqueue wait
+// (/proc/thread-self/schedstat, Linux). ok is false where it is unavailable.
+func threadSched() (cpu, runqueue time.Duration, ok bool) {
+	b, err := os.ReadFile("/proc/thread-self/schedstat")
+	if err != nil {
+		return 0, 0, false
+	}
+	var c, r, slices int64
+	if n, _ := fmt.Sscan(string(b), &c, &r, &slices); n < 2 {
+		return 0, 0, false
+	}
+	return time.Duration(c), time.Duration(r), true
+}
+
 // Prepare serializes on the store lock by design (load -> alias -> save is one
-// read-modify-write of map.json), so N concurrent requests finish no faster than
-// N holds: p95 at N=16 is ~16x the N=1 latency on correct code. A bound of
-// 3x the N=1 latency cannot pass, so the gate is the queue itself. Each of the N queued requests may cost the others at most
-// lockShare, so p95 <= N * lockShare. lockShare (50 ms) is 5x the measured
-// hold, and any wall-clock wait under the lock of lockShare or more (I/O,
-// sleep, a slow step) breaks it deterministically. A second bound checks that
-// the queue is explained by the measured hold (no contention beyond it).
+// read-modify-write of map.json), so N concurrent requests finish no faster
+// than N holds. The gate is that the queue is explained by the hold, with every
+// bound relative to this run's own measurements (a shared CI box stretches all
+// of them alike; a fixed 800 ms wall-clock cap failed there on correct code,
+// t_dae16eeb):
+//
+//   - queue: N=16 p95 <= queueMargin x (sum of the store-lock holds recorded
+//     during the N=16 phase) + one solo latency. Fails a slow step that
+//     serializes callers without showing in the hold (under Session.mu outside
+//     the flock, a second global lock).
+//   - CPU: the best solo Prepare costs <= prepareCPURatio x the CPU of a
+//     fixed reference workload on the same body. Fails superlinear or wasted
+//     work under the lock, which inflates the hold and so hides from the queue
+//     bound.
+//   - blocked: the best solo Prepare spends < blockedWaitBudget blocked (wall
+//     minus CPU minus runqueue wait). Fails a wall-clock wait under the lock
+//     (sleep, I/O), which the queue bound cannot see because it is inside the
+//     hold. TestPrepareLockHoldBudget bounds the hold itself.
 func TestPreparePerformanceUnderParallelCallers(t *testing.T) {
 	raw := fixture450(t)
 	s := testSession(t)
@@ -119,14 +166,43 @@ func TestPreparePerformanceUnderParallelCallers(t *testing.T) {
 	}
 	holds := recordLockHolds(t)
 	var solo []time.Duration
-	for i := 0; i < 5; i++ {
+	blocked, prepCPU, haveSched := time.Duration(-1), time.Duration(-1), true
+	runtime.LockOSThread() // keep the schedstat reading on the thread that ran Prepare
+	for i := 0; i < 7; i++ {
+		c0, r0, ok0 := threadSched()
 		t0 := time.Now()
 		if _, _, err := Prepare(raw, s); err != nil {
+			runtime.UnlockOSThread()
 			t.Fatal(err)
 		}
-		solo = append(solo, time.Since(t0))
+		wall := time.Since(t0)
+		c1, r1, ok1 := threadSched()
+		solo = append(solo, wall)
+		if !ok0 || !ok1 {
+			haveSched = false
+			continue
+		}
+		if w := wall - (c1 - c0) - (r1 - r0); blocked < 0 || w < blocked {
+			blocked = w
+		}
+		if c := c1 - c0; prepCPU < 0 || c < prepCPU {
+			prepCPU = c
+		}
 	}
-	l1, h1 := median(solo), median(holds())
+	refCPU := time.Duration(-1)
+	for i := 0; haveSched && i < 7; i++ {
+		c0, _, _ := threadSched()
+		for j := 0; j < 8; j++ {
+			_ = json.Valid(raw)
+		}
+		c1, _, _ := threadSched()
+		if c := c1 - c0; refCPU < 0 || c < refCPU {
+			refCPU = c
+		}
+	}
+	runtime.UnlockOSThread()
+	soloHolds := holds()
+	l1, h1 := median(solo), median(soloHolds)
 
 	lat := make([]time.Duration, concurrentWorkers)
 	errs := make(chan error, concurrentWorkers)
@@ -152,16 +228,34 @@ func TestPreparePerformanceUnderParallelCallers(t *testing.T) {
 		}
 	}
 	p95 := percentile(lat, 0.95)
-	queue := time.Duration(concurrentWorkers) * h1
-	t.Logf("N=1 latency %v hold %v; N=%d p95 %v (predicted queue %v, ratio to N=1 latency %.1fx)",
-		l1, h1, concurrentWorkers, p95, queue, float64(p95)/float64(l1))
-	if limit := time.Duration(concurrentWorkers) * lockShare; p95 > limit {
-		t.Fatalf("N=%d p95 %v exceeds %d x the %v per-request lock share (%v): the unit is serializing on slow holds (t_129cf1ac)",
-			concurrentWorkers, p95, concurrentWorkers, lockShare, limit)
+	parHolds := holds()[len(soloHolds):]
+	if len(parHolds) != concurrentWorkers {
+		t.Fatalf("lock hook saw %d holds for %d concurrent Prepare calls", len(parHolds), concurrentWorkers)
 	}
-	if p95 > 3*queue+3*l1 {
-		t.Fatalf("N=%d p95 %v exceeds 3x the lock queue (%v) the N=1 hold %v predicts: contention beyond the hold",
-			concurrentWorkers, p95, queue, h1)
+	var queue time.Duration
+	for _, h := range parHolds {
+		queue += h
+	}
+	t.Logf("N=1 latency %v hold %v best blocked %v, CPU %v (%.1fx reference %v); N=%d p95 %v (sum of holds %v, p95/holds %.2f, ratio to N=1 latency %.1fx)",
+		l1, h1, blocked, prepCPU, float64(prepCPU)/float64(max(refCPU, 1)), refCPU, concurrentWorkers, p95, queue, float64(p95)/float64(queue), float64(p95)/float64(l1))
+	if limit := time.Duration(queueMargin*float64(queue)) + l1; p95 > limit {
+		t.Fatalf("N=%d p95 %v exceeds %.2f x the %v the %d store-lock holds account for + one solo latency %v = %v: "+
+			"callers serialize on more than the store-lock hold (t_129cf1ac)",
+			concurrentWorkers, p95, queueMargin, queue, concurrentWorkers, l1, limit)
+	}
+	if !haveSched {
+		t.Logf("no /proc/thread-self/schedstat on %s: CPU and blocked-wait checks skipped", runtime.GOOS)
+		return
+	}
+	if refCPU > 0 && float64(prepCPU) > prepareCPURatio*float64(refCPU) {
+		t.Fatalf("best of %d solo Prepares cost %v CPU, %.1fx the %v reference (8 json.Valid passes over the same body; "+
+			"bound %.0fx): slow work under the store lock serializes the unit (t_129cf1ac)",
+			len(solo), prepCPU, float64(prepCPU)/float64(refCPU), refCPU, prepareCPURatio)
+	}
+	if blocked >= blockedWaitBudget {
+		t.Fatalf("best of %d solo Prepares spent %v blocked off the CPU (budget %v): a wall-clock wait "+
+			"(sleep, I/O) is on the request path, and under the store lock it serializes the unit (t_129cf1ac)",
+			len(solo), blocked, blockedWaitBudget)
 	}
 }
 
