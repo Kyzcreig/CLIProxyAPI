@@ -44,7 +44,13 @@ MUTANTS = [
     # Card mutant 2: a 50 ms wait under the lock.
     ("sleep_50ms_under_lock", "request.go",
      chain(sub(r"\tdefer unlock\(lock\)\n", "\tdefer unlock(lock)\n\ttime.Sleep(50 * time.Millisecond)\n"),
-           sub(r'import \(\n', 'import (\n\t"time"\n'))),
+           lambda s: s if '\t"time"\n' in s else sub(r'import \(\n', 'import (\n\t"time"\n')(s))),
+    # Serialization the store-lock hold cannot see: slow CPU work under Session.mu
+    # before the flock is taken (t_dae16eeb). Callers queue on it; the hold hook
+    # does not time it, and it is on-CPU, so only the queue bound catches it.
+    ("serialize_outside_flock", "request.go",
+     sub(r"(\tdefer s\.mu\.Unlock\(\)\n)",
+         r"\1\tfor i := 0; i < 20; i++ {\n\t\t_, _ = parse(raw)\n\t}\n")),
     # Tool-schema walk: re-validate every declared schema per tool (O(T * bytes)).
     ("tool_walk_quadratic", "request.go",
      sub(r"(\t\t\tschemaRaw := bytes\.Clone\(raw\[schemaNode\.start:schemaNode\.end\]\)\n)",
