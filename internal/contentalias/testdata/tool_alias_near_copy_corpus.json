@@ -11,5 +11,10 @@
     {"unit": "15", "ts": "2026-10-26T15:31:33Z", "emitted": "dpx_v1_t_a1e685aea8f2a7615351c317",  "declared": "dpx_v1_t_a1e685aea8f2a7603631c317", "dist": 4},
     {"unit": "3",  "ts": "2026-10-27T12:00:57Z", "emitted": "dpx_v1_t_918e1f4ed50b193223191dce",  "declared": "dpx_v1_t_918e1f4ed50b193223158dce", "dist": 2, "declared_tool": "mcp__bpx__write_file"},
     {"unit": "3",  "ts": "2026-10-27T12:07:56Z", "emitted": "dpx_v1_t_54cc7511020bdcab648c7seed", "declared": "dpx_v1_t_54cc7511020bdcab648c7ce0", "dist": 3, "declared_tool": "mcp__bpx__terminal"}
+  ],
+  "prefix_doubled_source": "t_9db4bc01: the t_fb5b2443 48 h acceptance read (2026-10-29 12:07 PT). Unit 24 wire row 89375-853 emitted the alias prefix twice and the bridge logged contentalias:unknown_tool (one turn killed). declared is the alias the remainder names, or null when no declared alias is left after stripping whole prefix copies.",
+  "prefix_doubled": [
+    {"unit": "24", "ts": "2026-10-29T16:09:55Z", "emitted": "dpx_v1_dpx_v1_t_acorn_brick", "declared": "dpx_v1_t_acorn_brick"},
+    {"unit": "card", "ts": "", "emitted": "dpx_v1_dpx_v1_dpx_v1_t_x_y", "declared": null}
   ]
 }

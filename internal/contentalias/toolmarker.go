@@ -1,6 +1,9 @@
 package contentalias
 
-import "strconv"
+import (
+	"strconv"
+	"strings"
+)
 
 // Near-copied tool aliases (t_7bd8c9b9). Tool aliases are dpx_v1_t_<24 hex>.
 // The model mis-copies them at ~0.16% of tool calls (2026-10-25..27: 10 of
@@ -31,4 +34,31 @@ import "strconv"
 // non-callable alias, no history_tool refusal.
 func unknownToolMarker(i int) string {
 	return "unknown_tool_" + strconv.Itoa(i)
+}
+
+// aliasShapedTool reports whether an undeclared response tool name is a copy
+// slip (marker) rather than a raw name (hard unknown_tool). t_9db4bc01: any
+// name in the dpx_v1_ codec namespace counts. strayClassPattern
+// (dpx_v1_<letter>(_|$)) missed a doubled prefix, dpx_v1_dpx_v1_t_..., on unit 24
+// 2026-10-29 09:09 and the turn died.
+func aliasShapedTool(name string) bool {
+	return strings.HasPrefix(name, "dpx_v1_")
+}
+
+// responseToolAlias returns the declared, allowed alias a response tool_use
+// name stands for. Besides the exact alias, a name that repeats the
+// dpx_v1_ prefix maps to the declared alias left after stripping whole
+// leading copies of that prefix (t_9db4bc01). That is an exact strip, never a
+// nearest-neighbour match: the remainder must be a declared alias as is.
+func (m *RequestMap) responseToolAlias(name string) (string, bool) {
+	const prefix = "dpx_v1_"
+	for {
+		if original, ok := m.reverse[name]; ok && m.allowed[original] {
+			return name, true
+		}
+		if !strings.HasPrefix(name, prefix) || !strings.HasPrefix(name[len(prefix):], prefix) {
+			return "", false
+		}
+		name = name[len(prefix):]
+	}
 }

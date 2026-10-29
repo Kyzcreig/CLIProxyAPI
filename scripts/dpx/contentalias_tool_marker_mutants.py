@@ -21,13 +21,18 @@ TESTS = ["TestToolAliasNearCopyStreamBecomesMarker",
          "TestToolMarkerHistoryPreparesCleanly",
          # t_b54ef60f: the 10 captured live near-copies (testdata corpus).
          "TestLiveNearCopyCorpus",
-         "TestLiveNearCopyEditOpsCannotHitV3Sibling"]
+         "TestLiveNearCopyEditOpsCannotHitV3Sibling",
+         # t_9db4bc01: doubled codec prefix (unit 24, 2026-10-29).
+         "TestPrefixDoubledCorpus",
+         "TestCodecPrefixedUndeclaredBecomesMarker"]
 
 # Mutants the live-corpus test itself must catch (t_b54ef60f): reverting the
 # marker branch on either path is exactly the pre-#42 turn kill.
 MUST_CATCH = {
     "stream_marker_reverted": "TestLiveNearCopyCorpus",
     "json_marker_reverted": "TestLiveNearCopyCorpus",
+    "alias_shape_old_regex": "TestPrefixDoubledCorpus",
+    "prefix_strip_removed": "TestPrefixDoubledCorpus",
 }
 
 
@@ -43,15 +48,21 @@ def sub(pattern, repl, flags=0):
 MUTANTS = [
     # The pre-fix stream: any undeclared name refuses the turn.
     ("stream_marker_reverted", "stream.go",
-     sub(r"\t\t\t\tif !strayClassPattern\.MatchString\(name\) \{\n", "\t\t\t\tif true {\n")),
+     sub(r"\t\t\t\tif !aliasShapedTool\(name\) \{\n", "\t\t\t\tif true {\n")),
     # The pre-fix non-stream restore: any undeclared name refuses the turn.
     ("json_marker_reverted", "request.go",
-     sub(r"\t\t\tif !strayClassPattern\.MatchString\(name\.str\(\)\) \{\n", "\t\t\tif true {\n")),
+     sub(r"\t\t\tif !aliasShapedTool\(name\.str\(\)\) \{\n", "\t\t\tif true {\n")),
     # Marker for every unknown name, alias-shaped or not.
     ("stream_marker_for_raw_names", "stream.go",
-     sub(r"\t\t\t\tif !strayClassPattern\.MatchString\(name\) \{\n", "\t\t\t\tif false {\n")),
+     sub(r"\t\t\t\tif !aliasShapedTool\(name\) \{\n", "\t\t\t\tif false {\n")),
     ("json_marker_for_raw_names", "request.go",
-     sub(r"\t\t\tif !strayClassPattern\.MatchString\(name\.str\(\)\) \{\n", "\t\t\tif false {\n")),
+     sub(r"\t\t\tif !aliasShapedTool\(name\.str\(\)\) \{\n", "\t\t\tif false {\n")),
+    # t_9db4bc01: the #42 shape test (strayClassPattern) instead of the codec prefix.
+    ("alias_shape_old_regex", "toolmarker.go",
+     sub(r"\treturn strings\.HasPrefix\(name, \"dpx_v1_\"\)\n", "\treturn strayClassPattern.MatchString(name)\n")),
+    # t_9db4bc01: no exact prefix strip; a doubled prefix becomes the marker.
+    ("prefix_strip_removed", "toolmarker.go",
+     sub(r"\t\tname = name\[len\(prefix\):\]\n", "\t\treturn \"\", false\n")),
     # Marker keeps the model's input instead of {}.
     ("json_marker_keeps_input", "request.go",
      sub(r'\t\t\t\t\*edits = append\(\*edits, edit\{input\.start, input\.end, \[\]byte\("\{\}"\)\}\)\n', "")),

@@ -150,10 +150,11 @@ func TestToolAliasExactStillRestores(t *testing.T) {
 }
 
 // A name that is not alias-shaped is not a copy slip (the model never sees raw
-// tool names): it stays a hard refusal on both paths.
+// tool names): it stays a hard refusal on both paths. Since t_9db4bc01 every
+// dpx_v1_-prefixed name is alias-shaped (TestPrefixDoubledCorpus).
 func TestToolNameNotAliasShapedStillRefused(t *testing.T) {
 	_, m, _, key := preparedTool(t)
-	for _, name := range []string{"Bash", "nonexistent", "dpx_v1_customer"} {
+	for _, name := range []string{"Bash", "nonexistent", "xdpx_v1_t_abc", "DPX_V1_T_abc"} {
 		if _, err := streamAllSplits(t, m, toolEvents(name, key)); err == nil || !strings.Contains(err.Error(), "unknown_tool") {
 			t.Fatalf("stream %q: want unknown_tool, got %v", name, err)
 		}

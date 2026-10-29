@@ -239,12 +239,13 @@ func (m *RequestMap) restoreBlock(block *node, edits *[]edit, markers *int) erro
 		return m.referenceEdits(block, nil, true, edits)
 	case "tool_use":
 		name := block.get("name")
-		original, ok := m.reverse[name.str()]
+		alias, ok := m.responseToolAlias(name.str())
+		original := m.reverse[alias]
 		if block.has("signature") {
 			return Error("signed_tool_block")
 		}
-		if !ok || !m.allowed[original] {
-			if !strayClassPattern.MatchString(name.str()) {
+		if !ok {
+			if !aliasShapedTool(name.str()) {
 				return Error("unknown_tool")
 			}
 			*markers++

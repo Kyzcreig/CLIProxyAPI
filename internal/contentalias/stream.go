@@ -22,6 +22,7 @@ type blockState struct {
 	input  []byte
 	text   textDecoder
 	marker string // t_7bd8c9b9: undeclared alias-shaped tool name -> unknownToolMarker
+	alias  string // t_9db4bc01: declared alias the tool_use name resolved to
 }
 type Stream struct {
 	m                      *RequestMap
@@ -224,8 +225,10 @@ func (s *Stream) handle(raw []byte) error {
 		}
 		if b.kind == "tool_use" {
 			name := block.get("name").str()
-			if original, ok := s.m.reverse[name]; !ok || !s.m.allowed[original] {
-				if !strayClassPattern.MatchString(name) {
+			if alias, ok := s.m.responseToolAlias(name); ok {
+				b.alias = alias
+			} else {
+				if !aliasShapedTool(name) {
 					return Error("unknown_tool")
 				}
 				s.markers++
@@ -321,7 +324,7 @@ func (s *Stream) handle(raw []byte) error {
 			startData, _ := eventData(b.start.raw)
 			start, _ := parse(startData)
 			name := start.get("content_block").get("name")
-			original := s.m.reverse[name.str()]
+			original := s.m.reverse[b.alias]
 			restored := []byte("{}")
 			if b.marker != "" {
 				original = b.marker
