@@ -1,6 +1,9 @@
 package contentalias
 
-import "strconv"
+import (
+	"strconv"
+	"strings"
+)
 
 // Near-copied tool aliases (t_7bd8c9b9). Tool aliases are dpx_v1_t_<24 hex>.
 // The model mis-copies them at ~0.16% of tool calls (2026-10-25..27: 10 of
@@ -31,4 +34,18 @@ import "strconv"
 // non-callable alias, no history_tool refusal.
 func unknownToolMarker(i int) string {
 	return "unknown_tool_" + strconv.Itoa(i)
+}
+
+// aliasShapedToolName reports whether a response tool_use name is a copy slip
+// of an alias. Besides strayClassPattern it accepts the dpx_v1_ prefix written
+// more than once (t_8621d5da, 2026-10-29 claude-dpx-24: the model emitted
+// dpx_v1_dpx_v1_t_acorn_brick). strayClassPattern alone reads that as class
+// 'd', so it was refused and killed the turn. Repeats are stripped only while
+// the rest still starts with dpx_v1_, and the rest must be alias-shaped, so a
+// caller's dpx_v1_dpx_v1_customer stays a refusal.
+func aliasShapedToolName(name string) bool {
+	for strings.HasPrefix(name, "dpx_v1_dpx_v1_") {
+		name = name[len("dpx_v1_"):]
+	}
+	return strayClassPattern.MatchString(name)
 }

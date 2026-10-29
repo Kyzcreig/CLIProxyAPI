@@ -244,7 +244,7 @@ func (m *RequestMap) restoreBlock(block *node, edits *[]edit, markers *int) erro
 			return Error("signed_tool_block")
 		}
 		if !ok || !m.allowed[original] {
-			if !strayClassPattern.MatchString(name.str()) {
+			if !aliasShapedToolName(name.str()) {
 				return Error("unknown_tool")
 			}
 			*markers++

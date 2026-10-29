@@ -225,7 +225,7 @@ func (s *Stream) handle(raw []byte) error {
 		if b.kind == "tool_use" {
 			name := block.get("name").str()
 			if original, ok := s.m.reverse[name]; !ok || !s.m.allowed[original] {
-				if !strayClassPattern.MatchString(name) {
+				if !aliasShapedToolName(name) {
 					return Error("unknown_tool")
 				}
 				s.markers++
