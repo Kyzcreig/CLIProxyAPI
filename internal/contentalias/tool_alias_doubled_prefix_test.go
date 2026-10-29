@@ -1,0 +1,54 @@
+package contentalias
+
+import (
+	"bytes"
+	"strings"
+	"testing"
+)
+
+// t_8621d5da (2026-10-29 09:09 PT, claude-dpx-24, bridge id 8c04806b): the
+// model emitted dpx_v1_dpx_v1_t_acorn_brick, a declared v3 alias with the
+// dpx_v1_ prefix written twice. strayClassPattern reads that as class 'd'
+// followed by 'p', so it was not alias-shaped and the turn was refused with
+// unknown_tool, after the #42 marker net had shipped. A repeated prefix is a
+// copy slip like any other and must leave DPX as the marker.
+func TestToolAliasDoubledPrefixBecomesMarker(t *testing.T) {
+	_, m, alias, key := preparedTool(t)
+	for _, bad := range []string{
+		"dpx_v1_" + alias,
+		"dpx_v1_dpx_v1_" + alias,
+		"dpx_v1_dpx_v1_t_acorn_brick",
+	} {
+		out, err := streamAllSplits(t, m, toolEvents(bad, key))
+		if err != nil {
+			t.Fatalf("stream %s: turn refused: %v", bad, err)
+		}
+		if !bytes.Contains(out, []byte(`"name":"unknown_tool_1"`)) || bytes.Contains(out, []byte("dpx_v1_")) {
+			t.Fatalf("stream %s: want marker, no alias token: %s", bad, out)
+		}
+		if bytes.Contains(out, []byte(`"name":"Bash"`)) {
+			t.Fatalf("stream %s: repaired to a declared tool: %s", bad, out)
+		}
+		jout, err := m.RestoreJSON(jsonToolUse(bad, key))
+		if err != nil {
+			t.Fatalf("json %s: turn refused: %v", bad, err)
+		}
+		if !bytes.Contains(jout, []byte(`"name":"unknown_tool_1"`)) || bytes.Contains(jout, []byte("dpx_v1_")) {
+			t.Fatalf("json %s: want marker, no alias token: %s", bad, jout)
+		}
+	}
+}
+
+// The repeated-prefix rule must not widen the net to a caller's own dynamic
+// name: after stripping repeats, the rest still has to be alias-shaped.
+func TestToolDoubledPrefixNonAliasStillRefused(t *testing.T) {
+	_, m, _, key := preparedTool(t)
+	for _, name := range []string{"dpx_v1_dpx_v1_customer", "dpx_v1_dpx_v1_", "exec"} {
+		if _, err := streamAllSplits(t, m, toolEvents(name, key)); err == nil || !strings.Contains(err.Error(), "unknown_tool") {
+			t.Fatalf("stream %q: want unknown_tool, got %v", name, err)
+		}
+		if _, err := m.RestoreJSON(jsonToolUse(name, key)); err == nil || !strings.Contains(err.Error(), "unknown_tool") {
+			t.Fatalf("json %q: want unknown_tool, got %v", name, err)
+		}
+	}
+}
