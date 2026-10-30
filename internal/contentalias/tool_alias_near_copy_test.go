@@ -153,7 +153,7 @@ func TestToolAliasExactStillRestores(t *testing.T) {
 // tool names): it stays a hard refusal on both paths.
 func TestToolNameNotAliasShapedStillRefused(t *testing.T) {
 	_, m, _, key := preparedTool(t)
-	for _, name := range []string{"Bash", "nonexistent", "dpx_v1_customer"} {
+	for _, name := range []string{"Bash", "nonexistent", "xdpx_v1_t_abc"} {
 		if _, err := streamAllSplits(t, m, toolEvents(name, key)); err == nil || !strings.Contains(err.Error(), "unknown_tool") {
 			t.Fatalf("stream %q: want unknown_tool, got %v", name, err)
 		}

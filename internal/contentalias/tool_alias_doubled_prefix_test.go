@@ -39,11 +39,11 @@ func TestToolAliasDoubledPrefixBecomesMarker(t *testing.T) {
 	}
 }
 
-// The repeated-prefix rule must not widen the net to a caller's own dynamic
-// name: after stripping repeats, the rest still has to be alias-shaped.
+// A doubled prefix around a name that is not in the codec namespace at all is
+// still not a copy slip: raw names stay a hard refusal.
 func TestToolDoubledPrefixNonAliasStillRefused(t *testing.T) {
 	_, m, _, key := preparedTool(t)
-	for _, name := range []string{"dpx_v1_dpx_v1_customer", "dpx_v1_dpx_v1_", "exec"} {
+	for _, name := range []string{"xdpx_v1_dpx_v1_t_acorn_brick", "DPX_V1_DPX_V1_t_acorn_brick", "exec"} {
 		if _, err := streamAllSplits(t, m, toolEvents(name, key)); err == nil || !strings.Contains(err.Error(), "unknown_tool") {
 			t.Fatalf("stream %q: want unknown_tool, got %v", name, err)
 		}

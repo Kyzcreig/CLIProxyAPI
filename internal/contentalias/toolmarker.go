@@ -37,15 +37,13 @@ func unknownToolMarker(i int) string {
 }
 
 // aliasShapedToolName reports whether a response tool_use name is a copy slip
-// of an alias. Besides strayClassPattern it accepts the dpx_v1_ prefix written
-// more than once (t_8621d5da, 2026-10-29 claude-dpx-24: the model emitted
-// dpx_v1_dpx_v1_t_acorn_brick). strayClassPattern alone reads that as class
-// 'd', so it was refused and killed the turn. Repeats are stripped only while
-// the rest still starts with dpx_v1_, and the rest must be alias-shaped, so a
-// caller's dpx_v1_dpx_v1_customer stays a refusal.
+// of an alias: any name in the dpx_v1_ codec namespace. No declared tool can
+// carry that prefix (Prepare refuses it as reserved_tool), and the model only
+// sees aliases, so an undeclared dpx_v1_ name is always a mangled alias.
+// Narrower shapes kept missing live slips and killing turns:
+//   - t_8621d5da (10-29, claude-dpx-24): dpx_v1_dpx_v1_t_acorn_brick, prefix doubled.
+//   - t_388a6308 (10-30, claude-dpx-11): dpx_v1_stork_couch_placeholder for
+//     dpx_v1_t_stork_couch, class letter dropped and a word tail added.
 func aliasShapedToolName(name string) bool {
-	for strings.HasPrefix(name, "dpx_v1_dpx_v1_") {
-		name = name[len("dpx_v1_"):]
-	}
-	return strayClassPattern.MatchString(name)
+	return strings.HasPrefix(name, "dpx_v1_")
 }
