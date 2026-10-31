@@ -21,13 +21,18 @@ TESTS = ["TestToolAliasNearCopyStreamBecomesMarker",
          "TestToolMarkerHistoryPreparesCleanly",
          # t_b54ef60f: the 10 captured live near-copies (testdata corpus).
          "TestLiveNearCopyCorpus",
-         "TestLiveNearCopyEditOpsCannotHitV3Sibling"]
+         "TestLiveNearCopyEditOpsCannotHitV3Sibling",
+         # t_8621d5da / t_388a6308: every undeclared dpx_v1_ name is a slip.
+         "TestToolAliasDoubledPrefixBecomesMarker",
+         "TestToolDoubledPrefixNonAliasStillRefused",
+         "TestToolUndeclaredCodecPrefixBecomesMarker"]
 
 # Mutants the live-corpus test itself must catch (t_b54ef60f): reverting the
 # marker branch on either path is exactly the pre-#42 turn kill.
 MUST_CATCH = {
     "stream_marker_reverted": "TestLiveNearCopyCorpus",
     "json_marker_reverted": "TestLiveNearCopyCorpus",
+    "alias_shape_class_letter_only": "TestToolUndeclaredCodecPrefixBecomesMarker",
 }
 
 
@@ -43,15 +48,20 @@ def sub(pattern, repl, flags=0):
 MUTANTS = [
     # The pre-fix stream: any undeclared name refuses the turn.
     ("stream_marker_reverted", "stream.go",
-     sub(r"\t\t\t\tif !strayClassPattern\.MatchString\(name\) \{\n", "\t\t\t\tif true {\n")),
+     sub(r"\t\t\t\tif !aliasShapedToolName\(name\) \{\n", "\t\t\t\tif true {\n")),
     # The pre-fix non-stream restore: any undeclared name refuses the turn.
     ("json_marker_reverted", "request.go",
-     sub(r"\t\t\tif !strayClassPattern\.MatchString\(name\.str\(\)\) \{\n", "\t\t\tif true {\n")),
+     sub(r"\t\t\tif !aliasShapedToolName\(name\.str\(\)\) \{\n", "\t\t\tif true {\n")),
     # Marker for every unknown name, alias-shaped or not.
     ("stream_marker_for_raw_names", "stream.go",
-     sub(r"\t\t\t\tif !strayClassPattern\.MatchString\(name\) \{\n", "\t\t\t\tif false {\n")),
+     sub(r"\t\t\t\tif !aliasShapedToolName\(name\) \{\n", "\t\t\t\tif false {\n")),
     ("json_marker_for_raw_names", "request.go",
-     sub(r"\t\t\tif !strayClassPattern\.MatchString\(name\.str\(\)\) \{\n", "\t\t\tif false {\n")),
+     sub(r"\t\t\tif !aliasShapedToolName\(name\.str\(\)\) \{\n", "\t\t\tif false {\n")),
+    # t_388a6308: the pre-fix narrow net (doubled-prefix strip + class-letter
+    # regex) that let dpx_v1_stork_couch_placeholder kill a turn on 10-30.
+    ("alias_shape_class_letter_only", "toolmarker.go",
+     sub(r'\treturn strings\.HasPrefix\(name, "dpx_v1_"\)\n',
+         '\tfor strings.HasPrefix(name, "dpx_v1_dpx_v1_") {\n\t\tname = name[len("dpx_v1_"):]\n\t}\n\treturn strayClassPattern.MatchString(name)\n')),
     # Marker keeps the model's input instead of {}.
     ("json_marker_keeps_input", "request.go",
      sub(r'\t\t\t\t\*edits = append\(\*edits, edit\{input\.start, input\.end, \[\]byte\("\{\}"\)\}\)\n', "")),

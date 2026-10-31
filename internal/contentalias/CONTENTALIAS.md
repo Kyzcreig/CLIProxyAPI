@@ -65,7 +65,8 @@ A refused request leaves the persisted map unchanged. Tests:
 The model mis-copies a `dpx_v1_t_<24 hex>` tool alias in about 0.16% of tool
 calls (10 of 6,347, 2026-10-25..27; a 2-hex slip, or a tail rewritten as a
 word such as `...648c7seed`). A response `tool_use` whose name is alias-shaped
-(`strayClassPattern`) but not declared by this request now leaves DPX as
+(any name starting with the `dpx_v1_` codec prefix, `aliasShapedToolName`) but
+not declared by this request now leaves DPX as
 `unknown_tool_N` with input `{}`, on both the SSE `Stream` and `RestoreJSON`.
 Before, it was a hard `unknown_tool` that failed the whole turn. The caller
 answers with its own unknown-tool error, which lists its tools, and the model
@@ -77,10 +78,18 @@ stores it in history and a non-DPX fallback hop sends that history raw. It has
 no `dpx_v1_` token, so the next request aliases it as a history-only name (see
 above). It does not refuse with `history_tool`, and it stays non-callable.
 
+The net is the whole `dpx_v1_` namespace, not `strayClassPattern`: a caller can
+never declare a `dpx_v1_` tool (`reserved_tool`), so an undeclared one is always
+a mangled alias. Narrower shapes missed live slips: `dpx_v1_dpx_v1_t_acorn_brick`
+(prefix doubled, 2026-10-29, t_8621d5da) and `dpx_v1_stork_couch_placeholder`
+for `dpx_v1_t_stork_couch` (class letter dropped, word tail added, 2026-10-30,
+t_388a6308).
+
 A name that is not alias-shaped (for example a raw `Bash`) is still a hard
 `unknown_tool`. The model only sees aliases, so a raw name is a different fault
-and should stay loud. Tests: `tool_alias_near_copy_test.go`. Mutation check:
-`python3 scripts/dpx/contentalias_tool_marker_mutants.py` (6 mutants).
+and should stay loud. Tests: `tool_alias_near_copy_test.go`,
+`tool_alias_doubled_prefix_test.go`, `tool_alias_codec_prefix_test.go`. Mutation
+check: `python3 scripts/dpx/contentalias_tool_marker_mutants.py` (7 mutants).
 
 ## Map v3: word-pair tool aliases (t_551a4f33)
 
